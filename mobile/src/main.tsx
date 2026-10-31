@@ -7,7 +7,6 @@ import { I18nProvider } from "./lib/i18n";
 import { initializeTheme } from "./lib/theme";
 import { initializeTextSize } from "./lib/textSize";
 import "./text-size.css";
-import "./theme-transition.css";
 import "./search-fields.css";
 
 const stopTheme = initializeTheme();

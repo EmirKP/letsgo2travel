@@ -15,6 +15,7 @@ export type PersonalMapPin = Coordinates & {
   note: string;
   inDay: boolean;
   createdAt: string;
+  destinationCode?: string;
 };
 export type PersonalMapPinsState = { items: PersonalMapPin[]; error: 'corrupt' | 'unavailable' | null };
 type PinDocument = { version: 1; ownerId: string | null; items: PersonalMapPin[] };
@@ -49,7 +50,9 @@ function pin(value: unknown): PersonalMapPin | null {
     || !validText(item.note, MAX_PERSONAL_PIN_NOTE) || typeof item.inDay !== 'boolean'
     || typeof item.createdAt !== 'string' || item.createdAt.length !== 24 || !Number.isFinite(Date.parse(item.createdAt))
     || new Date(item.createdAt).toISOString() !== item.createdAt) return null;
-  return { ...location, id: item.id, name: item.name, note: item.note, inDay: item.inDay, createdAt: item.createdAt };
+  if (item.destinationCode !== undefined && (typeof item.destinationCode !== 'string' || !/^[A-Z0-9]{3}$/.test(item.destinationCode))) return null;
+  return { ...location, id: item.id, name: item.name, note: item.note, inDay: item.inDay, createdAt: item.createdAt,
+    ...(item.destinationCode ? { destinationCode: item.destinationCode } : {}) };
 }
 function checkedDocument(raw: unknown, ownerId: string | null): PinDocument | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -101,6 +104,26 @@ export function savePersonalMapPin(location: Coordinates, name: string, ownerId?
   if (document.items.some(previous => previous.id === item.id)) throw new Error('invalid');
   document.items.unshift(item); persist(document);
   return { ...item };
+}
+
+/** City bookmarks use the existing saved-map collection and its owner boundary.
+ * A separate code distinguishes them from pins the user has named themselves. */
+export function toggleCityMapPin(destination: { code: string; name: string; center: Coordinates }, ownerId?: string | null): boolean {
+  const location = point(destination.center);
+  if (!/^[A-Z0-9]{3}$/.test(destination.code) || !location || !validText(destination.name, MAX_PERSONAL_PIN_NAME, true) || !destination.name.trim()) throw new Error('invalid');
+  const document = current(ownerId);
+  if (document.items.some(item => item.destinationCode === destination.code)) {
+    document.items = document.items.filter(item => item.destinationCode !== destination.code);
+    persist(document);
+    return false;
+  }
+  if (document.items.length >= MAX_PERSONAL_MAP_PINS) throw new Error('full');
+  const item: PersonalMapPin = { ...location, id: `personal/${createId()}`, name: destination.name.trim(),
+    note: '', inDay: false, createdAt: new Date().toISOString(), destinationCode: destination.code };
+  if (document.items.some(previous => previous.id === item.id)) throw new Error('invalid');
+  document.items.unshift(item);
+  persist(document);
+  return true;
 }
 export function updatePersonalMapPin(id: string, patch: PersonalMapPinPatch, ownerId?: string | null): PersonalMapPin {
   if (!patch || typeof patch !== 'object' || Object.keys(patch).some(field => !['name', 'note', 'inDay'].includes(field))) throw new Error('invalid');

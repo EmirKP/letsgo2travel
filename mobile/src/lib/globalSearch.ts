@@ -1,6 +1,7 @@
 import { ISO_3166 } from "../data/countries";
 import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { homeSearchDestinations } from "../data/homeDestinations";
+import { cityDestinations, type CityDestination } from "../data/cityDestinations";
 import { appRegionName, formatAppDate } from "./localeFormatting";
 import { normalizeSearchText } from "./searchText";
 import { searchableAppTools, travelMapSectionForTool, type JourneyToolId, type TravelAssistantTool } from "./appTools";
@@ -14,7 +15,7 @@ export type SearchableTrip = Pick<CockpitTrip, "id" | "userId" | "destinationCou
 type BaseResult = { id: string; title: string; subtitle: string };
 export type GlobalSearchResult = BaseResult & (
   | { kind: "country"; countryCode: string }
-  | { kind: "city"; query: string }
+  | { kind: "city"; query: string; destinationCode?: string; photo?: string; photoCredit?: CityDestination["photoCredit"] }
   | { kind: "tool"; view: ViewId; tool?: TravelAssistantTool; journeyTool?: JourneyToolId; guide?: true; icon: TravelToolArtworkKind }
   | { kind: "saved-route"; routeId: string }
   | { kind: "saved-trip"; tripId: string }
@@ -51,6 +52,26 @@ function catalog(locale: AppLocale): Entry[] {
       result: { kind: "city", id: `city:${route.destinationCode}`, title: route.cityOrRegion, subtitle: route.country, query: route.cityOrRegion },
       names: locales.flatMap(language => homeSearchDestinations(language).filter(item => item.destinationCode === route.destinationCode).map(item => item.cityOrRegion)),
       terms: [route.destinationCode, ...aliases].join(" "),
+    });
+  }
+  const cityAliases = new Map<string, { names: string[]; terms: string[] }>();
+  for (const language of locales) for (const city of cityDestinations(language)) {
+    const aliases = cityAliases.get(city.code) || { names: [], terms: [] };
+    aliases.names.push(city.name); aliases.terms.push(city.name, city.country);
+    cityAliases.set(city.code, aliases);
+  }
+  for (const destination of cityDestinations(locale)) {
+    const aliases = cityAliases.get(destination.code)!;
+    const legacyCodes = DISCOVERY_DESTINATIONS.filter(item => item.alpha3 === destination.alpha3
+      && locales.some(language => aliases.names.includes(localizedDiscovery(item, language).name))).map(item => item.code);
+    const existing = [...new Set([destination.code, ...legacyCodes])].flatMap(code => {
+      const entry = cities.get(code); cities.delete(code); return entry ? [entry] : [];
+    });
+    cities.set(destination.code, {
+      result: { kind: "city", id: `city:${destination.code}`, title: destination.name, subtitle: destination.country,
+        query: destination.name, destinationCode: destination.code, photo: destination.photo, photoCredit: destination.photoCredit },
+      names: [...existing.flatMap(entry => entry.names || []), ...aliases.names],
+      terms: [...existing.map(entry => entry.terms), destination.code, ...legacyCodes, ...aliases.terms].join(" "),
     });
   }
   const tools: Entry[] = searchableAppTools(locale).map(tool => ({

@@ -1,4 +1,4 @@
-import type { SavedRoutePlan } from "../types";
+import type { RouteSuggestion, SavedRoutePlan } from "../types";
 
 export type RouteOperation = { revision: string; pending: boolean } & (
   { kind: "save"; route: SavedRoutePlan } | { kind: "delete"; remoteId?: number | string }
@@ -8,6 +8,16 @@ const key = (owner: string) => {
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(owner)) throw new Error("Invalid route owner");
   return `l2t.mobile.route-outbox.v1.${owner}`;
 };
+function readableSuggestion(value: unknown): value is RouteSuggestion {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const route = value as Record<string, unknown>;
+  // Older saved suggestions omit some display fields. Keep those compatible,
+  // but never pass objects/null entries to the library's text and day renderers.
+  for (const field of ["name", "country", "cityOrRegion", "why", "visaStatus", "visaNote", "visaSourceUrl", "estimatedBudget", "idealDuration", "bestFor", "difficulty", "transportEase", "safetyNote"]) {
+    if (route[field] !== undefined && typeof route[field] !== "string") return false;
+  }
+  return ["dailyPlan", "warnings"].every(field => route[field] === undefined || Array.isArray(route[field]) && route[field].every(item => typeof item === "string"));
+}
 export function readRouteOutbox(owner: string): RouteOutbox {
   // Corrupt storage must block writes, never silently reset pending deletions.
   const raw = window.localStorage.getItem(key(owner));
@@ -18,7 +28,9 @@ export function readRouteOutbox(owner: string): RouteOutbox {
     const operation = entry as RouteOperation | null;
     if (!/^[A-Za-z0-9._:-]{1,160}$/.test(id) || !operation || typeof operation.revision !== "string" || typeof operation.pending !== "boolean"
       || (operation.kind !== "save" && operation.kind !== "delete")
-      || (operation.kind === "save" && (operation.route?.id !== id || typeof operation.route.createdAt !== "string" || !Array.isArray(operation.route.plan?.routes)))) {
+      || (operation.kind === "save" && (operation.route?.id !== id || typeof operation.route.createdAt !== "string" || !Array.isArray(operation.route.plan?.routes)
+        || operation.route.plan.routes.some(route => !readableSuggestion(route))
+        || operation.route.plan.summary !== undefined && typeof operation.route.plan.summary !== "string"))) {
       throw new Error("Route queue cannot be read");
     }
   }

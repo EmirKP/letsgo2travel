@@ -201,12 +201,17 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const [mapJourney, setMapJourney] = useState<MapJourney | null>(null);
   useEffect(() => {
     if (!initialRouteId) return;
-    const saved = getSavedRoutePlans(ownerId).find(route => route.id === initialRouteId);
-    if (saved) {
-      setSelectedPlan({ id: saved.id, title: saved.plan.routes[0]?.name || copy('Kayıtlı rota', 'Saved route', 'Itinerar i ruajtur'), createdAt: saved.createdAt, input: saved.input, plan: saved.plan });
+    try {
+      const saved = getSavedRoutePlans(ownerId).find(route => route.id === initialRouteId);
+      if (saved) {
+        setSelectedPlan({ id: saved.id, title: saved.plan.routes[0]?.name || copy('Kayıtlı rota', 'Saved route', 'Itinerar i ruajtur'), createdAt: saved.createdAt, input: saved.input, plan: saved.plan });
+        setLibraryTab('routes');
+        setQuery('');
+      } else onNotice(copy('Bu rota artık cihazındaki kayıtlarda bulunmuyor.', 'This route is no longer saved on this device.', 'Ky itinerar nuk është më i ruajtur në këtë pajisje.'));
+    } catch {
       setLibraryTab('routes');
-      setQuery('');
-    } else onNotice(copy('Bu rota artık cihazındaki kayıtlarda bulunmuyor.', 'This route is no longer saved on this device.', 'Ky itinerar nuk është më i ruajtur në këtë pajisje.'));
+      setLocalReadError(current => ({ ...current, routes: true }));
+    }
     onInitialRouteHandled?.();
   }, [initialRouteId, ownerId, onInitialRouteHandled, onNotice, copy]);
   const [unavailableCountry, setUnavailableCountry] = useState<{ name: string; alpha3: string } | null>(null);

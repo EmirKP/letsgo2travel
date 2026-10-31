@@ -39,6 +39,10 @@ export async function searchMapAreas(query:string,center:Coordinates,locale:stri
 }
 export async function getMapDirections(origin:Coordinates,destination:Coordinates,mode:'walking'|'driving',locale:string,signal?:AbortSignal){
   const result=await json<{data:MapDirections}>('/api/maps/directions',signal,{origin,destination,mode,locale});
-  const d=result.data;if(!d||d.mode!==mode||!Number.isFinite(d.distanceMeters)||d.distanceMeters<0||!Number.isFinite(d.durationSeconds)||d.durationSeconds<0||!Array.isArray(d.coordinates)||d.coordinates.length<2||d.coordinates.length>50000||d.coordinates.some(p=>!Array.isArray(p)||!coordinates({longitude:p[0],latitude:p[1]})))throw new Error('invalid_directions');
+  const d=result.data;if(!d||d.mode!==mode||!Number.isFinite(d.distanceMeters)||d.distanceMeters<0||!Number.isFinite(d.durationSeconds)||d.durationSeconds<0||!Array.isArray(d.coordinates)||d.coordinates.length<2||d.coordinates.length>50000||d.coordinates.some(p=>!Array.isArray(p)||p.length!==2||!coordinates({longitude:p[0],latitude:p[1]})))throw new Error('invalid_directions');
+  // Instructions are rendered as children and iterated directly by TravelMap.
+  // A malformed/older API reply must become its local retry state, never an
+  // exception in the application render tree. Match the server's 2,000 limit.
+  if(!Array.isArray(d.steps)||d.steps.length<1||d.steps.length>2000||d.steps.some(step=>!step||typeof step!=='object'||typeof step.instruction!=='string'||step.instruction.length>1000||!Number.isFinite(step.distanceMeters)||step.distanceMeters<0||!Number.isFinite(step.durationSeconds)||step.durationSeconds<0))throw new Error('invalid_directions');
   return d;
 }

@@ -10,30 +10,11 @@ import { useI18n } from '../lib/i18n';
 import { Icon } from './Icon';
 import { journeyMapCategory } from './journeyMapCategory';
 import { openMapFeaturePlaces } from '../../../lib/maps/open-map-pois';
+import { openMapAppearanceStyle, applyOpenMapAppearance } from '../lib/openMapAppearance';
 
 setWorkerUrl(workerUrl);
 addProtocol('l2t-map',(request,abort)=>resolveMapResource(request.url,abort.signal,request.type));
 type Props={center:Coordinates;places:Place[];selectedId?:string;location?:Coordinates|null;route?:Array<[number,number]>;pack?:OpenMapPack|null;legacy?:OfflineMapPack|null;focusRequest:number;pinMode?:boolean;tileCategory?:string;tileQuery?:string;onTilePlaces?:(places:Place[])=>void;onSelect:(p:Place)=>void;onPoint:(p:Coordinates,name?:string)=>void;onMove:(p:Coordinates)=>void};
-function lightStyle(style:StyleSpecification):StyleSpecification{
-  const s=structuredClone(style);
-  for(const layer of s.layers){
-    if(layer.type==='background')layer.paint={...layer.paint,'background-color':'#f6f4ef'};
-    if(layer.type==='fill'&&layer.id==='water')layer.paint={...layer.paint,'fill-color':'#b6dcee'};
-    if(layer.type==='fill'&&/park|landcover_wood/.test(layer.id))layer.paint={...layer.paint,'fill-color':'#d0e5c9'};
-    if(layer.type==='fill'&&layer.id==='building')layer.paint={...layer.paint,'fill-color':'#e5e2da','fill-outline-color':'#d9d6ce'};
-  }return s;
-}
-function darkStyle(style:StyleSpecification):StyleSpecification{
-  const s=structuredClone(style);
-  for(const layer of s.layers){
-    if(layer.type==='background')layer.paint={...layer.paint,'background-color':'#142132'};
-    if(layer.type==='fill')layer.paint={...layer.paint,'fill-color':/water/.test(layer.id)?'#193e55':/park|wood|grass|landcover/.test(layer.id)?'#1e3d37':/building/.test(layer.id)?'#2a3b50':'#18283a'};
-    if(layer.type==='fill'&&/building/.test(layer.id))layer.paint={...layer.paint,'fill-outline-color':'#354558'};
-    if(layer.type==='line'&&/road|transportation|highway|aeroway|tunnel/.test(layer.id))layer.paint={...layer.paint,'line-color':/casing/.test(layer.id)?'#182b3c':/motorway|trunk/.test(layer.id)?'#887c58':'#425970'};
-    if(layer.type==='line'&&/boundary|railway/.test(layer.id))layer.paint={...layer.paint,'line-color':'#435269'};
-    if(layer.type==='symbol')layer.paint={...layer.paint,'text-color':'#d0dfed','text-halo-color':'#142132'};
-  }return s;
-}
 function markerIcon(place:Place) {
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   for(const [key,value] of Object.entries({viewBox:'0 0 24 24',width:'19',height:'19',fill:'none',stroke:'currentColor','stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))svg.setAttribute(key,value);
@@ -43,6 +24,7 @@ function markerIcon(place:Place) {
 export function UnifiedMapCanvas(props:Props){
   const {copy,locale}=useI18n(),host=useRef<HTMLDivElement>(null),map=useRef<Map|null>(null),current=useRef(props),markers=useRef<Marker[]>([]),userMarker=useRef<Marker|null>(null);
   const publishTiles=useRef<()=>void>(()=>{});
+  const originalStyle=useRef<StyleSpecification|null>(null);
   const [theme,setTheme]=useState(getThemeSnapshot),[ready,setReady]=useState(0),[error,setError]=useState(false),[retry,setRetry]=useState(0);
   useLayoutEffect(()=>{current.current=props;});
   useEffect(()=>subscribeTheme(()=>setTheme(getThemeSnapshot())),[]);
@@ -54,7 +36,8 @@ export function UnifiedMapCanvas(props:Props){
       if(current.current.legacy){const legacy=current.current.legacy;style={version:8,sources:{streets:{type:'geojson',data:{type:'FeatureCollection',features:legacy.roads.map(r=>({type:'Feature',properties:{name:r.name},geometry:{type:'LineString',coordinates:r.points.map(([lat,lon])=>[lon,lat])}}))}}},layers:[{id:'background',type:'background',paint:{'background-color':'#edf2ed'}},{id:'street-casing',type:'line',source:'streets',paint:{'line-color':'#d5dedb','line-width':7}},{id:'street',type:'line',source:'streets',paint:{'line-color':'#ffffff','line-width':4}}]};}
       else style=preparedMapStyle(current.current.pack?.style||await loadOpenMapStyle(controller.signal),packId);
       if(!active||!host.current)return;
-      style=theme.resolved==='dark'?darkStyle(style):lightStyle(style);
+      originalStyle.current=style;
+      style=openMapAppearanceStyle(style,getThemeSnapshot().resolved);
       const m=new Map({container:host.current,style,locale:{'NavigationControl.ZoomIn':copy('Yakınlaştır','Zoom in','Zmadho'),'NavigationControl.ZoomOut':copy('Uzaklaştır','Zoom out','Zvogëlo'),'AttributionControl.ToggleAttribution':copy('Harita kaynakları','Map sources','Burimet e hartës')},center:[current.current.center.longitude,current.current.center.latitude],zoom:14,minZoom:packId?10:2,maxZoom:19,attributionControl:false,transformRequest:url=>resourceTransform(url,packId),...(current.current.pack?{maxBounds:[[current.current.pack.bounds.west,current.current.pack.bounds.south],[current.current.pack.bounds.east,current.current.pack.bounds.north]] as [[number,number],[number,number]]}:{}),cooperativeGestures:false});map.current=m;
       m.addControl(new NavigationControl({showCompass:false}),'bottom-right');m.addControl(new AttributionControl({compact:true,customAttribution:'<a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>'}),'bottom-left');
       let loaded=false;
@@ -80,8 +63,9 @@ export function UnifiedMapCanvas(props:Props){
       m.on('moveend',()=>{const c=m.getCenter();current.current.onMove({latitude:c.lat,longitude:c.lng});});
       m.on('click',e=>{if(!current.current.pinMode)return;const features=m.queryRenderedFeatures(e.point);const name=features.find(f=>typeof f.properties?.name==='string')?.properties?.name;current.current.onPoint({latitude:e.lngLat.lat,longitude:e.lngLat.lng},typeof name==='string'?name:undefined);});
     })().catch(()=>{if(active)setError(true);});
-    return()=>{active=false;publishTiles.current=()=>{};controller.abort();markers.current.forEach(m=>m.remove());markers.current=[];userMarker.current?.remove();userMarker.current=null;map.current?.remove();map.current=null;};
-  },[packId,legacyId,theme,retry,locale]);
+    return()=>{active=false;publishTiles.current=()=>{};originalStyle.current=null;controller.abort();markers.current.forEach(m=>m.remove());markers.current=[];userMarker.current?.remove();userMarker.current=null;map.current?.remove();map.current=null;};
+  },[packId,legacyId,retry,locale]);
+  useEffect(()=>{const m=map.current,style=originalStyle.current;if(m&&style&&ready&&m.isStyleLoaded())applyOpenMapAppearance(m,style,theme.resolved);},[theme.resolved,ready]);
   useEffect(()=>{if(ready)publishTiles.current();},[ready,props.tileCategory,props.tileQuery]);
   useEffect(()=>{const m=map.current;if(!m||!ready)return;m.easeTo({center:[props.center.longitude,props.center.latitude],zoom:Math.max(m.getZoom(),14),duration:400});},[props.center.latitude,props.center.longitude,props.focusRequest,ready]);
   useEffect(()=>{

@@ -98,7 +98,7 @@ export async function GET(request: Request) {
         ...('nextCursor' in result && 'paginationLimited' in result ? { nextCursor: result.nextCursor, paginationLimited: result.paginationLimited } : {}),
       },
     }, {
-      headers: { "Cache-Control": result.coverageStatus === "provider_unavailable" || result.coverageStatus === "not_configured"
+      headers: { "Cache-Control": result.partial || result.coverageStatus === "provider_unavailable" || result.coverageStatus === "not_configured"
         ? "no-store"
         : "public, max-age=120, s-maxage=900, stale-while-revalidate=1800" },
     });

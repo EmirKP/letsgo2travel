@@ -28,7 +28,7 @@ const base={countryCode:'TR',startDate:'2026-10-27',endDate:'2027-03-27',categor
 const moment=i=>new Date(Date.UTC(2026,10,1,12,i)).toISOString();
 const tm=(i,extra={})=>({id:String(i),name:'Concert '+i,url:'https://ticketmaster.com/event/'+i,classifications:[{segment:{name:'Music'}}],dates:{start:{localDate:moment(i).slice(0,10),dateTime:moment(i)}},_embedded:{venues:[{city:{name:'Istanbul'},country:{countryCode:'TR'}}]},...extra});
 function service(fetch,db=null,env={TICKETMASTER_API_KEY:'test',PREDICTHQ_ACCESS_TOKEN:'test'}){return modules({'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db}},{fetch,process:{env}})('lib/travel-events.ts');}
-function curatedDb(rows){return{from(){let from=0,to=49;return{select(){return this;},eq(){return this;},gte(){return this;},lte(){return this;},order(){return this;},or(){return this;},range(a,b){from=a;to=b;return this;},then(yes,no){return Promise.resolve({data:rows.slice(from,to+1),error:null}).then(yes,no);}};}};}
+function curatedDb(rows){return{from(){let from=0,to=49;return{select(){return this;},eq(){return this;},gte(){return this;},lte(){return this;},order(){return this;},or(){return this;},ilike(){return this;},range(a,b){from=a;to=b;return this;},then(yes,no){return Promise.resolve({data:rows.slice(from,to+1),error:null}).then(yes,no);}};}};}
 
 test('Paginated event query uses genuine provider keyword and raw offsets, preserving every filtered and unconsumed source result',async()=>{
  const calls=[],raw=Array.from({length:104},(_,i)=>tm(i));raw[1]={...raw[1],url:''};raw[6]={...raw[6],classifications:[{segment:{name:'Sports'}}]};
@@ -45,6 +45,32 @@ test('PredictHQ query follows returned next offsets and keeps the selected fallb
  fail=true;await assert.rejects(api.searchTravelEventPage(base,first.nextCursor),/event_provider_unavailable/);fail=false;
  const second=await api.searchTravelEventPage(base,first.nextCursor);assert.equal(second.events[0].id,'predicthq:30');assert.equal(calls.filter(u=>u.hostname.includes('ticketmaster')).length,initialTmCalls);assert.ok(calls.some(u=>u.searchParams.get('offset')==='30'));
  const third=await api.searchTravelEventPage(base,second.nextCursor);assert.equal(third.events[0].id,'predicthq:60');
+});
+
+test('A successful empty primary and failed fallback return the same honest limited coverage as nonpaged search',async()=>{
+ const search={countryCode:'IT',city:'Rome',placeCode:'FCO',startDate:'2026-10-30',endDate:'2026-11-06',limit:24},calls=[];
+ const api=service(async input=>{const url=new URL(input);calls.push(url);if(url.hostname.includes('ticketmaster'))return Response.json({});return new Response('private upstream diagnostic',{status:503});});
+ const result=await api.searchTravelEventPage(search),ordinary=await api.searchTravelEvents(search);
+ assert.equal(result.events.length,0);assert.equal(result.providerConfigured,true);assert.equal(result.providers.ticketmaster.succeeded,true);assert.equal(result.providers.predicthq.attempted,true);assert.equal(result.providers.predicthq.succeeded,false);
+ assert.equal(result.coverageStatus,'limited');assert.equal(result.coverageStatus,ordinary.coverageStatus);assert.equal(result.coverageLimited,true);assert.equal(result.partial,true);assert.equal(result.fallbackUsed,true);assert.equal(result.nextCursor,null);assert.equal(result.paginationLimited,false);
+ assert.doesNotMatch(JSON.stringify(result),/private upstream diagnostic|predicthq_503/);
+ assert.ok(calls.every(url=>url.hostname.includes('ticketmaster')?url.searchParams.get('countryCode')==='IT'&&url.searchParams.get('city')==='Rome'&&url.searchParams.get('startDateTime')==='2026-10-30T00:00:00Z'&&url.searchParams.get('endDateTime')==='2026-11-06T23:59:59Z':url.searchParams.get('country')==='IT'&&url.searchParams.get('place.scope')==='FCO'&&url.searchParams.get('start.gte')==='2026-10-30'&&url.searchParams.get('start.lte')==='2026-11-06'));
+});
+
+test('An empty successful primary keeps failed-fallback coverage incomplete through editorial pagination without restarting the provider',async()=>{
+ const rows=Array.from({length:60},(_,i)=>({id:'editorial-'+i,title:'Editorial '+i,starts_at:moment(i),category:'concert',country_code:'TR',city:'Istanbul',source_url:'https://example.com/e/'+i,updated_at:moment(0)}));let reads=0;
+ const api=service(async input=>{reads++;if(String(input).includes('ticketmaster'))return Response.json({});throw new Error('private provider transport diagnostic');},curatedDb(rows));
+ const first=await api.searchTravelEventPage(base);assert.equal(first.events.length,30);assert.equal(first.coverageStatus,'limited');assert.equal(first.coverageLimited,true);assert.equal(first.partial,true);assert.ok(first.nextCursor);
+ const cursor=JSON.parse(decodeURIComponent(first.nextCursor));assert.deepEqual(JSON.parse(cursor.scope),[base.countryCode,'','',base.startDate,base.endDate,base.category,base.query,base.limit]);assert.equal(cursor.automatic,-1);assert.equal(cursor.unavailable,true);
+ const second=await api.searchTravelEventPage(base,first.nextCursor);assert.equal(second.events.length,30);assert.equal(second.events[0].id,'editorial-30');assert.equal(second.coverageStatus,'limited');assert.equal(second.coverageLimited,true);assert.equal(second.partial,true);assert.equal(second.nextCursor,null);assert.equal(reads,2);
+});
+
+test('Empty first pages still fail when all automatic sources fail or an unavailable editorial source leaves no usable results',async()=>{
+ const allFailed=service(async()=>new Response(null,{status:503}));await assert.rejects(allFailed.searchTravelEventPage(base),/event_provider_unavailable/);
+ const unsupportedPrimary=service(async()=>new Response(null,{status:503}));await assert.rejects(unsupportedPrimary.searchTravelEventPage({...base,countryCode:'XK'}),/event_provider_unavailable/);
+ const failedDb={from(){const q={select(){return q;},eq(){return q;},gte(){return q;},lte(){return q;},order(){return q;},or(){return q;},range(){return q;},then(yes,no){return Promise.resolve({data:null,error:{code:'08006'}}).then(yes,no);}};return q;}};
+ const failedEditorial=service(async input=>String(input).includes('ticketmaster')?Response.json({}):new Response(null,{status:503}),failedDb);await assert.rejects(failedEditorial.searchTravelEventPage(base),/event_provider_unavailable/);
+ const complete=await service(async input=>Response.json(String(input).includes('ticketmaster')?{}:{results:[]})).searchTravelEventPage(base);assert.equal(complete.events.length,0);assert.equal(complete.coverageStatus,'no_results');assert.equal(complete.coverageLimited,false);assert.equal(complete.partial,false);assert.equal(complete.nextCursor,null);
 });
 
 test('A typed city outside airport coverage keeps only real PredictHQ localities and never relabels other towns', async () => {

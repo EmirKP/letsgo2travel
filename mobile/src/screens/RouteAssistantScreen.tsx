@@ -1,6 +1,6 @@
 import { DATE_LOCALES } from "../lib/locale";
 import { formatAppDate } from '../lib/localeFormatting';
-import { lazy, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "../components/Sheet";
 import { LazyOverlay } from "../components/LazyOverlay";
 import { AirportField } from "../components/AirportField";
@@ -30,7 +30,7 @@ import { matchingSavedRoute, newSavedRoute } from "../lib/savedRouteIdentity";
 import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
 import { editPlanStops, fixedDestinationStarter, routeMatchesDestination } from "../../../lib/route-planner";
-import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId } from "../types";
+import type { PlannerInput, RoutePlan, RouteSuggestion, SavedRoutePlan, ViewId } from "../types";
 import "./route-planning-clarity.css";
 import "./travel-flow-polish.css";
 import "./planner-family-budget.css";
@@ -60,6 +60,11 @@ function scoreColor(score: number) {
   if (score >= 88) return "great";
   if (score >= 78) return "good";
   return "fair";
+}
+
+function initialSavedRoutes(ownerId?: string | null): { routes: SavedRoutePlan[]; unavailable: boolean } {
+  try { return { routes: getSavedRoutePlans(ownerId), unavailable: false }; }
+  catch { return { routes: [], unavailable: true }; }
 }
 
 export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', placeArea, mapRequestId = 0 }: {
@@ -111,7 +116,8 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   const [source, setSource] = useState<"ai" | "local" | "surprise" | "explore">(surpriseRoute ? routeSeedKind : "local");
   const [expanded, setExpanded] = useState<string>(surpriseRoute?.name || "");
   const [saveBusy, setSaveBusy] = useState(false);
-  const [savedRoutes, setSavedRoutes] = useState(() => getSavedRoutePlans(ownerId));
+  const [savedRouteState, setSavedRouteState] = useState(() => initialSavedRoutes(ownerId));
+  const savedRoutes = savedRouteState.routes;
   const [saveLocation, setSaveLocation] = useState<"device" | "account" | "pending">("device");
   const [alternativesOpen, setAlternativesOpen] = useState(false);
   const [interestNotice, setInterestNotice] = useState("");
@@ -153,21 +159,24 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
     : saveLocation === "pending" ? copy("Bu cihazda kayıtlı; hesabına eşitleme bekliyor. Planlar → Rotalarım bölümünde bulabilirsin.", "Saved on this device; waiting to sync to your account. Find it under Plans → My routes.", "U ruajt në këtë pajisje; po pret sinkronizimin. E gjen te Planet → Itineraret e mia.")
       : copy("Bu cihazda kayıtlı. Planlar → Rotalarım bölümünden tekrar açabilirsin.", "Saved on this device. Open it again under Plans → My routes.", "U ruajt në këtë pajisje. Hape përsëri te Planet → Itineraret e mia.");
 
-  useEffect(() => {
-    const refresh = () => {
-      try {
-        const routes = getSavedRoutePlans(ownerId);
-        setSavedRoutes(routes);
-        const saved = plan ? matchingSavedRoute(routes, plan, planInput) : undefined;
-        const operation = saved && ownerId ? readRouteOutbox(ownerId)[saved.id] : undefined;
-        setSaveLocation(ownerId && saved ? operation?.kind === "save" && !operation.pending ? "account" : "pending" : "device");
-      } catch { /* Keep the last readable snapshot; a save still reports errors. */ }
-    };
-    refresh();
-    window.addEventListener("l2t:storage-change", refresh);
-    window.addEventListener("storage", refresh);
-    return () => { window.removeEventListener("l2t:storage-change", refresh); window.removeEventListener("storage", refresh); };
+  const refreshSavedRoutes = useCallback(() => {
+    try {
+      const routes = getSavedRoutePlans(ownerId);
+      const saved = plan ? matchingSavedRoute(routes, plan, planInput) : undefined;
+      const operation = saved && ownerId ? readRouteOutbox(ownerId)[saved.id] : undefined;
+      setSavedRouteState({ routes, unavailable: false });
+      setSaveLocation(ownerId && saved ? operation?.kind === "save" && !operation.pending ? "account" : "pending" : "device");
+    } catch {
+      // Retain the last readable snapshot; no empty collection is persisted.
+      setSavedRouteState(current => ({ ...current, unavailable: true }));
+    }
   }, [ownerId, plan, planInput]);
+  useEffect(() => {
+    refreshSavedRoutes();
+    window.addEventListener("l2t:storage-change", refreshSavedRoutes);
+    window.addEventListener("storage", refreshSavedRoutes);
+    return () => { window.removeEventListener("l2t:storage-change", refreshSavedRoutes); window.removeEventListener("storage", refreshSavedRoutes); };
+  }, [refreshSavedRoutes]);
 
   function focusResults() {
     resultsHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -347,13 +356,13 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
       // Re-read on click too, including deletions made while this tab was hidden.
       const current = getSavedRoutePlans(ownerId);
       if (matchingSavedRoute(current, plan, input)) {
-        setSavedRoutes(current);
+        setSavedRouteState({ routes: current, unavailable: false });
         return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."), onOpenSavedRoutes ? { label: copy("Planlar'da aç", "Open in Plans", "Hape te Planet"), onClick: onOpenSavedRoutes } : undefined);
       }
       const next = saveRoutePlan(newSavedRoute(plan, input), ownerId);
       const saved = next[0];
       clientKey = saved.id;
-      setSavedRoutes(next);
+      setSavedRouteState({ routes: next, unavailable: false });
       localSaved = true;
       setSaveLocation("device");
       if (ownerId && accessToken) {
@@ -376,6 +385,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
+      {savedRouteState.unavailable && <RequestFailure message={copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")} onRetry={refreshSavedRoutes} />}
       {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>

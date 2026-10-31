@@ -40,6 +40,11 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../components/RouteBudgetAnalysis') return { RouteBudgetAnalysis: 'RouteBudgetAnalysis' };
     if (name === '../components/RouteTranslation') return { RouteTranslation: 'RouteTranslation' };
     if (name === '../lib/savedRouteDisplay') return load('mobile/src/lib/savedRouteDisplay.ts');
+    if (name === './cityDestinationExtras') return load('mobile/src/data/cityDestinationExtras.ts', { './budgetCityPhotos': load('mobile/src/data/budgetCityPhotos.ts') });
+    if (name === '../lib/bundledImageSource') return load('mobile/src/lib/bundledImageSource.ts');
+    if (name === '../assets/budget/cities/photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/budget/cities/photo-credits.json', 'utf8')) };
+    if (name === '../assets/city-destinations/rome-photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/city-destinations/rome-photo-credits.json', 'utf8')) };
+    if (/\.(?:webp|png|jpe?g)$/.test(name)) return { default: name };
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, testModule, testModule.exports);
@@ -74,10 +79,12 @@ const search = load('mobile/src/lib/searchText.ts');
 const homeJourney = load('mobile/src/lib/homeJourney.ts');
 const routeCatalog = load('mobile/src/data/routes.ts');
 const homeData = load('mobile/src/data/homeDestinations.ts', { './routes': routeCatalog });
+const cityData = load('mobile/src/data/cityDestinations.ts', { './routes': routeCatalog, './homeDestinations': homeData });
 const appSearch = load('mobile/src/lib/globalSearch.ts', {
   '../data/countries': { ISO_3166: JSON.parse(readFileSync('mobile/src/data/iso3166.json', 'utf8')) },
   '../data/discovery': load('mobile/src/data/discovery.ts'),
   '../data/homeDestinations': homeData, './localeFormatting': localeFormatting,
+  '../data/cityDestinations': cityData,
   './searchText': search, './appTools': load('mobile/src/lib/appTools.ts'),
 });
 const homeAssets = Object.fromEntries([
@@ -86,17 +93,35 @@ const homeAssets = Object.fromEntries([
   '../assets/home-reference/santorini-daylight-v3.webp', '../assets/home-reference/event-festival-v3.webp',
   '../assets/home-reference/paris-eiffel-v3.webp', '../assets/home-reference/tokyo-temple-v5.webp',
 ].map(path => [path, { default: path }]));
+function loadCityHeart(host, environment = {}) {
+  return load('mobile/src/components/CityHeartButton.tsx', {
+    ...common(host), './Icon': { Icon: 'Icon' },
+  }, environment).CityHeartButton;
+}
+function loadCityBrowser(host, locale='en') {
+  return load('mobile/src/screens/CityDiscoveryScreen.tsx', {
+    ...common(host),
+    '../lib/i18n': { useI18n: () => ({ locale, copy: (tr,en,sq) => locale==='tr'?tr:locale==='sq'?sq||en:en }) },
+    '../components/Icon': { Icon: 'Icon' }, '../components/DestinationPhoto': { DestinationPhoto: 'DestinationPhoto' },
+    '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
+    '../components/CityPhotoCredits': { CityPhotoCredits: 'CityPhotoCredits' },
+    '../components/CityHeartButton': { CityHeartButton: loadCityHeart(host) },
+    '../data/cityDestinations': cityData, '../lib/searchText': search,
+  }).CityDiscoveryScreen;
+}
 function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error('Guest Home must not request account trips'); } } = {}) {
   return load('mobile/src/screens/HomeScreen.tsx', {
     ...common(host), ...homeAssets,
     '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) },
     '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../components/CityHeartButton': { CityHeartButton: loadCityHeart(host) },
+    '../components/CityPhotoCredits': { CityPhotoCredits: 'CityPhotoCredits' },
     '../components/HomeShortcutPicker': { HomeShortcutPicker: 'HomeShortcutPicker' },
     '../hooks/useHomeShortcuts': { useHomeShortcuts: () => ({ views: ['route', 'explore', 'passport', 'trips', 'companion'], save: () => true }) },
     '../lib/appTools': load('mobile/src/lib/appTools.ts'),
     '../lib/globalSearch': appSearch,
     '../components/BrandMark': { BrandMark: 'BrandMark' },
-    '../data/homeDestinations': homeData, '../lib/supabaseData': { listCockpitTrips },
+    '../data/homeDestinations': homeData, '../data/cityDestinations': cityData, '../lib/supabaseData': { listCockpitTrips },
     '../lib/dates': { localIsoDate: () => '2026-09-28' }, '../lib/homeJourney': homeJourney,
   }).HomeScreen;
 }
@@ -196,31 +221,37 @@ test('Home restores the submitted search and forwards trimmed typed queries and 
     field.props.onChange({target:{value:'  Roma  '}});view=host.render();
     let prevented=0;find(view,'form',props=>props.role==='search').props.onSubmit({preventDefault(){prevented++;}});
     find(view,'button',props=>props['aria-label']==='Rome').props.onClick();find(view,'button',props=>props['aria-label']==='Bali').props.onClick();
-    assert.equal(prevented,1);assert.deepEqual(queries,['Roma','Roma','Bali']);
+    assert.equal(prevented,1);assert.deepEqual(queries,['Roma','Rome','Bali']);
   } finally {host.dispose();}
 });
 
-test('Four photographed destination shortcuts retain clear localized names and exact search targets beside Event Radar', () => {
-  for (const [locale, discoveries, romeLabel, eventLabel] of [
-    ['tr', 'Hızlı keşfet', 'Roma', 'Etkinlik Radarı'],
-    ['en', 'Quick discoveries', 'Rome', 'Event Radar'],
-    ['sq', 'Zbulime të shpejta', 'Roma', 'Radar aktivitetesh'],
+test('Fifty photographed destination shortcuts retain clear localized names and exact search targets beside Event Radar', () => {
+  for (const [locale, discoveries, names, countries, eventLabel] of [
+    ['tr', 'Hızlı keşfet', ['Paris', 'Bali', 'Tokyo', 'Roma'], ['Fransa', 'Endonezya', 'Japonya', 'İtalya'], 'Etkinlik Radarı'],
+    ['en', 'Quick discoveries', ['Paris', 'Bali', 'Tokyo', 'Rome'], ['France', 'Indonesia', 'Japan', 'Italy'], 'Event Radar'],
+    ['sq', 'Zbulime të shpejta', ['Parisi', 'Bali', 'Tokio', 'Romë'], ['Francë', 'Indonezi', 'Japoni', 'Itali'], 'Radar aktivitetesh'],
   ]) {
     const host = hooks(), searches = [], views = [];
     try {
       const view = host.start(loadHome(host, { locale }), { ...guestHomeProps, onSearchDestination: query => searches.push(query), onNavigate: target => views.push(target) });
       const choices = find(view, 'nav', props => props['aria-label'] === discoveries);
       assert.ok(choices, 'Photo destinations have their own labelled discovery group');
-      const cards = nodes(choices).filter(node => node.type === 'button');
-      assert.deepEqual(cards.map(card => card.props['aria-label']), ['Paris', 'Bali', 'Tokyo', romeLabel]);
+      const cards = nodes(choices).filter(node => node.type === 'button' && node.props.className?.split(' ').includes('rh-city-card'));
+      assert.equal(cards.length,50,'All fifty city choices are reachable directly from Home');
+      assert.deepEqual(cards.slice(0,4).map(card => card.props['aria-label']), names);
+      assert.deepEqual(cards.map(card=>card.props['aria-label']),Array.from(cityData.cityDestinations(locale),city=>city.name));
       for (const [index, filename] of ['paris-eiffel-v3.webp', 'bali-beach-v5.webp', 'tokyo-temple-v5.webp', 'rome.webp'].entries()) {
         const image = find(cards[index], 'img');
         assert.ok(image.props.src.endsWith(filename), 'Each discovery photo matches its destination');
         assert.equal(image.props.alt, '', 'The visible destination text names the action without duplicate decorative photo text');
-        assert.equal(text(cards[index]), cards[index].props['aria-label'], 'Compact photo cards retain a single visible city name without a separate country caption');
-        cards[index].props.onClick();
+        assert.equal(text(find(cards[index], 'strong')), names[index], 'The photographed city keeps a distinct visible name');
+        const country = find(cards[index], 'small');
+        assert.equal(text(country), countries[index], 'A separate country caption disambiguates the destination');
+        assert.equal(cards[index].props['aria-describedby'], country.props.id);
       }
-      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma']);
+      cards.forEach(card=>card.props.onClick());
+      const expectedNames=Array.from(cityData.cityDestinations(locale),city=>city.name);
+      assert.deepEqual(searches, expectedNames);
       assert.deepEqual(views, [], 'Discovery shortcuts preserve destination-search navigation');
       const radar = find(view, 'button', props => props['data-guide'] === 'home-events');
       assert.ok(text(radar).includes(eventLabel));
@@ -228,9 +259,127 @@ test('Four photographed destination shortcuts retain clear localized names and e
       assert.equal(find(radar, 'img').props.alt, '');
       radar.props.onClick();
       assert.deepEqual(views, ['events']);
-      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma'], 'Event Radar must not turn into a destination search');
+      assert.deepEqual(searches, expectedNames, 'Event Radar must not turn into a destination search');
     } finally { host.dispose(); }
   }
+});
+
+test('Home opens all fifty canonical city details, saves independently and omits itinerary day badges', () => {
+  const host = hooks(), opened = [], saved = [], searches = [], all = [];
+  try {
+    const view = host.start(loadHome(host), { ...guestHomeProps,
+      onOpenCity: code => opened.push(code), onToggleCitySaved: code => saved.push(code),
+      savedCityCodes: ['CDG'], onOpenAllCities: () => all.push('cities'),
+      onSearchDestination: query => searches.push(query),
+    });
+    const nav = find(view, 'nav', props => props.className === 'rh-city-chips');
+    const articles = nodes(nav).filter(node => node.type === 'article');
+    assert.equal(articles.length, 50);
+    for (const article of articles) {
+      const card = find(article, 'button', props => props.className?.split(' ').includes('rh-city-card'));
+      assert.equal(nodes(card).filter(node => node.type === 'button').length, 1, 'Bookmarks must not be nested inside navigation buttons');
+      assert.equal(nodes(card).some(node=>node.type?.name==='CityHeartButton'),false,'The real heart component is a sibling, never a nested interactive control');
+      card.props.onClick();
+    }
+    const expectedCodes=Array.from(cityData.cityDestinations('en'),city=>city.code);
+    assert.deepEqual(opened, expectedCodes);
+    assert.deepEqual(searches, [], 'A supported city detail uses its identity instead of a text-search detour');
+    const bookmarks = nodes(nav).filter(node => node.type?.name === 'CityHeartButton');
+    assert.equal(bookmarks.length, 50);
+    assert.deepEqual(bookmarks.map(node => node.props.saved), [true, ...Array(49).fill(false)]);
+    assert.equal(bookmarks[0].props.label,'Paris: Remove from saved');assert.equal(bookmarks[1].props.label,'Bali: Save city');
+    bookmarks[1].props.onToggle();
+    assert.deepEqual(saved, ['DPS']);
+    assert.deepEqual(opened, expectedCodes, 'Saving does not also navigate');
+    assert.equal(nodes(nav).some(node => node.props?.className === 'rh-city-route-badge'),false,'Home no longer shows itinerary day badges');
+    const photos=articles.map(article=>find(article,'img'));
+    assert.ok(photos.slice(4).every(photo=>photo.props.loading==='lazy'),'Offscreen city photography does not eagerly fetch the extra forty-six images');
+    button(view, 'See all').props.onClick();
+    assert.deepEqual(all, ['cities']);
+  } finally { host.dispose(); }
+});
+
+test('A city heart is an accessible controlled button whose save animation never changes the saved state or starts on mount', () => {
+  const host=hooks();let toggles=0;
+  try{
+    let view=host.start(loadCityHeart(host),{saved:false,label:'Save Paris',onToggle:()=>toggles++});
+    assert.equal(view.type,'button');assert.equal(view.props.type,'button');assert.equal(view.props['aria-label'],'Save Paris');assert.equal(view.props['aria-pressed'],false);assert.doesNotMatch(view.props.className,/is-celebrating/);assert.equal(toggles,0);
+    view.props.onClick();view=host.render();assert.equal(toggles,1);assert.match(view.props.className,/is-celebrating/);assert.equal(view.props['aria-pressed'],false,'A failed parent save must not be presented as a successful bookmark');
+    view=host.render({saved:true,label:'Unsave Paris'});assert.equal(view.props['aria-pressed'],true);assert.equal(view.props['aria-label'],'Unsave Paris');
+    find(view,'span',props=>props.className==='city-heart-glyph').props.onAnimationEnd();view=host.render();assert.doesNotMatch(view.props.className,/is-celebrating/);
+    view.props.onClick();view=host.render();assert.equal(toggles,2);assert.doesNotMatch(view.props.className,/is-celebrating/,'Removing a saved city does not celebrate a new save');assert.equal(view.props['aria-pressed'],true,'The parent remains the source of truth until removal succeeds');
+  }finally{host.dispose();}
+});
+
+test('Reduced-motion city hearts still save and unsave without triggering the celebration', () => {
+  const host=hooks();let toggles=0;reducedMotion=true;
+  try{
+    let view=host.start(loadCityHeart(host),{saved:false,label:'Save Paris',onToggle:()=>toggles++});view.props.onClick();view=host.render();assert.equal(toggles,1);assert.doesNotMatch(view.props.className,/is-celebrating/);
+    view=host.render({saved:true,label:'Unsave Paris'});view.props.onClick();view=host.render();assert.equal(toggles,2);assert.doesNotMatch(view.props.className,/is-celebrating/);
+  }finally{host.dispose();reducedMotion=false;}
+});
+
+test('The country-first browser groups all fifty cities into unique flags without root hearts or city photos and recovers its country search', () => {
+  for(const [locale,query,countryCode] of [['en','sirbistan','RS'],['sq','Shqipëri','AL'],['ro','Franța','FR'],['tr','Japonya','JP']]){
+    const host=hooks(),opened=[],countries=[],saved=[],queries=[];let backs=0,focus=0;
+    try{
+      let view=host.start(loadCityBrowser(host,locale),{onBack:()=>backs++,onOpenCountry:code=>countries.push(code),onOpenCity:code=>opened.push(code),onToggleCitySaved:code=>saved.push(code),savedCityCodes:['FCO'],onQueryChange:value=>queries.push(value)});
+      const choices=()=>nodes(view).filter(node=>node.type==='button'&&node.props.className==='city-discovery-country-card');
+      const catalog=Array.from(cityData.cityDestinations(locale)),expectedCountries=new Set(catalog.map(city=>city.countryCode));assert.equal(catalog.length,50);
+      assert.equal(choices().length,expectedCountries.size);assert.deepEqual(new Set(choices().map(card=>find(card,'CountryFlag').props.code)),expectedCountries,'Every country appears once and no city is lost through grouping');
+      for(const row of choices()){
+        const flag=find(row,'CountryFlag'),country=catalog.find(city=>city.countryCode===flag.props.code);
+        assert.equal(text(find(row,'strong')),country.country,'Each row pairs its real flag with a visible localized country name');
+        assert.equal(row.props['aria-label'],country.country);assert.equal(flag.props.label,country.country);
+        assert.equal(text(row),country.country,'The simple flag row adds no visible or hidden per-country city count');assert.equal(row.props['aria-describedby'],undefined);
+      }
+      const summary=find(view,'p',props=>props.className==='city-discovery-count');assert.equal(summary.props.role,'status');assert.match(text(summary),new RegExp(`\\b${expectedCountries.size}\\b`));assert.match(text(summary),/\b50\b/,'The global summary still reports the real fifty-city catalogue');
+      assert.equal(nodes(view).some(node=>node.type?.name==='CityHeartButton'||node.type==='DestinationPhoto'||node.type==='CityPhotoCredits'),false,'The country root contains flags, not place photos, save controls or irrelevant photo credits');
+      assert.ok(choices().every(card=>nodes(card).filter(node=>node.type==='button').length===1),'Country rows have a single native action');
+      const france=choices().find(card=>find(card,'CountryFlag').props.code==='FR');france.props.onClick();assert.deepEqual(countries,['FR']);assert.deepEqual(opened,[]);assert.deepEqual(saved,[],'Choosing a country does not bookmark or select a city');
+      const field=find(view,'input',props=>props.type==='search');assert.ok(field.props['aria-label']);field.props.ref.current={focus:()=>focus++};
+      field.props.onChange({target:{value:query}});view=host.render();
+      assert.equal(choices().length,1);assert.equal(find(choices()[0],'CountryFlag').props.code,countryCode);assert.equal(queries.at(-1),query);
+      view=host.render({savedCityCodes:[]});assert.equal(find(view,'input',props=>props.type==='search').props.value,query,'Updating saved hearts preserves the current search');
+      find(view,'input',props=>props.type==='search').props.onChange({target:{value:'Belgrade'}});view=host.render();assert.equal(choices().length,1);assert.equal(find(choices()[0],'CountryFlag').props.code,'RS','A city name locates its country without returning a flag for an unrelated country');
+      find(view,'input',props=>props.type==='search').props.onChange({target:{value:'zzzinexistent'}});view=host.render();assert.equal(choices().length,0);
+      const empty=find(view,'div',props=>props.className==='city-discovery-empty');assert.equal(empty.props.role,'status');find(empty,'button').props.onClick();view=host.render();assert.equal(choices().length,expectedCountries.size);assert.equal(find(view,'input',props=>props.type==='search').props.value,'');assert.equal(focus,1);
+      find(view,'button',props=>props.className==='city-discovery-back').props.onClick();assert.equal(backs,1);
+    }finally{host.dispose();}
+  }
+});
+
+test('Selected-country city cards retain independent hearts and city search without escaping their country on empty recovery', () => {
+  for(const locale of ['tr','en','sq','ro']){
+    const host=hooks(),opened=[],saved=[],countries=[];let backs=0;
+    try{
+      let view=host.start(loadCityBrowser(host,locale),{countryCode:'FR',onBack:()=>backs++,onOpenCountry:code=>countries.push(code),onOpenCity:code=>opened.push(code),onToggleCitySaved:code=>saved.push(code),savedCityCodes:['CDG']});
+      const choices=()=>nodes(view).filter(node=>node.type==='button'&&node.props.className==='city-discovery-card'),cities=Array.from(cityData.cityDestinations(locale)).filter(city=>city.countryCode==='FR');
+      assert.equal(choices().length,cities.length);assert.equal(nodes(view).some(node=>node.props?.className==='city-discovery-country-card'),false);
+      const hearts=nodes(view).filter(node=>node.type?.name==='CityHeartButton');assert.equal(hearts.length,cities.length);assert.equal(hearts.filter(heart=>heart.props.saved).length,1);hearts.find(heart=>heart.props.saved).props.onToggle();assert.deepEqual(saved,['CDG']);assert.deepEqual(opened,[]);
+      assert.ok(choices().every(card=>nodes(card).filter(node=>node.type==='button').length===1&&!nodes(card).some(node=>node.type?.name==='CityHeartButton')),'Selected city cards keep the heart as a sibling');
+      const field=find(view,'input',props=>props.type==='search');field.props.onChange({target:{value:'Paris'}});view=host.render();assert.equal(choices().length,1);choices()[0].props.onClick();assert.deepEqual(opened,['CDG']);assert.deepEqual(countries,[]);
+      view=host.render({savedCityCodes:[]});assert.equal(find(view,'input',props=>props.type==='search').props.value,'Paris');
+      find(view,'input',props=>props.type==='search').props.onChange({target:{value:'Rome'}});view=host.render();assert.equal(choices().length,0,'Searching within France never silently opens Italy');
+      const empty=find(view,'div',props=>props.className==='city-discovery-empty');find(empty,'button').props.onClick();view=host.render();assert.equal(choices().length,cities.length,'Empty recovery restores this country, not all fifty cities');
+      find(view,'button',props=>props.className==='city-discovery-back').props.onClick();assert.equal(backs,1);assert.deepEqual(countries,[],'The parent handles Back to countries and its history');
+    }finally{host.dispose();}
+  }
+});
+
+test('Every country flag exposes only its own photographed cities and together the groups keep all fifty city actions reachable once', () => {
+  const host=hooks(),opened=[];let selected=null;
+  try{
+    let view=host.start(loadCityBrowser(host),{countryCode:null,onOpenCountry:code=>{selected=code;},onBack:()=>{selected=null;},onOpenCity:code=>opened.push(code)});
+    const destinations=Array.from(cityData.cityDestinations('en')),expectedCountries=new Set(destinations.map(city=>city.countryCode));
+    for(const countryCode of expectedCountries){
+      const country=nodes(view).find(node=>node.type==='button'&&node.props.className==='city-discovery-country-card'&&find(node,'CountryFlag')?.props.code===countryCode);assert.ok(country);country.props.onClick();assert.equal(selected,countryCode);view=host.render({countryCode:selected});
+      const cards=nodes(view).filter(node=>node.type==='button'&&node.props.className==='city-discovery-card'),expected=destinations.filter(city=>city.countryCode===countryCode);assert.equal(cards.length,expected.length);assert.deepEqual(cards.map(card=>card.props['aria-label']),expected.map(city=>city.name));
+      cards.forEach(card=>{assert.equal(find(card,'DestinationPhoto').props.countryCode,countryCode);card.props.onClick();});
+      find(view,'button',props=>props.className==='city-discovery-back').props.onClick();view=host.render({countryCode:selected});assert.equal(selected,null);assert.equal(nodes(view).filter(node=>node.type==='button'&&node.props.className==='city-discovery-country-card').length,expectedCountries.size);
+    }
+    assert.equal(opened.length,50);assert.deepEqual(new Set(opened),new Set(destinations.map(city=>city.code)));
+  }finally{host.dispose();}
 });
 
 test('Home suggests real Event Radar, Istanbul and currency destinations while typing, with keyboard and touch selection', () => {
@@ -261,7 +410,7 @@ test('Home Event Radar is directly discoverable and the current itinerary CTA ca
   }finally{host.dispose();}
 });
 
-test('Home omits the removed Popular Routes block while four discoveries still search without saving or seeding a plan', () => {
+test('Home omits the removed Popular Routes block while fifty discoveries still search without saving or seeding a plan', () => {
   for (const locale of ['tr', 'en', 'sq']) {
     const host = hooks(), searches = [], writes = [];
     try {
@@ -270,10 +419,10 @@ test('Home omits the removed Popular Routes block while four discoveries still s
       assert.equal(find(view, 'div', props => props.className === 'rh-destination-grid'), undefined);
       assert.equal(nodes(view).some(node => node.type === 'h2' && /Popular Routes|Popüler Rotalar|Itinerare të njohura/.test(text(node))), false);
       const discoveries = find(view, 'nav', props => props.className === 'rh-city-chips');
-      const choices = nodes(discoveries).filter(node => node.type === 'button');
-      assert.equal(choices.length, 4, 'The remaining four discoveries are not duplicated by another destination section');
+      const choices = nodes(discoveries).filter(node => node.type === 'button' && node.props.className?.split(' ').includes('rh-city-card'));
+      assert.equal(choices.length, 50, 'The fifty discoveries are not duplicated by another destination section');
       choices.forEach(choice => choice.props.onClick());
-      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma']);
+      assert.deepEqual(searches,Array.from(cityData.cityDestinations(locale),city=>city.name));
       assert.deepEqual(writes, [], 'Discovery navigation never implicitly saves or seeds a route');
       assert.equal(personalBanner(view), undefined, 'Only an actual account trip gets the personal trip card');
       assert.ok(find(view, 'button', props => props['data-guide'] === 'home-events'), 'The direct Event Radar entry remains available');
@@ -971,7 +1120,7 @@ const costLabels={
   tr:{days:'Gün',adults:'Yetişkin',children:'Çocuk',rooms:'Oda / daire',departure:'Gidiş',return:'Dönüş',currency:'Para birimi',party:'Kişi ve odaları düzenle',dates:'Süreyi ve tarihleri düzenle',clearDates:'Tarihleri kaldır',done:'Tamam',show:'Bütçemi göster',compare:'Bütçeleri göster',details:'Detayı gör',useTrip:'Bilgilerimi kullan',addTrip:'Bu tahmini seyahatlerime ekle',accommodation:'Konaklama türü',stars:'Otel sınıfı',style:'Seyahat tarzı',season:'Sezon',hotel:'Otel',apartment:'Daire',hostel:'Hostel',economical:'Ekonomik',standard:'Standart',comfort:'Konfor',auto:'Tarihe göre',low:'Sakin dönem',normal:'Normal dönem',high:'Yoğun dönem',extra:'Yemek ve ulaşım',roomType:'Oda türü',food:'Yeme içme',transport:'Şehir içi ulaşım',activities:'Etkinlikler',allowance:'Etkinlik payı',buffer:'Yedek bütçe',holiday:'Tatil / büyük etkinlik dönemi',partial:'Etkinlik bütçesi eksik'},
   sq:{days:'Ditë',adults:'Të rritur',children:'Fëmijë',rooms:'Dhoma / njësi',departure:'Nisja',return:'Kthimi',currency:'Monedha',party:'Ndrysho udhëtarët dhe dhomat',dates:'Ndrysho kohëzgjatjen dhe datat',clearDates:'Hiq datat',done:'U krye',show:'Shiko buxhetin',compare:'Shiko buxhetet',details:'Shiko hollësitë',useTrip:'Përdor të dhënat',addTrip:'Shto këtë vlerësim te Udhëtimet e mia',accommodation:'Lloji i akomodimit',stars:'Kategoria e hotelit',style:'Stili i udhëtimit',season:'Sezoni',hotel:'Hotel',apartment:'Apartament',hostel:'Hostel',economical:'Ekonomik',standard:'Standard',comfort:'Rehati',auto:'Sipas datës',low:'Periudhë e qetë',normal:'Periudhë normale',high:'Periudhë e ngarkuar',extra:'Ushqimi dhe transporti',roomType:'Lloji i dhomës',food:'Ushqimi',transport:'Transporti lokal',activities:'Aktivitetet',allowance:'Aktivitete ·',buffer:'Buxhet rezervë',holiday:'Festë / event i madh',partial:'Mungon buxheti i aktiviteteve'},
 };
-function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,dailyFactory,quote=null,ownerId='owner-a'}={}){
+function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,dailyFactory,quote=null,ownerId='owner-a',initialCityQuery}={}){
   const host=hooks(),intents=[],saved=[],openedNews=[],openedExternal=[];let locale=initialLocale,active=activeTrip;
   const benchmarks=load('lib/country-intelligence/city-benchmarks.ts'),personal=load('lib/country-intelligence/personal-budget.ts'),budget=load('lib/country-intelligence/trip-budget.ts');
   const photos=loadBudgetCityPhotos();
@@ -1032,8 +1181,33 @@ function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,d
     detailTotal(){const total=costNodes(h.openSheet()).find(node=>node.props.className==='budget-detail-total');return text(costNodes(total).find(node=>node.type==='strong'));},
     setActive(value){active=value;return host.render();},language(value){locale=value;return host.render();},dispose:()=>host.dispose(),
   };
-  host.start(CityPriceCatalog,{ownerId,onOpenCountryNews:code=>openedNews.push(code),onPrepareCockpitBudget:intent=>intents.push(intent)});return h;
+  host.start(CityPriceCatalog,{ownerId,initialCityQuery,onOpenCountryNews:code=>openedNews.push(code),onPrepareCockpitBudget:intent=>intents.push(intent)});return h;
 }
+
+test('An exact initial budget city opens only its researched estimate, including Roma rather than Romania', () => {
+  for (const [initialCityQuery, locale, expected] of [['Roma', 'tr', 'IT-rome'], ['Rome', 'en', 'IT-rome'], ['  rOmA  ', 'sq', 'IT-rome'], ['PARIS', 'en', 'FR-paris']]) {
+    const h = costHarness({ initialCityQuery, locale });
+    try {
+      assert.deepEqual(h.rows().map(row => h.rowSource(row).id), [expected]);
+      assert.equal(h.saved.length, 0, 'Opening a city budget never writes changed budget preferences');
+      assert.equal(h.intents.length, 0, 'Opening a city budget never creates or saves a trip');
+    } finally { h.dispose(); }
+  }
+});
+
+test('Exact budget entry matching uses city aliases only while manual country and partial searches stay unchanged', () => {
+  const h = costHarness({ initialCityQuery: 'Roma', locale: 'tr' });
+  try {
+    const { exactBudgetCityId, matchesBudgetDestination } = h.destinationSearch;
+    for (const row of h.benchmarks.CITY_BENCHMARKS) for (const name of [row.city.tr, row.city.en]) assert.equal(exactBudgetCityId(` ${name} `), row.id);
+    for (const query of [undefined, '', '  ', 'Rom', 'Romanya', 'Romania', 'Fransa', 'France', 'Rome museum', 'Unknown place']) assert.equal(exactBudgetCityId(query), null);
+    assert.equal(matchesBudgetDestination('RO-bucharest', 'Roma'), true, 'Free typing keeps its existing country substring matching');
+    h.query('Roma'); assert.deepEqual(h.rows().map(row => h.rowSource(row).id).sort(), ['IT-rome', 'RO-bucharest']);
+    h.query('Romanya'); assert.deepEqual(h.rows().map(row => h.rowSource(row).id), ['RO-bucharest']);
+    h.query('Rom'); assert.deepEqual(h.rows().map(row => h.rowSource(row).id).sort(), ['IT-rome', 'RO-bucharest']);
+    h.query(''); assert.ok(h.rows().length > 1, 'Editing or clearing the field releases the initial exact city selection');
+  } finally { h.dispose(); }
+});
 
 test('Costs destination suggestions find Serbia from plain or Turkish keyboards and choose its real Belgrade estimate without saving preferences',()=>{
   const h=costHarness({locale:'tr',preferences:{days:'5',adults:'3',rooms:'2',style:'comfort',season:'low'}});

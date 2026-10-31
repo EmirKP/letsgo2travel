@@ -176,8 +176,18 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
       // history must not bring back an account the user just blocked.
       if (action.action === 'block' || action.action === 'leave') retainedHistory.current = false;
       if (action.action === 'block') communityVisibilityChanged({ ownerId: ownerId || undefined, blockedUserId: result.userId });
-      if (!active.current) { deferredSuccess.current = success || null; return; }
-      success?.();
+      const complete = () => {
+        if (action.action === 'leave') {
+          // The write already confirmed withdrawal. A failed refresh must not
+          // leave the old membership or its private history actionable.
+          historyGeneration.current++; historyScroll.current = null;
+          setState(previous => previous ? { ...previous, joined: false, attendees: previous.attendees.filter(person => person.userId !== ownerId), messages: [], nextBefore: null, meetup: null } : previous);
+          setChatOpen(false); setInfoOpen(false); setPeopleOpen(false);
+        }
+        success?.();
+      };
+      if (!active.current) { deferredSuccess.current = complete; return; }
+      complete();
       await currentLoad.current(true);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401 && accessToken !== currentToken.current) await currentLoad.current(true);

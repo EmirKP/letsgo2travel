@@ -17,7 +17,6 @@ function load(file,globals,imports={}){
  return output.exports;
 }
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
-const flush=async()=>{await Promise.resolve();await Promise.resolve();await Promise.resolve();};
 function browser({stored=null,dark=false,reducedMotion=false,viewTransitions=false,denied='',legacyMedia=false,noMedia=false,values=new Map()}={}){
  if(stored!==null)values.set(key,stored);
  let writes=0;
@@ -134,88 +133,48 @@ test('Theme initialization and preference-only changes do not animate the first 
  }
 });
 
-test('A supported transition persists the choice immediately and updates appearance in the snapshot callback',async()=>{
+test('A theme tap commits colors, metadata and subscriber state synchronously without page capture',()=>{
  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
  let notifications=0;const unsubscribe=theme.subscribeTheme(()=>{notifications++;assertAppearance(f,'dark');});
- theme.setThemePreference('dark');assert.equal(f.values.get(key),'dark');
- assert.equal(f.transitions.length,1);assertAppearance(f,'light');assert.equal(notifications,0);
- assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
- const transition=f.transitions[0];await transition.update();transition.show();await flush();
- assertAppearance(f,'dark');assert.equal(notifications,1);
+ theme.setThemePreference('dark');
+ assert.equal(f.values.get(key),'dark');assertAppearance(f,'dark');assert.equal(notifications,1);
  assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'dark',resolved:'dark'});
- assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
- transition.finish();await flush();
+ assert.equal(f.transitions.length,0,'A capable browser must not delay the update for a page snapshot');
  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
- assertAppearance(f,'dark');unsubscribe();stop();
+ unsubscribe();stop();
 });
 
-test('A rapid reversal invalidates an older queued callback and keeps the latest persisted preference',async()=>{
+test('Every rapid tap updates immediately and the latest choice survives restart',()=>{
  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
- theme.setThemePreference('dark');const stale=f.transitions[0];
- theme.setThemePreference('light');assert.equal(f.values.get(key),'light');
- assert.ok(stale.skipped>0,'A superseded snapshot must stop painting over the latest appearance');
- for(const transition of f.transitions){await transition.update();transition.show();transition.finish();}
- await flush();assertAppearance(f,'light');
- assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'light',resolved:'light'});
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
+ for(let i=0;i<21;i++){
+  theme.toggleThemePreference();const expected=i%2===0?'dark':'light';
+  assertAppearance(f,expected);assert.equal(theme.getThemeSnapshot().resolved,expected);
+  assert.equal(f.values.get(key),expected);f.tick(25);
+ }
+ assert.equal(f.transitions.length,0);stop();
+ const restart=browser({values:f.values}),next=restart.theme(),finish=next.initializeTheme();
+ assertAppearance(restart,'dark');finish();
 });
 
-test('A system appearance event cannot supersede an explicit choice waiting for its snapshot callback',async()=>{
+test('System and cross-tab changes respect explicit appearance without queued callbacks',()=>{
  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
- assert.equal(theme.getThemeSnapshot().preference,'system');
- theme.setThemePreference('dark');const pending=f.transitions[0];assert.equal(f.values.get(key),'dark');
- f.system(false);assert.equal(pending.skipped,0,'System events must respect the most recently requested explicit choice');
- assert.equal(f.transitions.length,1);assert.equal(f.values.get(key),'dark');
- await pending.update();pending.show();pending.finish();await flush();
- assertAppearance(f,'dark');assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'dark',resolved:'dark'});
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
+ theme.setThemePreference('dark');f.system(false);assertAppearance(f,'dark');
+ assert.equal(theme.getThemeSnapshot().preference,'dark');
+ f.remote('system');assertAppearance(f,'light');f.system(true);assertAppearance(f,'dark');
+ f.remote('light');assertAppearance(f,'light');f.system(true);assertAppearance(f,'light');
+ assert.equal(f.transitions.length,0);stop();
 });
 
-test('Rapid taps stop capturing page snapshots and keep the last requested theme',async()=>{
- const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
- theme.toggleThemePreference();const first=f.transitions[0];
- for(let i=0;i<20;i++){f.tick(25);theme.toggleThemePreference();}
- assert.equal(f.transitions.length,1);assertAppearance(f,'dark');
- assert.ok(first.skipped>0);await first.update();first.show();first.finish();await flush();
- assertAppearance(f,'dark');assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
- f.tick(650);theme.toggleThemePreference();assert.equal(f.transitions.length,2);
- const second=f.transitions[1];await second.update();second.show();second.finish();await flush();assertAppearance(f,'light');stop();
-});
-
-test('Reduced motion and unsupported browsers update synchronously without starting a transition',()=>{
- for(const options of [{viewTransitions:true,reducedMotion:true},{viewTransitions:false}]){
+test('Reduced motion, unavailable or throwing snapshot APIs never change theme behavior',()=>{
+ for(const options of [{viewTransitions:true,reducedMotion:true},{viewTransitions:false},{viewTransitions:true}]){
   const f=browser(options),theme=f.theme(),stop=theme.initializeTheme();
+  if(options.viewTransitions)f.document.startViewTransition=()=>{throw Error('Snapshot unavailable');};
   theme.setThemePreference('dark');assertAppearance(f,'dark');assert.equal(f.values.get(key),'dark');
   theme.setThemePreference('system');assertAppearance(f,'light');
-  f.system(true);assertAppearance(f,'dark');
-  f.remote('light');assertAppearance(f,'light');
-  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.transitions.length,0);stop();
+  f.system(true);assertAppearance(f,'dark');f.remote('light');assertAppearance(f,'light');
+  assert.equal(f.transitions.length,0);stop();
  }
 });
-
-test('Rejected transition promises are handled and cannot leave transition styling active',async()=>{
- for(const failure of ['failReady','failFinish']){
-  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
-  theme.setThemePreference('dark');const transition=f.transitions[0];await transition.update();
-  if(failure==='failReady'){transition.failReady();transition.finish();}
-  else{transition.show();transition.failFinish();}
-  await flush();assertAppearance(f,'dark');
-  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
- }
- await new Promise(resolve=>setImmediate(resolve));
-});
-
-test('Only the last theme owner cancels a transition and disposed callbacks cannot alter a remount',async()=>{
- const f=browser({viewTransitions:true}),theme=f.theme(),first=theme.initializeTheme(),last=theme.initializeTheme();
- theme.setThemePreference('dark');const stale=f.transitions[0];first();
- assert.equal(stale.skipped,0);assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
- last();assert.ok(stale.skipped>0);assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
- f.values.set(key,'light');const remount=theme.initializeTheme();assertAppearance(f,'light');
- await stale.update();stale.show();stale.finish();await flush();assertAppearance(f,'light');
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.transitions.length,1);
- first();last();remount();
-});
-
 const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
 const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree?.props?text(tree.props.children):typeof tree==='string'?tree:'';
 test('Localized header theme switch and menu device preference share the resolved appearance',()=>{

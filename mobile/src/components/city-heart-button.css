@@ -1,0 +1,15 @@
+.city-heart-button { position:relative; isolation:isolate; display:grid; place-items:center; flex:0 0 auto; width:44px; height:44px; min-width:44px; min-height:44px; padding:0; border:0; border-radius:50%; color:#fff; background:transparent; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+.city-heart-button::before { content:""; position:absolute; inset:5px; z-index:-1; border:1px solid #ffffff52; border-radius:50%; background:#0b2338a8; backdrop-filter:blur(7px); }
+.city-heart-button::after { content:""; position:absolute; inset:4px; border:2px solid #f85b78; border-radius:50%; opacity:0; pointer-events:none; }
+.city-heart-button[aria-pressed="true"] { color:#ed3e60; }
+.city-heart-button[aria-pressed="true"]::before { background:#fff6f8f2; border-color:#ffc3ce; }
+.city-heart-button[aria-pressed="true"] svg { fill:currentColor; }
+.city-heart-button:focus-visible { outline:3px solid var(--theme-link,#277cf0); outline-offset:2px; }
+.city-heart-glyph { display:flex; align-items:center; justify-content:center; pointer-events:none; }
+@media (prefers-reduced-motion:no-preference) {
+  .city-heart-button.is-celebrating .city-heart-glyph { animation:city-heart-pop 350ms ease-out; }
+  .city-heart-button.is-celebrating::after { animation:city-heart-ring 350ms ease-out; }
+}
+@media (prefers-reduced-motion:reduce) { .city-heart-button,.city-heart-button *,.city-heart-button::after { animation:none !important; transition:none !important; } }
+@keyframes city-heart-pop { 0%,100% { transform:scale(1); } 36% { transform:scale(1.24); } 70% { transform:scale(.94); } }
+@keyframes city-heart-ring { 0% { opacity:.65; transform:scale(.68); } 100% { opacity:0; transform:scale(1.2); } }

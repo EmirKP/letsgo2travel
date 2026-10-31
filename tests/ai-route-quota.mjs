@@ -279,7 +279,7 @@ function apiFixture(options={}) {
   const provider={JourneyPlanError:PlanError,journeyPlanWait:async p=>p,journeyPlanModel:()=>options.model===false?null:{},parseJourneyPlanRequest:value=>options.invalid?null:value,journeyPlanProviderError:(e)=>e instanceof PlanError?e:new PlanError('plan_failed'),createJourneyPlan:async(input,signal,limits)=>{generations++;if(options.reserve)await limits.reserveProviderAttempt(6000,signal);return options.generate?.()??{generatedBy:'ai',summary:'Plan'};}};
   const overrides={
     '@/lib/travel-assistant/journey-plan':provider,'./travel-assistant/journey-plan':provider,
-    './authenticated-user':{requireAuthenticatedUser:async request=>options.auth===false?{ok:false,response:Response.json({}, {status:401})}:{ok:true,user:{id:options.owner??'verified-owner'},supabase:db}},
+    './authenticated-user':{requireAuthenticatedUser:async ()=>options.auth===false?{ok:false,response:Response.json({}, {status:401})}:{ok:true,user:{id:options.owner??'verified-owner'},supabase:db}},
     '@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db},
     '@/lib/travel-assistant/http':{boundedJson:r=>r.json()},
     '@/lib/travel-assistant/journey-plan-groq':{groqJourneyModel:()=>({}),generateBoundedGroqJourneyJson:async args=>{generations++;await args.reserveProviderAttempt(6000,args.signal);if(options.failLegacy)throw Error('provider down');return JSON.stringify(options.legacyResult);}},

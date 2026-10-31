@@ -29,3 +29,4 @@
 .global-search-plan-place > span { flex: 1; min-width: 0; }
 .global-search-plan-place strong { display: block; overflow-wrap: anywhere; font-size: 15px; }
 .global-search-plan-place small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.global-search-art img { width:44px; height:44px; border-radius:12px; object-fit:cover; }

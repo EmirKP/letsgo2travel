@@ -72,6 +72,9 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const moreRequest = useRef<AbortController | null>(null);
+  const socialReadRevision = useRef(0);
+  const pendingSocialReads = useRef(new Set<string>());
+  const acknowledgedSocialReads = useRef(new Set<string>());
   const previouslyOpen = useRef(open);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; moreRequest.current?.abort(); }; }, []);
@@ -107,6 +110,7 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
       return;
     }
     let active = true;
+    const readRevision = socialReadRevision.current;
     const controller = new AbortController();
     moreRequest.current?.abort(); moreRequest.current = null; setLoadingMore(false);
     setLoading(open);
@@ -120,7 +124,10 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
         if (!active) return;
         if (visaResult.status === "fulfilled") setVisaNotifications(visaResult.value.slice(0, 10));
         if (alertResult.status === "fulfilled") setTriggeredAlerts(alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6));
-        if (socialResult.status === 'fulfilled') { setSocialNotifications(socialResult.value.items); setNextOffset(socialResult.value.nextOffset); setSocialUnread(socialResult.value.unreadCount); }
+        if (socialResult.status === 'fulfilled') {
+          if (readRevision === socialReadRevision.current) { setSocialNotifications(socialResult.value.items); setNextOffset(socialResult.value.nextOffset); setSocialUnread(socialResult.value.unreadCount); }
+          else setRefreshTick(value => value + 1);
+        }
         if (visaResult.status === "rejected" || alertResult.status === "rejected" || socialResult.status === 'rejected') {
           setServerWarning(copy("Bazı bildirimler yenilenemedi. Varsa son alınan bilgiler gösteriliyor.", "Some notifications could not refresh. Last loaded items are shown when available.", "Disa njoftime nuk u rifreskuan. Shfaqen të dhënat e fundit kur janë të disponueshme."));
         }
@@ -191,12 +198,16 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
     if (item.kind !== "social") markRead([item.id]);
     const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
     if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
-    if(item.kind==='social'&&accessToken)void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).then(() => {
-      if (!alive.current) return;
-      const wasUnread = socialNotifications.some(row => `social-${row.id}` === item.id && !row.readAt);
-      setSocialNotifications(previous => previous.map(row => `social-${row.id}` === item.id ? {...row,readAt:new Date().toISOString()} : row));
-      if (wasUnread) setSocialUnread(value => Math.max(0,value-1));
-    }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); });
+    if(item.kind==='social'&&accessToken&&!pendingSocialReads.current.has(item.id)&&!acknowledgedSocialReads.current.has(item.id)&&socialNotifications.some(row=>`social-${row.id}`===item.id&&!row.readAt)) {
+      pendingSocialReads.current.add(item.id);
+      void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).then(() => {
+        if (!alive.current) return;
+        const wasUnread = !acknowledgedSocialReads.current.has(item.id);
+        acknowledgedSocialReads.current.add(item.id);
+        setSocialNotifications(previous => previous.map(row => `social-${row.id}` === item.id ? {...row,readAt:new Date().toISOString()} : row));
+        if (wasUnread) { socialReadRevision.current++; setSocialUnread(value => Math.max(0,value-1)); }
+      }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); }).finally(() => pendingSocialReads.current.delete(item.id));
+    }
     onClose();
     if(item.kind==='social'&&onOpenSocial){const social=socialNotifications.find(n=>`social-${n.id}`===item.id);if(social){onOpenSocial(social.kind==='follow'?{profileKey:social.author.key}:{postId:social.postId||undefined,commentId:social.commentId||undefined});return;}}
     if (item.kind === "release") onOpenRelease();
@@ -208,6 +219,9 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
     if (!accessToken) return;
     void socialWrite('notifications-read',{},accessToken).then(() => {
       if (!alive.current) return;
+      socialReadRevision.current++;
+      for (const item of socialNotifications) acknowledgedSocialReads.current.add(`social-${item.id}`);
+      for (const id of pendingSocialReads.current) acknowledgedSocialReads.current.add(id);
       setSocialUnread(0); setSocialNotifications(previous => previous.map(row => ({...row,readAt:row.readAt || new Date().toISOString()})));
     }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); });
     void Promise.allSettled(visaNotifications.filter((item) => !item.read_at).map((item) => markVisaAppointmentNotificationRead(item.id, accessToken)));
@@ -216,9 +230,11 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   const loadOlder = async () => {
     if (moreRequest.current || nextOffset === null || !accessToken || !online) return;
     const controller = new AbortController(); moreRequest.current = controller; setLoadingMore(true);
+    const readRevision = socialReadRevision.current;
     try {
       const page = checkedSocialNotifications(await socialRead<unknown>({section:"notifications",offset:nextOffset},accessToken,controller.signal));
       if (!controller.signal.aborted) {
+        if (readRevision !== socialReadRevision.current) { setRefreshTick(value => value + 1); return; }
         setSocialNotifications(previous => [...new Map([...previous,...page.items].map(item => [item.id,item])).values()]);
         setNextOffset(page.nextOffset); setSocialUnread(page.unreadCount);
       }

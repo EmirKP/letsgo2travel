@@ -10,6 +10,7 @@ export type EventSearchContext = {
   cityName?: string;
   startDate: string;
   endDate: string;
+  source?: 'city';
 };
 export type EventSearchFilters = {
   countryCode: string;

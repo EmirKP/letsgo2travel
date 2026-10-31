@@ -9,10 +9,10 @@ const cache = new Map();
 function load(filename) {
   let full = path.resolve(filename); if (!existsSync(full)) full += '.ts';
   if (cache.has(full)) return cache.get(full);
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const code = ts.transpileModule(readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, URL })(name => load(path.resolve(path.dirname(full), name)), module, module.exports);
-  cache.set(full, module.exports); return module.exports;
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, URL })(name => load(path.resolve(path.dirname(full), name)), fixtureModule, fixtureModule.exports);
+  cache.set(full, fixtureModule.exports); return fixtureModule.exports;
 }
 const budgets = load('mobile/src/lib/budgetCockpitIntent.ts');
 const routes = load('mobile/src/lib/routeCockpitIntent.ts');

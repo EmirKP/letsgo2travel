@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- Frozen released reader, not production types.
 // @ts-nocheck -- Frozen standalone bookmark reader/writer from 41ca6d8; do not update with production validators.
 // Its category allowlist is inlined from that revision to avoid inheriting new categories.
-import { coordinates, NEEDS, TOURING, DISCOVERY, safeWebsite, validJourneyPhoto, validJourneyPlaceSource } from '../../../lib/travel-assistant/places';
+import { coordinates, safeWebsite, validJourneyPhoto, validJourneyPlaceSource } from '../../../lib/travel-assistant/places';
 import type { Place } from '../../../lib/travel-assistant/types';
 import type { JourneyPlace } from './mapJourney';
 import { COLLECTION_CHANGE, collectionKey, queueCollectionChange, readCollection, resetCollectionCache, type CollectionDocument, type CollectionOperation } from './accountCollections';

@@ -107,6 +107,8 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const [saved, setSaved] = useState(false);
   const alive = useRef(false);
   const pending = useRef(false);
+  const currentToken = useRef(accessToken);
+  useEffect(() => { currentToken.current = accessToken; }, [accessToken]);
   const mutations = useRef<AbortController | null>(null);
   const moreRequest = useRef<AbortController | null>(null);
   const metadataRevision = useRef(0);
@@ -185,15 +187,16 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     ++metadataRevision.current;
     setBusy(true);
     setMutationError("");
+    const token = currentToken.current || accessToken;
     try {
-      const result = await followCommunityProfile(profileKey, !profile.isFollowing, accessToken, mutations.current?.signal);
+      const result = await followCommunityProfile(profileKey, !profile.isFollowing, token, mutations.current?.signal);
       if (!alive.current) return;
       setProfile(previous => previous ? { ...previous, isFollowing: result.isFollowing } : previous);
       onFollowChanged?.();
     } catch (error) {
       if (alive.current) {
         setMutationError(copy("Takip durumu güncellenemedi. Tekrar dene.", "Could not update follow status. Try again.", "Nuk u përditësua ndjekja. Provo sërish."));
-        if (error instanceof ApiError && error.status === 401) onOpenAccount();
+        if (error instanceof ApiError && error.status === 401 && token === currentToken.current) onOpenAccount();
       }
     } finally {
       if (alive.current) { pending.current = false; ++metadataRevision.current; setBusy(false); setRevision(value => value + 1); }
@@ -217,6 +220,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     setBusy(true);
     setMutationError("");
     let identityCommitted = false;
+    let token = currentToken.current || accessToken;
     try {
       if (onSaveIdentity && (identityNeedsCompletion || normalizedName !== identityFullName.replace(/\s+/g, " ").trim() || normalizedUsername !== profile.username)) {
         await onSaveIdentity(normalizedName, normalizedUsername);
@@ -224,7 +228,9 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         identityCommitted = true;
         setProfile(previous => previous ? { ...previous, username: normalizedUsername } : previous);
       }
-      const result = await saveCommunityProfileBio(profileKey, bio.trim(), showAvatar, accessToken, mutations.current?.signal);
+      // Identity acknowledgement may refresh this same owner's session.
+      token = currentToken.current || accessToken;
+      const result = await saveCommunityProfileBio(profileKey, bio.trim(), showAvatar, token, mutations.current?.signal);
       if (!alive.current) return;
       setProfile(previous => previous ? { ...previous, bio: result.bio, showAvatar: result.showAvatar, avatarUrl: result.showAvatar ? previous.avatarUrl : null } : previous);
       setEditing(false);
@@ -236,7 +242,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
           ? copy("Adın ve kullanıcı adın kaydedildi. Diğer değişiklikler tamamlanamadı; yazdıkların burada duruyor, tekrar deneyebilirsin.", "Your name and username were saved. The other changes could not be completed; your draft is still here, so you can retry.", "Emri dhe emri i përdoruesit u ruajtën. Ndryshimet e tjera nuk përfunduan; shkrimi yt është këtu, mund të provosh sërish.")
           : onSaveIdentity && error instanceof Error && !(error instanceof ApiError) ? error.message
           : copy("Profil kaydedilemedi. Yazdıkların burada duruyor; tekrar deneyebilirsin.", "Profile not saved. Your changes are still here; try again.", "Profili nuk u ruajt. Ndryshimet e tua janë këtu; provo sërish."));
-        if (error instanceof ApiError && error.status === 401) onOpenAccount();
+        if (error instanceof ApiError && error.status === 401 && token === currentToken.current) onOpenAccount();
       }
     } finally {
       if (alive.current) { pending.current = false; ++metadataRevision.current; setBusy(false); setRevision(value => value + 1); }

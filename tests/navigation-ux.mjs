@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
@@ -30,6 +31,31 @@ function assertNoHeaderMenu(view) {
 function notificationBadge(view) {
   return nodes(headerButton(view, 'bell')).find(node => node.props?.className === 'notification-badge');
 }
+
+function pureModules(globals = {}) {
+  const cache = new Map();
+  const load = filename => {
+    const full = resolve(filename);
+    if (cache.has(full)) return cache.get(full).exports;
+    if (/\.(webp|png|svg)$/.test(full)) return full;
+    if (full.endsWith('.json')) return JSON.parse(readFileSync(full, 'utf8'));
+    const fixtureModule = { exports: {} }; cache.set(full, fixtureModule);
+    const compiled = ts.transpileModule(readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+    vm.runInNewContext(`(function(require,module,exports){${compiled}\n})`, { Date, Intl, URL, crypto: globalThis.crypto, ...globals })(id => {
+      const actualLocale = realLocaleModule(id); if (actualLocale) return actualLocale;
+      if (!id.startsWith('.')) throw Error(`Unexpected pure navigation dependency: ${id}`);
+      const base = resolve(dirname(full), id);
+      const target = [base, `${base}.ts`, `${base}.tsx`].find(existsSync);
+      if (!target) throw Error(`Missing pure navigation dependency: ${id}`);
+      return load(target);
+    }, fixtureModule, fixtureModule.exports);
+    return fixtureModule.exports;
+  };
+  return load;
+}
+const cityModules = pureModules();
+const cityCatalog = cityModules('mobile/src/data/cityDestinations.ts');
+const cityNavigation = cityModules('mobile/src/lib/cityNavigation.ts');
 
 function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, runNavigationEffects = false, runOwnerEffects = false, pendingWelcome = null } = {}) {
   // Run the real App event handlers. Native services and effects are excluded;
@@ -77,7 +103,19 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const welcomeCode = ts.transpileModule(readFileSync('mobile/src/lib/onboardingPreferences.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInNewContext(`(function(require,module,exports){${welcomeCode}\n})`,{window:{localStorage:guideStorage}})(()=>({}),welcomeModule,welcomeModule.exports);
   if (pendingWelcome) guideModule.exports.rememberWelcomeDestination(pendingWelcome);
+  // This fixture is also evaluated in a restricted VM without DOM EventTarget.
+  const pinListeners = new Map();
+  const pinWindow = {
+    addEventListener(name, listener) { if (!pinListeners.has(name)) pinListeners.set(name, new Set()); pinListeners.get(name).add(listener); },
+    removeEventListener(name, listener) { pinListeners.get(name)?.delete(listener); },
+    dispatchEvent(event) { pinListeners.get(event.type)?.forEach(listener => listener(event)); return true; },
+  };
+  class PinChangeEvent { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } }
+  const personalPins = pureModules({ localStorage: guideStorage, window: pinWindow, CustomEvent: PinChangeEvent })('mobile/src/lib/personalMapPins.ts');
   const imports = {
+    './data/cityDestinations': cityCatalog,
+    './lib/cityNavigation': cityNavigation,
+    './lib/personalMapPins': personalPins,
     './lib/appGuide': guideModule.exports,
     './lib/activeTripContext': { useActiveTripContext: () => null },
     './lib/journeyLiveActivity': { syncJourneyLiveActivityOwner: async () => {} },
@@ -110,10 +148,18 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   }).outputText;
   const output = { exports: {} };
   const navigationListeners = new Map();
+  const historyFrames=[{state:null,href:`https://test.invalid/#${initialView}`}];let historyIndex=0;
+  const writeHistory=(replace,args)=>{
+    calls.history.push(args);
+    const frame={state:args[0],href:new URL(args[2],window.location.href).href};
+    if(replace)historyFrames[historyIndex]=frame;
+    else{historyFrames.splice(historyIndex+1);historyFrames.push(frame);historyIndex++;}
+    window.history.state=frame.state;window.location.href=frame.href;
+  };
   const window = {
       addEventListener: (event, fn) => navigationListeners.set(event, fn), removeEventListener: event => navigationListeners.delete(event),
       location: { href: `https://test.invalid/#${initialView}`, origin: 'https://test.invalid' },
-      history: { pushState: (...args) => calls.history.push(args), replaceState: (...args) => calls.history.push(args) },
+      history: { state:null,scrollRestoration:'auto',pushState: (...args) => writeHistory(false,args), replaceState: (...args) => writeHistory(true,args),back(){if(historyIndex===0)return;const frame=historyFrames[--historyIndex];window.history.state=frame.state;window.location.href=frame.href;navigationListeners.get('popstate')?.({state:frame.state});} },
       scrollY: 0, matchMedia: () => ({ matches: true }), scrollTo: value => { calls.scroll.push(value); window.scrollY = value.top; }, requestAnimationFrame: fn => fn(),
       setTimeout: () => 1, clearTimeout: () => {},
   };
@@ -186,6 +232,34 @@ test('Saved events shortcut opens the events category and regular Saved tab retu
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   bottomButton(view, 'Planlar').props.onClick(); view = render();
   assert.equal(screen(view, 'PlansScreen').props.initialSection, 'all');
+});
+
+test('Home See all opens country flags, preserves each selected country on Back and reaches all fifty exact city details', () => {
+  const h=appHarness({initialView:'home',runNavigationEffects:true});let view=h.render();
+  h.screen(view,'HomeScreen').props.onOpenAllCities();view=h.render();
+  const catalogue=h.screen(view,'CityDiscoveryScreen');
+  assert.ok(catalogue,'See all opens a dedicated searchable city screen');
+  assert.ok(catalogue.type.startsWith('Lazy:'),'The full city browser stays out of the initial screen module');
+  assert.equal(h.screen(view,'ExploreScreen'),undefined,'See all is not diverted to a different ready-route catalogue');
+  assert.equal(h.calls.history.at(-1)[2],'#cities');
+  assert.equal(catalogue.props.countryCode||null,null);
+  catalogue.props.onOpenCountry('FR');view=h.render();assert.equal(h.window.location.href,'https://test.invalid/#cities/FR');assert.equal(h.screen(view,'CityDiscoveryScreen').props.countryCode,'FR');
+  h.screen(view,'CityDiscoveryScreen').props.onBack();view=h.render();assert.equal(h.window.location.href,'https://test.invalid/#cities');assert.equal(h.screen(view,'CityDiscoveryScreen').props.countryCode||null,null);
+  const cities=cityCatalog.cityDestinations('en');assert.equal(cities.length,50);
+  const visited=[];
+  for(const countryCode of new Set(cities.map(city=>city.countryCode))){
+    h.screen(view,'CityDiscoveryScreen').props.onOpenCountry(countryCode);view=h.render();assert.equal(h.window.location.href,`https://test.invalid/#cities/${countryCode}`);
+    for(const city of cities.filter(city=>city.countryCode===countryCode)){
+      h.screen(view,'CityDiscoveryScreen').props.onOpenCity(city.code);view=h.render();
+      const detail=h.screen(view,'CityDestinationScreen');assert.ok(detail);assert.equal(detail.props.destination.code,city.code);assert.equal(h.window.location.href,`https://test.invalid/#city/${city.code}`);visited.push(city.code);
+      detail.props.onBack();view=h.render();assert.equal(h.screen(view,'CityDiscoveryScreen').props.countryCode,countryCode);assert.equal(h.window.location.href,`https://test.invalid/#cities/${countryCode}`,'Back restores the selected country rather than the root flags');
+    }
+    h.screen(view,'CityDiscoveryScreen').props.onBack();view=h.render();assert.equal(h.screen(view,'CityDiscoveryScreen').props.countryCode||null,null);assert.equal(h.window.location.href,'https://test.invalid/#cities');
+  }
+  assert.equal(visited.length,50);assert.equal(new Set(visited).size,50);
+  h.screen(view,'CityDiscoveryScreen').props.onBack();view=h.render();assert.ok(h.screen(view,'HomeScreen'));assert.equal(h.window.location.href,'https://test.invalid/#home');
+  assert.equal(nodes(view).filter(node=>node.type==='nav'&&node.props.className==='bottom-nav').length,1);
+  assert.equal(h.calls.identity.length,0);assert.equal(h.calls.metadata.length,0,'Browsing destinations never creates an account record');
 });
 
 test('Nearby event contexts create a fresh screen for each deliberate request and each account, but not token rotation',()=>{

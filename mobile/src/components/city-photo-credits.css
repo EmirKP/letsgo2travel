@@ -1,0 +1,10 @@
+.city-photo-credits { min-width:0; margin:0; color:var(--theme-muted,#65758a); font-size:11px; line-height:1.5; }
+.city-photo-credits > summary { display:list-item; width:fit-content; min-height:44px; padding:13px 0; cursor:pointer; font-size:11px; }
+.city-photo-credits > summary:focus-visible { outline:2px solid var(--theme-link,#1268e8); outline-offset:2px; border-radius:4px; }
+.city-photo-credits > ul { display:grid; gap:12px; margin:0; padding:0; list-style:none; }
+.city-photo-credits li { display:grid; gap:3px; min-width:0; padding:8px 0; border-top:1px solid var(--theme-border,#dce5f1); overflow-wrap:anywhere; }
+.city-photo-credits li > strong { color:var(--theme-ink,#173353); font-size:12px; }
+.city-photo-credits li > div { display:flex; flex-wrap:wrap; gap:3px 12px; }
+.city-photo-credits li button { display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:6px 0; border:0; background:transparent; color:var(--theme-link,#1268e8); font:inherit; text-align:left; cursor:pointer; }
+.city-photo-credits > p { margin:8px 0 0; font-size:11px; }
+.city-photo-credits.is-compact > summary { padding-top:10px; padding-bottom:10px; }

@@ -371,6 +371,35 @@ test('a bio failure after identity acknowledgement reports partial completion an
   } finally { h.dispose(); }
 });
 
+test('Identity completion uses the latest same-owner token for the following bio save without discarding its draft',async()=>{
+  const identity=deferred(),h=harness({profileKey:'user:me',identityFullName:'Original Name',onSaveIdentity:()=>identity.promise},{inline:true});
+  try{
+    await h.resolve(0,{profile:sample('user:me',{isOwn:true,username:'valid_user',bio:'Old bio'}),items:[],nextOffset:null});h.click('Edit profile');
+    find(h.tree,'input',props=>props.autoComplete==='name').props.onChange({target:{value:'Updated Name'}});find(h.tree,'textarea').props.onChange({target:{value:'Keep this profile draft'}});h.render();
+    find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();assert.equal(h.requests.filter(request=>request.options.method==='PATCH').length,0);
+    h.render({accessToken:'fresh-token'});identity.resolve();await tick();h.render();
+    const patch=h.requests.find(request=>request.options.method==='PATCH');assert.ok(patch);assert.equal(patch.options.headers.Authorization,'Bearer fresh-token');assert.equal(patch.options.body.bio,'Keep this profile draft');assert.equal(h.calls.account,0);
+  }finally{h.dispose();}
+});
+
+for(const refreshed of [false,true])test(`A ${refreshed?'rotated':'current'} token follow rejection ${refreshed?'does not reopen sign-in':'still offers sign-in'} and never reports a successful follow`,async()=>{
+  const h=harness();try{
+    await h.resolve(0,{profile:sample(),items:[],nextOffset:null});h.click('Follow');const request=h.requests.findIndex(item=>item.options.method==='POST');
+    if(refreshed)h.render({accessToken:'fresh-token'});
+    await h.reject(request,new ApiError('Expired session',401));assert.equal(h.calls.account,refreshed?0:1);assert.equal(h.calls.follow,0);assert.match(text(h.tree),/Could not update follow status/);
+    assert.equal(h.requests.filter(item=>item.options.method==='POST').length,1,'An uncertain follow is never automatically repeated after token refresh');
+  }finally{h.dispose();}
+});
+
+for(const refreshed of [false,true])test(`A ${refreshed?'rotated':'current'} token bio rejection keeps the editor ${refreshed?'without reopening sign-in':'and still offers sign-in'}`,async()=>{
+  const h=harness({profileKey:'user:me'},{inline:true});try{
+    await h.resolve(0,{profile:sample('user:me',{isOwn:true,bio:'Original bio'}),items:[],nextOffset:null});h.click('Edit profile');find(h.tree,'textarea').props.onChange({target:{value:'Do not lose this bio'}});h.render();find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
+    const request=h.requests.findIndex(item=>item.options.method==='PATCH');if(refreshed)h.render({accessToken:'fresh-token'});
+    await h.reject(request,new ApiError('Expired session',401));assert.equal(h.calls.account,refreshed?0:1);assert.equal(find(h.tree,'textarea').props.value,'Do not lose this bio');assert.equal(h.calls.profile,0);
+    assert.equal(h.requests.filter(item=>item.options.method==='PATCH').length,1,'A bio save requires a new explicit retry after an uncertain rejection');
+  }finally{h.dispose();}
+});
+
 test('an account edit request waits for the owned profile and cannot reset a draft or open another account editor', async () => {
   let handled = 0;
   const h = harness({ profileKey: 'user:me', editRequest: 1, onEditRequestHandled: () => handled++, identityFullName: 'Own Name', onSaveIdentity: async () => {} }, { inline: true });

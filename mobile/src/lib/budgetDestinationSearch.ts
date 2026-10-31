@@ -21,6 +21,14 @@ export function matchesBudgetDestination(cityId: string, query: string): boolean
   return citySearch.get(cityId)?.includes(normalizeSearchText(query)) ?? false;
 }
 
+/** A deliberate city handoff must not expand into a partial country match. */
+export function exactBudgetCityId(query?: string): string | null {
+  const needle = normalizeSearchText(query ?? "");
+  if (!needle) return null;
+  const matches = CITY_BENCHMARKS.filter(row => [row.city.tr, row.city.en].some(name => normalizeSearchText(name) === needle));
+  return matches.length === 1 ? matches[0].id : null;
+}
+
 export function budgetDestinationSuggestions(query: string, locale: BudgetLocale): BudgetDestinationSuggestion[] {
   const needle = normalizeSearchText(query);
   if (!needle) return [];

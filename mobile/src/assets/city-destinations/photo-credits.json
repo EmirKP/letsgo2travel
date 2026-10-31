@@ -1,0 +1,60 @@
+{
+  "louvre.webp": {
+    "file": "louvre.webp",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Pavillon_Sully_jet_d%27eau.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Pavillon_Sully_jet_d%27eau.jpg",
+    "photographer": "Jebulon",
+    "subject": "Louvre Palace, Cour Napoléon, Paris",
+    "coordinates": {
+      "latitude": 48.860745,
+      "longitude": 2.335877
+    },
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "downloaded": "2026-10-30",
+    "changes": "Resized to at most 840px wide, auto-oriented and encoded as WebP; no subject alteration.",
+    "bytes": 81304
+  },
+  "uluwatu.webp": {
+    "file": "uluwatu.webp",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Bali_Uluwatu_Temple.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Bali_Uluwatu_Temple.jpg",
+    "photographer": "Jeong seolah",
+    "subject": "Uluwatu Temple, Bali",
+    "coordinates": {
+      "latitude": -8.828897,
+      "longitude": 115.084975
+    },
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "downloaded": "2026-10-30",
+    "changes": "Resized to at most 840px wide, auto-oriented and encoded as WebP; no subject alteration.",
+    "bytes": 58704
+  },
+  "trevi.webp": {
+    "file": "trevi.webp",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/53/The_Trevi_Fountain%2C_Rome.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:The_Trevi_Fountain%2C_Rome.jpg",
+    "photographer": "Kurt Kaiser",
+    "subject": "Trevi Fountain, Rome",
+    "coordinates": {
+      "latitude": 41.900855,
+      "longitude": 12.483516
+    },
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "downloaded": "2026-10-30",
+    "changes": "Resized to at most 840px wide, auto-oriented and encoded as WebP; no subject alteration.",
+    "bytes": 106402
+  },
+  "rome-hero.webp": {
+    "file": "rome-hero.webp",
+    "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Colosseum_of_Rome%2C_Italy.jpg/1280px-Colosseum_of_Rome%2C_Italy.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Colosseum_of_Rome,_Italy.jpg",
+    "photographer": "Wilfredor",
+    "subject": "Colosseum exterior at sunset, Rome, Italy",
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "downloaded": "2026-10-30",
+    "changes": "Resized to 1200px wide, auto-oriented and encoded as WebP at quality 78; no subject or colour alteration.",
+    "bytes": 191010,
+    "width": 1200,
+    "height": 756
+  }
+}

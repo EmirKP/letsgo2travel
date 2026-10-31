@@ -4475,5 +4475,16 @@ export const RO_MESSAGES: Record<string, string> = {
   "Preparing language pack…": "Se pregătește pachetul de limbă…",
   "Translating on device…": "Se traduce pe dispozitiv…",
   "The app could not be opened": "Aplicația nu s-a putut deschide",
-  "Your saved items are kept when you try again.": "Datele salvate se păstrează când încerci din nou."
+  "Your saved items are kept when you try again.": "Datele salvate se păstrează când încerci din nou.",
+  "Explore a city": "Descoperă un oraș",
+  "City saved on this device. Open it from Plans → My places.": "Orașul a fost salvat pe acest dispozitiv. Îl găsești în Planuri → Locurile mele.",
+  "City removed from saved places.": "Orașul a fost eliminat din locurile salvate.",
+  "City not found": "Orașul nu a fost găsit",
+  "Explore all destinations": "Descoperă toate destinațiile",
+  "Opened for your selected city and the next 7 days. You can change the place and dates.": "Căutarea este setată pentru orașul ales și următoarele 7 zile. Poți schimba localitatea și datele.",
+  "Remove from saved": "Elimină din salvate",
+  "Save city": "Salvează orașul",
+  "Photo credits": "Sursele fotografiilor",
+  "Your saved routes could not be read. Other results are available.": "Rutele salvate nu au putut fi citite. Celelalte rezultate sunt disponibile.",
+  "Read saved routes again": "Reîncarcă rutele salvate"
 };

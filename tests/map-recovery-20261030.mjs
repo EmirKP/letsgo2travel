@@ -70,3 +70,19 @@ test('503 busy and Retry-After survive the real client boundary; retry cooldown 
   await assert.rejects(exports.findMapPlaces(paris,'museum'),e=>e.code==='busy'&&e.retryAfter===30);assert.equal(calls,1);
   now+=31000;assert.equal((await exports.findMapPlaces(paris)).places.length,0);assert.equal(calls,2);
 });
+
+test('Directions reject malformed instruction arrays at the client boundary before they reach a rendering .map',async()=>{
+  const exports={},source=transpile(fs.readFileSync(new URL('../mobile/src/lib/travelMapClient.ts',import.meta.url),'utf8'));
+  let payload;
+  vm.runInNewContext(source,{exports,require:id=>{
+    if(id==='./config')return{config:{apiBaseUrl:'https://example.test'}};
+    if(id.endsWith('/places'))return places;
+    if(id.endsWith('/map-search-result'))return{normalizeMapAreaResult:()=>null};
+    throw Error(id);
+  },Date,Error,URLSearchParams,AbortSignal,fetch:async()=>Response.json({data:payload})});
+  const valid={mode:'walking',distanceMeters:300,durationSeconds:240,coordinates:[[2.33,48.86],[2.34,48.86]],steps:[{instruction:'Continue ahead',distanceMeters:300,durationSeconds:240}],sourceUrl:'https://routing.openstreetmap.de/',attribution:'OpenStreetMap'};
+  for(const steps of [undefined,null,{},[],[null],[{instruction:{text:'invalid'},distanceMeters:1,durationSeconds:1}],[{instruction:'x',distanceMeters:-1,durationSeconds:1}],[{instruction:'x',distanceMeters:1,durationSeconds:'1'}],Array.from({length:2001},()=>valid.steps[0])]){
+    payload={...valid,steps};await assert.rejects(exports.getMapDirections(paris,{latitude:48.86,longitude:2.34},'walking','en'),/invalid_directions/);
+  }
+  payload=valid;assert.equal((await exports.getMapDirections(paris,{latitude:48.86,longitude:2.34},'walking','en')).steps[0].instruction,'Continue ahead');
+});

@@ -302,7 +302,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
   const canEdit = workspace?.myRole === "owner" || workspace?.myRole === "editor";
   const totalSpent = useMemo(() => (workspace?.expenses.filter(expense => expense.currency === workspace.budget.currency).reduce((sum, expense) => sum + Math.round(expense.amount*100), 0) || 0) / 100, [workspace]);
-  const progress = workspace?.budget.targetAmount ? Math.min(100, Math.round(totalSpent / workspace.budget.targetAmount * 100)) : 0;
+  const progress = workspace?.budget.targetAmount ? Math.round(totalSpent / workspace.budget.targetAmount * 100) : 0;
 
   return <>
     <section className="trip-collaboration-hub">
@@ -390,7 +390,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
             <em>{progress}%</em>
           </div>
           {workspace.expenses.some(expense => expense.currency !== workspace.budget.currency) && <p className="trip-collaboration-error" role="alert">{copy("Eski kayıtların para birimleri farklı. Toplam yalnız bütçenin para birimini içerir; bakiyeler ayrı gösterilir.", "Older entries use different currencies. The total includes only the budget currency; balances are shown separately.")}</p>}
-          <progress className="trip-budget-progress" value={progress} max={100} aria-label={copy("Bütçe kullanım oranı", "Budget usage")} />
+          <progress className="trip-budget-progress" value={Math.min(100, progress)} max={100} aria-label={copy("Bütçe kullanım oranı", "Budget usage")} aria-valuetext={`${progress}%`} />
           {canEdit && <form className="trip-budget-form" onSubmit={saveBudget}>
             <label>{copy("Hedef bütçe", "Target budget")}<input type="number" min="0" max="100000000" step="0.01" inputMode="decimal" value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} placeholder="25000" /></label>
             <label>{copy("Para birimi", "Currency")}<select disabled={workspace.expenses.length > 0 && workspace.expenses.every(expense => expense.currency === workspace.budget.currency)} value={budgetCurrency} onChange={(event) => setBudgetCurrency(event.target.value)}><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="AED">AED</option></select></label>

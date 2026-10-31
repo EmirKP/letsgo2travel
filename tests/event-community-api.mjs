@@ -340,6 +340,22 @@ test('A joined-chat entry opens the actual conversation directly after loading a
  }finally{h.dispose();}
 });
 
+for(const hidden of [false,true])test(`A confirmed RSVP withdrawal clears joined-only history even when refresh fails${hidden?' after a hidden Activity return':''}`,async()=>{
+ let finish;const h=dmHarness({write:()=>new Promise(resolve=>{finish=resolve;})});
+ try{
+  await h.ready();h.setReadError(new h.ApiError(503));h.button('Withdraw RSVP').props.onClick();h.render();if(hidden)h.host.hide();finish({success:true});await uiTick();if(hidden)h.host.show();const view=await h.settle();
+  assert.deepEqual(h.writes,[{action:'leave'}]);assert.equal(h.button('Event group chat',view),undefined,'Successful leave must not retain an actionable old membership');assert.ok(h.button('I’m going',view),'A new RSVP always needs a new deliberate tap');
+  assert.doesNotMatch(uiText(view),/Meet at the public entrance|My travel plan/,'Cached members-only history is cleared after confirmed withdrawal');assert.equal(h.timers.size,0);
+ }finally{h.dispose();}
+});
+
+test('An unconfirmed RSVP withdrawal retains membership and does not discard its conversation',async()=>{
+ let h;h=dmHarness({write:async()=>{throw new h.ApiError(503);}});
+ try{
+  await h.ready();h.button('Withdraw RSVP').props.onClick();const view=await h.settle();assert.ok(h.button('Event group chat',view));assert.equal(h.button('I’m going',view),undefined);assert.match(uiText(view),/Meet at the public entrance/);assert.deepEqual(h.writes,[{action:'leave'}]);
+ }finally{h.dispose();}
+});
+
 test('DM details stay collapsed until requested and preserve participant, mute, meetup and block controls',async()=>{
  const h=dmHarness();
  try{

@@ -1,6 +1,8 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { Icon } from "../components/Icon";
+import { CityHeartButton } from "../components/CityHeartButton";
+import { CityPhotoCredits } from "../components/CityPhotoCredits";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { HomeShortcutPicker } from "../components/HomeShortcutPicker";
 import { useHomeShortcuts } from "../hooks/useHomeShortcuts";
@@ -10,23 +12,13 @@ import { listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
 import { localIsoDate } from "../lib/dates";
 import { homeJourneyStep, nextHomeJourney } from "../lib/homeJourney";
 import { searchApp, type GlobalSearchResult } from "../lib/globalSearch";
+import { cityDestinations } from "../data/cityDestinations";
 import daylight from "../assets/home-reference/santorini-daylight-v3.webp";
 import festival from "../assets/home-reference/event-festival-v3.webp";
-import paris from "../assets/home-reference/paris-eiffel-v3.webp";
-import tokyo from "../assets/home-reference/tokyo-temple-v5.webp";
 import coastal from "../assets/home-reference/coastal-banner.webp";
-import bali from "../assets/home-reference/bali-beach-v5.webp";
-import rome from "../assets/destination-artwork/rome.webp";
 import communityTravelers from "../assets/home-reference/community-travelers.webp";
 import "./reference-home.css";
 import type { AuthUser, RouteSuggestion, ViewId } from "../types";
-
-const cities = [
-  { name: "Paris", art: paris },
-  { name: "Bali", art: bali },
-  { name: "Tokyo", art: tokyo },
-  { name: "Roma", art: rome },
-] as const;
 
 function Arrow() {
   return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15m-6-7 7 7-7 7" /></svg>;
@@ -68,7 +60,7 @@ function HeadingArtwork({ kind }: { kind: "city" | "shortcuts" }) {
   </svg>;
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTool, onOpenJourneyTool, onOpenGuide, onOpenGlobalSearch, onOpenCountry, onOpenTrip, onOpenCommunity, onSearchDestination, initialSearchQuery }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTool, onOpenJourneyTool, onOpenGuide, onOpenGlobalSearch, onOpenCountry, onOpenTrip, onOpenCommunity, onSearchDestination, onOpenCity, onOpenAllCities, savedCityCodes, onToggleCitySaved, initialSearchQuery }: {
   user: AuthUser | null; ownerId?: string | null; accessToken?: string; refreshToken?: number;
   onNavigate: (view: ViewId) => void; onOpenCommunity: (countryCode?: string) => void;
   onOpenTrip?: (id: string, section?: "today") => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
@@ -77,10 +69,13 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   onOpenGlobalSearch?: (query: string) => void; onOpenTool?: (tool: TravelAssistantTool) => void;
   onOpenJourneyTool?: (tool: JourneyToolId) => void; onOpenGuide?: () => void;
   onOpenCountry?: (code: string) => void;
+  onOpenCity?: (code: string) => void; onOpenAllCities?: () => void;
+  savedCityCodes?: string[]; onToggleCitySaved?: (code: string) => void;
   initialSearchQuery?: string;
   savedRouteIds?: string[];
 }) {
   const { locale, copy, dateLocale } = useI18n();
+  const cities = useMemo(() => cityDestinations(locale), [locale]);
   const shortcuts = useHomeShortcuts(ownerId);
   const [editingShortcuts, setEditingShortcuts] = useState(false);
   const [query, setQuery] = useState(initialSearchQuery ?? "");
@@ -116,7 +111,10 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
       else if (result.tool && onOpenTool) onOpenTool(result.tool);
       else onNavigate(result.view);
     }
-    else if (result.kind === "city") search(result.query);
+    else if (result.kind === "city") {
+      if (result.destinationCode && onOpenCity) onOpenCity(result.destinationCode);
+      else search(result.query);
+    }
     else if (result.kind === "country") { if (onOpenCountry) onOpenCountry(result.countryCode); else search(result.title); }
   };
   const submitSearch = () => {
@@ -149,7 +147,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
         {showSuggestions && <div className="rh-search-suggestions">
           <ul id="home-search-options" role="listbox" aria-label={copy("Arama önerileri", "Search suggestions", "Sugjerime kërkimi")}>
             {suggestions.map((result, index) => <li key={result.id} id={`home-search-option-${index}`} role="option" aria-selected={activeSuggestion === index} onMouseDown={event => event.preventDefault()} onClick={() => selectSuggestion(result)}>
-              <span className="rh-suggestion-art" aria-hidden="true"><TravelToolArtwork kind={result.kind === "tool" ? result.icon : "globe"} size={36}/></span><span><strong>{result.title}</strong><small>{result.subtitle}</small></span><Icon name="chevron" size={18}/>
+              <span className="rh-suggestion-art" aria-hidden="true">{result.kind === "city" && result.photo ? <img src={result.photo} alt="" width={38} height={38}/> : <TravelToolArtwork kind={result.kind === "tool" ? result.icon : "globe"} size={36}/>}</span><span><strong>{result.title}</strong><small>{result.subtitle}</small></span><Icon name="chevron" size={18}/>
             </li>)}
           </ul>
           {!suggestions.length && <p role="status">{copy("Bu yazıyla eşleşen öneri yok. Bir şehir veya araç adı dene.", "No matching suggestion. Try a city or tool name.", "Nuk ka sugjerim. Provo emrin e një qyteti ose mjeti.")}</p>}
@@ -159,8 +157,23 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     </section>
     <div className="rh-content">
       <section className="rh-city-discovery" aria-labelledby="rh-city-title">
-        <div className="rh-city-heading"><HeadingArtwork kind="city"/><h2 id="rh-city-title">{copy("Bir şehirle başla", "Start with a city", "Fillo me një qytet")}</h2></div>
-        <nav className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries", "Zbulime të shpejta")}>{cities.map(city => <button key={city.name} type="button" className={`rh-city-card rh-city-${city.name.toLowerCase()}`} aria-label={city.name === "Roma" ? copy("Roma", "Rome", "Roma") : city.name} onClick={() => search(city.name)}><span className="rh-city-image"><img src={city.art} alt="" width={400} height={300} decoding="async"/></span><span className="rh-city-caption"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><path d="M6 0a6 6 0 0 0-6 6c0 4 6 10 6 10s6-6 6-10a6 6 0 0 0-6-6Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><strong>{city.name === "Roma" ? copy("Roma", "Rome", "Roma") : city.name}</strong></span></button>)}</nav>
+        <div className="rh-city-section-bar">
+          <div className="rh-city-heading"><HeadingArtwork kind="city"/><h2 id="rh-city-title">{copy("Bir şehirle başla", "Start with a city", "Fillo me një qytet")}</h2></div>
+          <button type="button" className="rh-city-view-all" onClick={() => onOpenAllCities ? onOpenAllCities() : onNavigate("explore")}>{locale === "ro" ? "Vezi toate" : copy("Tümünü gör", "See all", "Shiko të gjitha")}<Arrow/></button>
+        </div>
+        <nav className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries", "Zbulime të shpejta")}>{cities.map((city, index) => {
+          const saved = savedCityCodes?.includes(city.code) ?? false;
+          const saveLabel = saved
+            ? locale === "ro" ? "Elimină din salvate" : copy("Kaydedilenlerden çıkar", "Remove from saved", "Hiqe nga të ruajturat")
+            : locale === "ro" ? "Salvează orașul" : copy("Şehri kaydet", "Save city", "Ruaj qytetin");
+          return <article className="rh-city-tile" key={city.code}>
+            <button type="button" className={`rh-city-card rh-city-card-v2 rh-city-${city.code.toLowerCase()}`} aria-label={city.name} aria-describedby={`home-city-${city.code}-country`} onClick={() => onOpenCity ? onOpenCity(city.code) : search(city.name)}>
+              <span className="rh-city-image"><img src={city.photo} alt="" width={400} height={600} loading={index < 4 ? "eager" : "lazy"} decoding="async"/></span>
+              <span className="rh-city-caption rh-city-caption-v2"><span className="rh-city-name-line"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><path d="M6 0a6 6 0 0 0-6 6c0 4 6 10 6 10s6-6 6-10a6 6 0 0 0-6-6Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><strong>{city.name}</strong></span><small id={`home-city-${city.code}-country`}>{city.country}</small></span>
+            </button>
+            {onToggleCitySaved && <CityHeartButton className="rh-city-heart" label={`${city.name}: ${saveLabel}`} saved={saved} onToggle={() => onToggleCitySaved(city.code)}/>}
+          </article>;
+        })}</nav>
       </section>
       <div className="rh-shortcuts-heading"><div className="rh-shortcuts-title"><HeadingArtwork kind="shortcuts"/><h2>{copy("Kısayollarım", "My shortcuts", "Shkurtoret e mia")}</h2></div><button type="button" onClick={() => setEditingShortcuts(true)}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 15l-1 6Z"/></svg>{copy("Düzenle", "Edit", "Ndrysho")}</button></div>
       <nav className="rh-features" style={{ "--shortcut-count": features.length } as CSSProperties} aria-label={copy("Seyahatini planla", "Plan your journey", "Planifiko udhëtimin")}>{features.map(feature => <button key={feature.id} data-guide={feature.id === "route" ? "home-route" : undefined} type="button" aria-label={`${feature.label} — ${feature.text}`} onClick={() => feature.tool && onOpenTool ? onOpenTool(feature.tool) : onNavigate(feature.view)}><TravelToolArtwork kind={feature.icon} size={68}/><strong><span className="rh-shortcut-full">{feature.label}</span><span className="rh-shortcut-compact">{compactShortcutLabels[feature.id] || feature.label}</span></strong><small>{feature.text}</small></button>)}</nav>
@@ -171,6 +184,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
       {loading && <p className="rh-trip-feedback" role="status">{copy("Seyahatin hazırlanıyor…", "Getting your trip ready…")}</p>}
       {failed && <div className="rh-trip-feedback" role="status"><span>{copy(nextTrip ? "Seyahat bilgileri yenilenemedi." : "Kayıtlı seyahatin şu an yüklenemedi.", "Your trip details couldn't be refreshed.")}</span><button type="button" onClick={() => { setTripRequest(null); setRetry(value => value + 1); }}>{copy("Yeniden dene", "Try again")}</button></div>}
       <section className="rh-community"><div className="rh-community-avatars" aria-hidden="true">{[0, 1, 2].map(index => <span key={index}><img src={communityTravelers} alt="" loading="lazy" style={{ objectPosition: `${index * 50}% center` }}/></span>)}</div><div><h2>{copy("Gezgin Topluluğu", "Traveller Community")}</h2><p>{copy("Deneyimlerini paylaş, ilham al,", "Share experiences, find inspiration,")}<br/>{copy("yeni arkadaşlar edin.", "make new friends.")}</p></div><button type="button" onClick={() => onOpenCommunity()}>{copy("Topluluğa Katıl", "Join the Community")}<Arrow/></button></section>
+      <CityPhotoCredits destinations={cities} compact/>
     </div>
     {editingShortcuts && <HomeShortcutPicker key={ownerId ? `user-${ownerId}` : "guest"} views={shortcuts.views} onSave={shortcuts.save} onClose={() => setEditingShortcuts(false)}/>}
   </div>;

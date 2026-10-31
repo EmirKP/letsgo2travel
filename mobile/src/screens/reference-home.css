@@ -43,6 +43,7 @@
 .reference-home .rh-search-suggestions [role="option"] { display:flex; align-items:center; gap:10px; min-height:60px; padding:9px 10px; border-radius:13px; cursor:pointer; }
 .reference-home .rh-search-suggestions [role="option"]:is(:hover,[aria-selected="true"]) { background:var(--rh-soft); }
 .reference-home .rh-suggestion-art { display:grid; place-items:center; flex:none; width:38px; }
+.reference-home .rh-suggestion-art img { width:38px; height:38px; border-radius:10px; object-fit:cover; }
 .reference-home .rh-search-suggestions [role="option"] > span:nth-child(2) { display:grid; flex:1; min-width:0; gap:3px; }
 .reference-home .rh-search-suggestions strong { color:var(--rh-ink); font-size:14px; line-height:1.35; }
 .reference-home .rh-search-suggestions small,.reference-home .rh-search-suggestions > p { color:var(--rh-muted); font-size:12px; line-height:1.45; }
@@ -51,7 +52,7 @@
 .reference-home .rh-search-all svg { width:18px; height:18px; flex:none; }
 .reference-home .rh-content { display:grid; min-width:0; gap:clamp(13px,calc(var(--rh-unit)*2.1),19px); padding:0 var(--rh-edge) 32px; }
 .reference-home .rh-city-discovery { display:grid; gap:10px; min-width:0; }
-.app-shell.shared-shell .screen.reference-home .rh-city-chips { position:relative; inset:auto; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(7px,calc(var(--rh-unit)*1.4),12px); width:100%; min-width:0; margin:1px 0 3px; padding:0; }
+.app-shell.shared-shell .screen.reference-home .rh-city-chips { position:relative; inset:auto; display:grid; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:clamp(70px,calc(var(--rh-unit)*21.5),104px); gap:7px; box-sizing:border-box; width:calc(100% + var(--rh-edge)); min-width:0; margin:1px 0 0; padding:6px var(--rh-edge) 10px 6px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; scroll-snap-type:x proximity; scroll-padding-inline:6px; scrollbar-width:thin; scrollbar-color:var(--rh-border) transparent; }
 .reference-home .rh-city-card { position:relative; isolation:isolate; display:block; height:clamp(105px,calc(var(--rh-unit)*31),240px); min-width:0; overflow:hidden; padding:0; border:1px solid rgb(255 255 255 / 35%); border-radius:clamp(12px,calc(var(--rh-unit)*2),18px); background:#14557a; color:#fff; text-align:left; box-shadow:0 3px 8px rgb(5 27 60 / 7%); }
 .reference-home .rh-city-card:focus-visible { outline-offset:3px; }
 .reference-home .rh-city-image { position:absolute; inset:0; z-index:-2; display:block; width:100%; height:100%; }
@@ -62,6 +63,34 @@
 .reference-home .rh-city-caption { position:absolute; inset:auto 7px 9px; display:flex; align-items:center; gap:4px; min-width:0; color:#fff; }
 .reference-home .rh-city-caption strong { min-width:0; color:#fff; font-size:clamp(12px,calc(var(--rh-unit)*3.4),27px); font-weight:750; line-height:1.25; letter-spacing:-.4px; }
 .reference-home .rh-city-caption > svg { flex:none; width:clamp(10px,calc(var(--rh-unit)*2.9),22px); height:auto; color:#fff; }
+.reference-home .rh-city-section-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+.reference-home .rh-city-section-bar .rh-city-heading { flex:1; min-width:0; }
+.editorial-app .reference-home .rh-city-section-bar h2 { font-size:clamp(18px,calc(var(--rh-unit)*4.7),30px); letter-spacing:-.55px; }
+.reference-home .rh-city-view-all { display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; flex:none; min-width:44px; min-height:44px; padding:6px 0 6px 4px; border:0; background:transparent; color:var(--rh-blue); font-size:clamp(11px,calc(var(--rh-unit)*2.7),14px); font-weight:700; white-space:nowrap; }
+.reference-home .rh-city-view-all svg { width:16px; height:16px; flex:none; }
+.reference-home .rh-city-tile { position:relative; min-width:0; scroll-snap-align:start; }
+.reference-home .rh-city-card.rh-city-card-v2 { width:100%; height:clamp(138px,calc(var(--rh-unit)*36),200px); min-height:44px; border-color:#d5dfed; border-radius:15px; box-shadow:0 3px 10px #092a4512; }
+.reference-home .rh-city-card-v2::after { background:linear-gradient(180deg,#071a2e00 24%,#071a2e0a 40%,#071a2e80 70%,#071a2eea 100%); }
+.reference-home .rh-city-card-v2 img { object-position:center; }
+.reference-home .rh-city-card-v2.rh-city-cdg img { object-position:65% center; }
+.reference-home .rh-city-card-v2.rh-city-fco img { object-position:30% center; }
+.reference-home .rh-city-caption.rh-city-caption-v2 { display:grid; gap:3px; inset:auto 7px 9px; }
+.reference-home .rh-city-name-line { display:flex; align-items:center; gap:4px; min-width:0; }
+.reference-home .rh-city-name-line > svg { width:11px; height:14px; flex:none; }
+.reference-home .rh-city-caption-v2 strong { font-size:clamp(13px,calc(var(--rh-unit)*3.5),19px); line-height:1.15; letter-spacing:-.4px; overflow-wrap:anywhere; }
+.reference-home .rh-city-caption-v2 small { display:block; min-width:0; padding-left:0; overflow:hidden; color:#e4edf8; font-size:clamp(10px,calc(var(--rh-unit)*2.5),12px); font-weight:450; line-height:1.25; white-space:nowrap; text-overflow:ellipsis; }
+.reference-home .rh-city-heart { position:absolute; top:0; right:0; z-index:2; }
+.reference-home .rh-content > .city-photo-credits { margin-top:-4px; color:var(--rh-muted); }
+:root[data-theme="dark"] .reference-home .rh-city-card.rh-city-card-v2 { border-color:#6a91b2; box-shadow:0 3px 12px #00000026; }
+:root[data-theme="dark"] .reference-home .rh-city-card-v2::after { background:linear-gradient(180deg,#071a2e00 24%,#071a2e0a 40%,#071a2e80 70%,#081728f2 100%); }
+@media (max-width:359px) {
+  .reference-home .rh-city-section-bar { gap:5px; }
+  .reference-home .rh-city-section-bar .rh-city-heading { gap:5px; }
+  .reference-home .rh-city-caption.rh-city-caption-v2 { left:6px; right:5px; gap:3px; }
+  .reference-home .rh-city-name-line { gap:3px; }
+  .reference-home .rh-city-name-line > svg { width:9px; height:12px; }
+  .reference-home .rh-city-caption-v2 small { padding-left:0; }
+}
 .reference-home .rh-shortcuts-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; min-height:44px; margin:0; }
 .reference-home .rh-shortcuts-title { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
 .reference-home .rh-city-heading { display:flex; align-items:center; gap:8px; min-width:0; min-height:44px; }

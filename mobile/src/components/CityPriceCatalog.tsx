@@ -6,7 +6,7 @@ import { routeCityBenchmark } from "../../../lib/country-intelligence/route-budg
 import { useI18n } from "../lib/i18n";
 import { appRegionName } from "../lib/localeFormatting";
 import { bundledImageSource } from "../lib/bundledImageSource";
-import { budgetDestinationSuggestions, matchesBudgetDestination, type BudgetDestinationSuggestion } from "../lib/budgetDestinationSearch";
+import { budgetDestinationSuggestions, exactBudgetCityId, matchesBudgetDestination, type BudgetDestinationSuggestion } from "../lib/budgetDestinationSearch";
 import { activityAllowanceFromGbp, activityAllowanceToGbp } from "../lib/budgetActivityInput";
 import { openExternal } from "../lib/native";
 import { useActiveTripContext } from "../lib/activeTripContext";
@@ -29,11 +29,11 @@ import "./city-budget.css";
 
 const CITY_PHOTOS: Record<string, string> = { "FR-paris": "PAR", "IT-rome": "FCO", "AL-tirana": "TIA", "RS-belgrade": "BEG", "BA-sarajevo": "SJJ" };
 
-export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitBudget }: { onOpenCountryNews: (code: string) => void; ownerId?: string | null; onPrepareCockpitBudget?: (intent: BudgetCockpitIntent) => void }) {
+export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitBudget, initialCityQuery }: { onOpenCountryNews: (code: string) => void; ownerId?: string | null; onPrepareCockpitBudget?: (intent: BudgetCockpitIntent) => void; initialCityQuery?: string }) {
   const { copy, locale } = useI18n();
   const [preferences, setPreferences] = useState(() => readPersonalBudgetPreferences(ownerId));
-  const [query, setQuery] = useState("");
-  const [quickCity, setQuickCity] = useState<string | null>(null);
+  const [query, setQuery] = useState(initialCityQuery || "");
+  const [quickCity, setQuickCity] = useState<string | null>(() => exactBudgetCityId(initialCityQuery));
   const [quickCountry, setQuickCountry] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);

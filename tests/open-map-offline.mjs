@@ -82,8 +82,17 @@ function harness(options = {}) {
     throw new Error(`Unexpected import ${id}`);
   }, window, indexedDB: db.indexedDB, fetch, ArrayBuffer, Uint8Array, TextDecoder, AbortController, DOMException, URL, Event, structuredClone, console });
   const download = (overrides = {}) => exports.downloadOpenMapRegion({ center, name: 'İstanbul', radiusKm: 1, places: [place()], signal: new AbortController().signal, onProgress() {}, ...overrides });
-  return { model: exports, state: db.state, calls, download, window };
+  return { model: exports, state: db.state, indexedDB: db.indexedDB, calls, download, window };
 }
+
+test('A transient synchronous IndexedDB open failure can be retried without reloading or touching saved regions',async()=>{
+  const h=harness(),open=h.indexedDB.open;let attempts=0;
+  h.indexedDB.open=()=>{attempts++;if(attempts===1)throw new DOMException('Temporary unavailable storage','SecurityError');return open();};
+  await assert.rejects(h.model.listOpenMapPacks());
+  assert.equal((await h.model.listOpenMapPacks()).length,0);assert.equal(attempts,2);
+  assert.equal((await h.model.listOpenMapPacks()).length,0);assert.equal(attempts,2,'A recovered connection remains reusable');
+  assert.equal(h.state.commits,0);assert.equal(h.state.records.size,0);assert.equal(h.calls.length,0);
+});
 
 test('strict resource allowlist permits canonical fonts and legitimate bounded map assets only', () => {
   assert.equal(policy.allowedOpenMapUrl('https://tiles.openfreemap.org/fonts/Noto Sans Regular/0-255.pbf'), 'https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf');

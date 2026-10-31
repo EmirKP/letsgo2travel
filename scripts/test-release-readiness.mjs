@@ -2,12 +2,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const checks = [
+  ["--test", "tests/city-destinations.mjs", "tests/city-discovery-flow.mjs", "tests/city-detail-behavior.mjs"],
   ["--test", "tests/romanian-server.mjs", "tests/romanian-bundle.mjs"],
   ["--test", "tests/testflight-internal-release.mjs", "tests/testflight-current-verify.mjs"],
   ["--test", "tests/ux14-first-use.mjs", "tests/ux14-community-events.mjs", "tests/audit-root-recovery-20261030.mjs"],
   ["--test", "tests/map-recovery-20261030.mjs", "tests/event-reminder-recovery.mjs", "tests/translation-package-recovery.mjs", "tests/budget-flow-recovery.mjs"],
-  ["--test", "tests/usability-budget-guide-money.mjs"],
-  ["--test", "tests/map-place-search.mjs", "tests/travel-map-services.mjs", "tests/open-map-offline.mjs"],
+  ["--test", "tests/usability-budget-guide-money.mjs", "tests/overnight-budget-plans.mjs"],
+  ["--test", "tests/map-place-search.mjs", "tests/travel-map-services.mjs", "tests/open-map-offline.mjs", "tests/open-map-appearance.mjs"],
   ["--test", "tests/travel-assistant/personal-map-pins.mjs", "tests/travel-assistant/map-downloads-ui.mjs", "tests/unified-map-ui.mjs"],
   ["--test", "tests/web-ai-route-allowance.mjs"],
   ["--test", "tests/mobile-dev-api.mjs"],

@@ -30,10 +30,11 @@ const SPEECH_LANG: Record<string, string> = {
 const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
 const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
 
-export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', onOpenEvents, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
+export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', initialMapSearch, onOpenEvents, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
   initialTab?: CompanionTab;
   initialTool?: TravelAssistantTool;
   initialCountry?: string;
+  initialMapSearch?: { id: number; query: string; center: Coordinates; category?: PointCategory; label?: string };
   accessToken: string;
   ownerId?: string | null;
   onSignIn: () => void;
@@ -47,8 +48,8 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
   const [requestedTool,setRequestedTool]=useState<{tool:TravelAssistantTool|undefined;id:number}|null>(null);
   const toolRequestId=useRef(0);
   const [activeTool,setActiveTool]=useState<TravelAssistantTool|null>(initialTool||null);
-  const [nearbySearch,setNearbySearch]=useState<{id:number;query:string;center:Coordinates;category?:PointCategory}>();
-  const nearbySearchId=useRef(0);
+  const [nearbySearch,setNearbySearch]=useState<{id:number;query:string;center:Coordinates;category?:PointCategory;label?:string} | undefined>(initialMapSearch);
+  const nearbySearchId=useRef(initialMapSearch?.id || 0);
   const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
   const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
     const code = alpha2FromAlpha3(country.alpha3);

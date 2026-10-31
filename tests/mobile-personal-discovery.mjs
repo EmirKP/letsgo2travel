@@ -32,6 +32,7 @@ function loader(globals = {}, imports = {}) {
   vm.runInNewContext(`(function(require,module,exports){${compiled}\n})`, { Intl, Date, ...globals }, { filename: absolute })(name => {
    if (Object.hasOwn(imports, name)) return imports[name];
    if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
+   if (name === '../components/CityPhotoCredits' || name === './CityPhotoCredits') return { CityPhotoCredits: 'CityPhotoCredits' };
    if (name.endsWith('.css')) return {};
    if (/\.(webp|png|svg)$/.test(name)) return name;
    if (!name.startsWith('.')) throw Error(`Unexpected import ${name}`);
@@ -382,6 +383,29 @@ test('Search sheet opens exact results, blocks deleted routes and hides old-owne
  h.dispose(); assert.ok([...d.listeners.values()].every(listeners => listeners.size === 0));
 });
 
+test('Unreadable saved routes do not crash search, retry keeps the query and a failed click never navigates', () => {
+ const h = hooks(), d = device(), calls = []; let unreadable = true;
+ const load = loader(d.globals, { ...shared('en'), react: h.react,
+  '../lib/storage': { getSavedRoutePlans: () => { if(unreadable)throw Error('Outbox unavailable'); return [route('kept-route','Paris')]; } },
+  '../lib/supabaseData': { listCockpitTrips: () => { throw Error('No account request for guest'); } },
+ });
+ const { GlobalSearchSheet } = load('mobile/src/components/GlobalSearchSheet.tsx');
+ let tree; assert.doesNotThrow(() => { tree = h.start(GlobalSearchSheet, { open:true, initialQuery:'Paris', onClose:()=>calls.push('close'), onOpenSavedRoute:id=>calls.push(id), onSearchDestination:()=>{}, onOpenCountry:()=>{}, onOpenTrip:()=>{}, onOpenTool:()=>{}, onNavigate:()=>{} }); });
+ assert.ok(find(tree,'strong',props=>text(props.children)==='Paris'),'The public catalogue is still available');
+ assert.match(text(tree),/saved routes could not be read/);
+ find(tree,'button',props=>text(props.children)==='Saved routes').props.onClick(); tree=h.render();
+ assert.doesNotMatch(text(tree),/No results\. Try another word or category/,'Read failure is not an empty collection');
+ unreadable=false; find(tree,'button',props=>text(props.children)==='Read saved routes again').props.onClick(); tree=h.render();
+ assert.equal(find(tree,'input').props.value,'Paris'); assert.equal(find(tree,'button',props=>text(props.children)==='Saved routes').props['aria-pressed'],true);
+ assert.doesNotMatch(text(tree),/saved routes could not be read/);
+ const result=find(tree,'button',props=>text(props.children).startsWith('Paris'));
+ unreadable=true; assert.doesNotThrow(()=>result.props.onClick()); tree=h.render();
+ assert.deepEqual(calls,[]); assert.match(text(tree),/saved routes could not be read/);
+ unreadable=false; find(tree,'button',props=>text(props.children)==='Read saved routes again').props.onClick(); tree=h.render();
+ find(tree,'button',props=>text(props.children).startsWith('Paris')).props.onClick();
+ assert.deepEqual(calls,['close','kept-route']); h.dispose();
+});
+
 test('Search sheet keeps catalog results available while trips load and opens the exact saved trip', async () => {
  const { h, requests, calls, tree: initial } = tripSearchSheet();
  assert.match(text(initial), /Loading your saved trips/);
@@ -509,6 +533,19 @@ function categorySheet(locale, initial = {}, trips = null) {
  return { h, requests, calls, tree };
 }
 const pick = (tree, label) => find(tree, 'button', props => text(props.children) === label);
+test('City search opens the exact catalogue destination and keeps generic cities on the discovery path', () => {
+ for (const locale of ['tr', 'en', 'sq', 'ro']) {
+  const opened = [];
+  const { h, calls, tree } = categorySheet(locale, { initialQuery: 'Strasbourg', onOpenCity: code => opened.push(code) });
+  const result = find(tree, 'button', props => /Strazburg|Strasbourg|Strasburgu|Strasburg/.test(text(props.children)) && !props.className?.includes('plan-place'));
+  assert.ok(result, `${locale}: the existing catalogue city must have a result`);
+  assert.ok(find(result, 'img'), 'Use the destination photo, not the app logo');
+  result.props.onClick(); assert.deepEqual(opened, ['SXB']); assert.deepEqual(calls, ['close']); h.dispose();
+ }
+ const { h, calls, tree } = categorySheet('en', { initialQuery: 'Tbilisi' });
+ const generic = find(tree, 'button', props => text(props.children).startsWith('Tbilisi'));
+ assert.ok(generic); generic.props.onClick(); assert.deepEqual(calls, ['close', 'city:Tbilisi']); h.dispose();
+});
 const widenLabels = { tr: ['Şehirler', 'Tüm kategorilerde ara', 'Bu kategoride sonuç yok. Diğer kategorilerde sonuçlar var.'], en: ['Cities', 'Search all categories', 'No results in this category. There are results in other categories.'], sq: ['Qytetet', 'Kërko në të gjitha kategoritë', 'Nuk ka rezultate në këtë kategori. Ka rezultate në kategori të tjera.'] };
 
 test('Empty category offers search in all categories, keeps the word and stays on the same screen', () => {

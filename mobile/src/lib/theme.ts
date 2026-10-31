@@ -11,24 +11,7 @@ let requestedPreference: ThemePreference = serverSnapshot.preference;
 let media: MediaQueryList | undefined;
 let initializers = 0;
 let detach: (() => void) | undefined;
-let activeTransition: ViewTransition | undefined;
-let appearanceRevision = 0;
-let lastAnimatedRequest = -Infinity;
-const ANIMATION_QUIET_MS = 600;
 const listeners = new Set<() => void>();
-
-function stopColorTransition() {
-  appearanceRevision++;
-  activeTransition?.skipTransition();
-  activeTransition = undefined;
-  if (typeof document !== "undefined") delete document.documentElement.dataset.themeTransition;
-}
-
-function canAnimateAppearance() {
-  if (typeof document === "undefined" || !document.startViewTransition || document.visibilityState === "hidden") return false;
-  try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
-  catch { return false; }
-}
 
 function preference(value: unknown): ThemePreference {
   return value === "light" || value === "dark" ? value : "system";
@@ -44,55 +27,20 @@ function systemTheme(): ResolvedTheme {
   catch { return "light"; }
 }
 
-function apply(nextPreference: ThemePreference, animate = true) {
+function apply(nextPreference: ThemePreference) {
   requestedPreference = nextPreference;
   const resolved = nextPreference === "system" ? systemTheme() : nextPreference;
-  const changesColors = snapshot.resolved !== resolved;
-  // A burst uses direct updates: repeatedly capturing the whole page is costly
-  // on iOS even when the previous View Transition has been skipped.
-  const now = Date.now();
-  const interrupted = Boolean(activeTransition);
-  const burst = now - lastAnimatedRequest < ANIMATION_QUIET_MS;
-  if (animate) lastAnimatedRequest = now;
-  stopColorTransition();
-  const revision = appearanceRevision;
-  let committed = false;
-  const commit = () => {
-    // Skipped transitions may still invoke their callback after a newer choice.
-    if (revision !== appearanceRevision || committed) return;
-    committed = true;
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.theme = resolved;
-      document.documentElement.style.colorScheme = resolved;
-      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[resolved]);
-      document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
-    }
-    if (snapshot.preference === nextPreference && snapshot.resolved === resolved) return;
-    snapshot = { preference: nextPreference, resolved };
-    listeners.forEach(listener => listener());
-  };
-  if (!animate || interrupted || burst || !changesColors || !canAnimateAppearance()) {
-    commit();
-    return;
+  // Commit colors and the switch state together. Capturing a full-page View
+  // Transition delayed the tap on iPhone; only the small header icon animates.
+  if (typeof document !== "undefined") {
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.style.colorScheme = resolved;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[resolved]);
+    document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
   }
-
-  // Composite two page snapshots instead of repainting every text, shadow and
-  // translucent surface on every frame. Older webviews switch directly.
-  document.documentElement.dataset.themeTransition = "crossfade";
-  const cleanup = () => {
-    if (revision !== appearanceRevision) return;
-    activeTransition = undefined;
-    delete document.documentElement.dataset.themeTransition;
-  };
-  try {
-    const transition = document.startViewTransition(commit);
-    activeTransition = transition;
-    void transition.ready.catch(() => { /* Skips still run the update callback. */ });
-    void transition.finished.then(cleanup, () => { commit(); cleanup(); });
-  } catch {
-    commit();
-    cleanup();
-  }
+  if (snapshot.preference === nextPreference && snapshot.resolved === resolved) return;
+  snapshot = { preference: nextPreference, resolved };
+  listeners.forEach(listener => listener());
 }
 
 export const getThemeSnapshot = () => snapshot;
@@ -120,7 +68,7 @@ export function initializeTheme() {
   initializers++;
   if (initializers === 1) {
     try { media = window.matchMedia(SYSTEM_QUERY); } catch { media = undefined; }
-    apply(storedPreference(), false);
+    apply(storedPreference());
     const onSystemChange = () => { if (requestedPreference === "system") apply("system"); };
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
@@ -132,7 +80,6 @@ export function initializeTheme() {
     if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
     const observedMedia = media;
     detach = () => {
-      stopColorTransition();
       if (observedMedia?.removeEventListener) observedMedia.removeEventListener("change", onSystemChange);
       else observedMedia?.removeListener(onSystemChange);
       if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);

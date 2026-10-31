@@ -1,4 +1,7 @@
 import { inspirationRouteCodes, savedInspirationRoute, toggleInspirationRoute } from "./lib/inspirationRoutes";
+import { cityDestination, cityDestinations, type CityDestination } from "./data/cityDestinations";
+import { cityCodeFromUrl, cityHash, cityCountryFromUrl, cityCatalogueHash } from "./lib/cityNavigation";
+import { readPersonalMapPins, subscribePersonalMapPins, toggleCityMapPin } from "./lib/personalMapPins";
 import { Activity, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./App.css";
@@ -88,6 +91,8 @@ type EventProfileContext = { kind: 'event'; event: TravelEvent } | { kind: 'chat
 // indirilir. Böylece açılış paketi ve düşük bağlantıda ilk etkileşim hafifler.
 const CountryNewsScreen = lazy(() => import("./screens/CountryNewsScreen").then(m => ({ default: m.CountryNewsScreen })));
 const CostsScreen = lazy(() => import("./screens/CostsScreen").then(m => ({ default: m.CostsScreen })));
+const CityDestinationScreen = lazy(() => import("./screens/CityDestinationScreen").then(m => ({ default: m.CityDestinationScreen })));
+const CityDiscoveryScreen = lazy(() => import("./screens/CityDiscoveryScreen").then(m => ({ default: m.CityDiscoveryScreen })));
 const AdminScreen = lazy(() => import("./screens/AdminScreen").then((module) => ({ default: module.AdminScreen })));
 const CockpitScreen = lazy(() => import("./screens/CockpitScreen").then((module) => ({ default: module.CockpitScreen })));
 const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then((module) => ({ default: module.CommunityScreen })));
@@ -116,10 +121,12 @@ const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "profile", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports", "country-news"]);
+const validViews = new Set<ViewId>(["home", "explore", "city", "cities", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports", "country-news"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
+    if (cityCodeFromUrl(value)) return "city";
+    if (cityCountryFromUrl(value)) return "cities";
     const parsed = new URL(value, window.location.origin);
     const raw = (parsed.hash.replace(/^#\/?/, "") || parsed.searchParams.get("view") || parsed.pathname.split("/").filter(Boolean).pop() || parsed.host).toLocaleLowerCase("tr-TR");
     const aliases: Record<string, ViewId> = {
@@ -158,7 +165,7 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "explore" || view === "surprise" || view === "events" || view === "costs" || view === "country-news") return "home";
+  if (view === "explore" || view === "city" || view === "cities" || view === "surprise" || view === "events" || view === "costs" || view === "country-news") return "home";
   if (view === "passport" || view === "phrases") return "companion";
   if (view === "route" || view === "cockpit" || view === "airports") return "trips";
   if (view === "admin" || view === "alerts") return "profile";
@@ -179,6 +186,15 @@ export default function App() {
   const [exploreCode, setExploreCode] = useState("");
   const [exploreSearch, setExploreSearch] = useState({ query: "", requestId: 0 });
   const [homeSavedRoutes, setHomeSavedRoutes] = useState<{ owner: string | null; codes: string[] } | null>(null);
+  const [cityCode, setCityCode] = useState<string | null>(() => cityCodeFromUrl(window.location.href));
+  const [cityDiscoveryQuery, setCityDiscoveryQuery] = useState("");
+  const [cityDiscoveryCountry, setCityDiscoveryCountry] = useState<string | null>(() => cityCountryFromUrl(window.location.href));
+  const [savedCities, setSavedCities] = useState<{ owner: string | null; codes: string[] }>({ owner: null, codes: [] });
+  const [cityBudgetRequest, setCityBudgetRequest] = useState<{ query: string; id: number } | null>(() => {
+    const query = window.history.state?.budgetCityQuery;
+    return viewFromUrl(window.location.href) === "costs" && typeof query === "string" && query.trim()
+      ? { query: query.trim().slice(0, 120), id: 1 } : null;
+  });
   const [newsCountryCode, setNewsCountryCode] = useState("TR");
   const [activeView, setActiveView] = useState<ViewId>(() => pendingTripInvite(window.location.href) ? "trips" : viewFromUrl(window.location.href) || "home");
   const [activeTab, setActiveTab] = useState<TabId>(() => rootTabFor(activeView));
@@ -194,7 +210,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [globalQuery, setGlobalQuery] = useState('');
   const [savedRouteId, setSavedRouteId] = useState('');
-  const [toolRequest, setToolRequest] = useState<{ tool: TravelAssistantTool; id: number; country?: string } | null>(null);
+  const [toolRequest, setToolRequest] = useState<{ tool: TravelAssistantTool; id: number; country?: string; mapSearch?: { id: number; query: string; center: { latitude: number; longitude: number }; label?: string } } | null>(null);
   const toolRequestCounter = useRef(0);
   const [notice, setNotice] = useState("");
   const [noticeAction, setNoticeAction] = useState<(NoticeAction & { owner: string | null }) | null>(null);
@@ -291,11 +307,13 @@ export default function App() {
   useEffect(() => {
     activeViewRef.current = activeView;
     const titles: Record<ViewId, string> = {
+      cities: copy("Ülkeleri keşfet", "Explore countries", "Eksploro shtetet"),
+      city: cityCode ? cityDestination(cityCode, locale)?.name || copy("Şehri keşfet", "Explore a city", "Eksploro një qytet") : copy("Şehri keşfet", "Explore a city", "Eksploro një qytet"),
       "country-news": copy("Ülke Gündemi", "Country Updates"), costs: copy("Ülke Maliyetleri", "Country Costs"), airports: copy("Havalimanı Rehberi", "Airport Guide"),
       home: copy("Keşfet", "Explore"), explore: copy("Rotaları keşfet", "Explore destinations"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Planlar", "Plans"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahatlerim", "My trips", "Udhëtimet e mia"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Araçlar", "Tools"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
     };
     document.title = `${titles[activeView]} · LetsGo2Travel`;
-  }, [activeView, copy, locale]);
+  }, [activeView, cityCode, copy, locale]);
 
   useEffect(() => {
     nativeUiRef.current = {
@@ -334,6 +352,15 @@ export default function App() {
     };
   }, [ownerId]);
 
+  useEffect(() => {
+    const refresh = () => {
+      const state = readPersonalMapPins(ownerId);
+      setSavedCities({ owner: ownerId, codes: state.items.flatMap(item => item.destinationCode ? [item.destinationCode] : []) });
+    };
+    refresh();
+    return subscribePersonalMapPins(refresh, ownerId);
+  }, [ownerId]);
+
   const toggleHomeRoute = (route: RouteSuggestion, passport?: { passportCountry?: string; passportType?: string }) => {
     const code = route.destinationCode?.toUpperCase();
     if (!code || !/^[A-Z0-9]{2,8}$/.test(code)) return;
@@ -365,7 +392,13 @@ export default function App() {
   }, [copy, showNotice]);
 
   useEffect(() => {
-    window.history.replaceState({ view: activeView, tab: activeTabRef.current, depth: 0 }, "", `#${activeView}`);
+    const initialCityCode = cityCodeFromUrl(window.location.href);
+    const initialCityCountry = cityCountryFromUrl(window.location.href);
+    const initialBudgetQuery = activeView === "costs" && typeof window.history.state?.budgetCityQuery === "string" ? window.history.state.budgetCityQuery.trim().slice(0, 120) : "";
+    const initialDepth = (activeView === "city" || activeView === "cities" || initialBudgetQuery) && window.history.state?.view === activeView && Number.isInteger(window.history.state.depth)
+      ? Math.max(0, Math.min(1000, Number(window.history.state.depth))) : 0;
+    historyDepth.current = initialDepth;
+    window.history.replaceState({ view: activeView, tab: activeTabRef.current, depth: initialDepth, ...(initialCityCode ? { cityCode: initialCityCode } : {}), ...(initialBudgetQuery ? { budgetCityQuery: initialBudgetQuery } : {}) }, "", activeView === "city" && initialCityCode ? cityHash(initialCityCode) : activeView === "cities" ? cityCatalogueHash(initialCityCountry) : `#${activeView}`);
     const previousRestoration = window.history.scrollRestoration;
     window.history.scrollRestoration = "manual";
     const onPopState = (event: PopStateEvent) => {
@@ -373,6 +406,9 @@ export default function App() {
         ? event.state.view as ViewId
         : viewFromUrl(window.location.href);
       if (next) {
+        if (next === "city") setCityCode(cityCodeFromUrl(window.location.href));
+        if (next === "cities") setCityDiscoveryCountry(cityCountryFromUrl(window.location.href));
+        if (next === "costs") setCityBudgetRequest(previous => event.state?.budgetCityQuery ? { query: String(event.state.budgetCityQuery).slice(0, 120), id: (previous?.id || 0) + 1 } : null);
         const previous = activeViewRef.current;
         const top = window.scrollY || 0;
         setScrollPositions(positions => ({ ...positions, [previous]: top }));
@@ -398,9 +434,15 @@ export default function App() {
     // İlk tarihçe kaydı yalnızca uygulama açılırken yazılır.
   }, []);
 
-  const navigate = useCallback((view: ViewId, options?: { replace?: boolean; communityCountryCode?: string }) => {
+  const navigate = useCallback((view: ViewId, options?: { replace?: boolean; communityCountryCode?: string; cityCode?: string; cityCountryCode?: string | null; budgetCityQuery?: string }) => {
+    if (view === "city" && options?.cityCode) setCityCode(options.cityCode);
+    if (view === "cities") setCityDiscoveryCountry(options?.cityCountryCode || null);
+    if (view === "costs") setCityBudgetRequest(previous => options?.budgetCityQuery ? { query: options.budgetCityQuery.slice(0, 120), id: (previous?.id || 0) + 1 } : null);
     const current = activeViewRef.current;
-    if (current === view && !options?.replace) {
+    const changingCity = view === "city" && options?.cityCode && cityCodeFromUrl(window.location.href) !== options.cityCode;
+    const changingBudget = view === "costs" && options?.budgetCityQuery && window.history.state?.budgetCityQuery !== options.budgetCityQuery;
+    const changingCityCountry = view === "cities" && cityCountryFromUrl(window.location.href) !== (options?.cityCountryCode || null);
+    if (current === view && !options?.replace && !changingCity && !changingBudget && !changingCityCountry) {
       if (view === "community" && options?.communityCountryCode !== undefined) setCommunityCountryCode(options.communityCountryCode);
       const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
       window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
@@ -422,7 +464,7 @@ export default function App() {
     setActiveTab(tab);
     setActiveView(view);
     const method = options?.replace ? "replaceState" : "pushState";
-    window.history[method]({ view, tab, depth: nextDepth }, "", `#${view}`);
+    window.history[method]({ view, tab, depth: nextDepth, ...(options?.cityCode ? { cityCode: options.cityCode } : {}), ...(options?.budgetCityQuery ? { budgetCityQuery: options.budgetCityQuery.slice(0, 120) } : {}) }, "", view === "city" && options?.cityCode ? cityHash(options.cityCode) : view === "cities" ? cityCatalogueHash(options?.cityCountryCode) : `#${view}`);
     window.requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
     void impact();
   }, []);
@@ -482,9 +524,54 @@ export default function App() {
     setScrollPositions(positions => ({ ...positions, explore: 0 }));
   }, [navigate]);
 
+  const openCity = (code: string) => {
+    const destination = cityDestination(code, locale);
+    if (!destination) return;
+    navigate("city", { cityCode: destination.code });
+    setScrollPositions(positions => ({ ...positions, city: 0 }));
+  };
+  const openCityCountry = (code: string) => {
+    if (!cityDestinations(locale).some(city => city.countryCode === code)) return;
+    navigate("cities", { cityCountryCode: code });
+    setScrollPositions(previous => ({ ...previous, cities: 0 }));
+  };
+  const toggleCitySaved = (code: string) => {
+    const destination = cityDestination(code, locale);
+    if (!destination) return;
+    try {
+      const saved = toggleCityMapPin(destination, ownerId);
+      showNotice(locale === "ro" ? saved ? "Oraș salvat pe acest dispozitiv. Îl găsești în Planuri → Locurile mele." : "Orașul a fost eliminat din locurile salvate."
+        : saved ? copy("Şehir cihazına kaydedildi. Planlar → Yerlerim’den açabilirsin.", "City saved on this device. Open it from Plans → My places.", "Qyteti u ruajt në këtë pajisje. Hape te Planet → Vendet e mia.")
+          : copy("Şehir kaydedilenlerden çıkarıldı.", "City removed from saved places.", "Qyteti u hoq nga vendet e ruajtura."));
+    } catch {
+      showNotice(copy("Kayıt güncellenemedi. Cihaz depolamasını kontrol edip tekrar dene.", "Saved items couldn't update. Check device storage and try again."));
+    }
+  };
+  const planCity = (destination: CityDestination) => {
+    setRoutePlaceName(destination.name);
+    setRouteArea({ ...destination.center, name: destination.name });
+    setSurpriseRoute(null);
+    setRouteResetToken(value => value + 1);
+    setMapRequestId(value => value + 1);
+    navigate("route");
+    setScrollPositions(positions => ({ ...positions, route: 0 }));
+  };
+  const mapCity = (destination: CityDestination, point?: CityDestination["highlights"][number]) => {
+    const id = ++toolRequestCounter.current;
+    selectTravelCountry(destination.countryCode);
+    setToolRequest({ tool: "map", id, country: destination.countryCode,
+      mapSearch: { id, query: point?.name || "", center: point ? { latitude: point.latitude, longitude: point.longitude } : destination.center, label: point?.name || destination.name } });
+    navigate("companion");
+    setScrollPositions(positions => ({ ...positions, companion: 0 }));
+  };
+
   const goBack = useCallback(() => {
     if (historyDepth.current > 0) {
       window.history.back();
+      return;
+    }
+    if (activeViewRef.current === "cities" && cityCountryFromUrl(window.location.href)) {
+      navigate("cities", { replace: true });
       return;
     }
     navigate(activeTabRef.current, { replace: true });
@@ -966,7 +1053,7 @@ export default function App() {
       if (tripId) setCockpitFocusTripId(tripId);
       if (inviteCode) setCockpitInviteCode(rememberTripInvite(inviteCode));
       if (inviteCode) navigate("trips");
-      else if (target) navigate(target);
+      else if (target) navigate(target, target === "city" ? { cityCode: cityCodeFromUrl(url) || undefined } : target === "cities" ? { cityCountryCode: cityCountryFromUrl(url) } : undefined);
       else if (tripId || inviteCode) navigate("cockpit");
     }).then((handle) => {
       if (!handle) return;
@@ -991,7 +1078,7 @@ export default function App() {
           if (tripId) setCockpitFocusTripId(tripId);
           if (inviteCode) setCockpitInviteCode(rememberTripInvite(inviteCode));
           if (inviteCode) navigate("trips", { replace: true });
-          else if (target) navigate(target, { replace: true });
+          else if (target) navigate(target, { replace: true, ...(target === "city" ? { cityCode: cityCodeFromUrl(url) || undefined } : {}), ...(target === "cities" ? { cityCountryCode: cityCountryFromUrl(url) } : {}) });
           else if (tripId || inviteCode) navigate("cockpit", { replace: true });
         }
       });
@@ -1193,7 +1280,17 @@ export default function App() {
     setCockpitJourneyIntent(intent); navigate("cockpit");
   };
   const renderView = (view: ViewId) => {
-    if (view === "home") return <HomeScreen onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "cities") return <CityDiscoveryScreen countryCode={cityDiscoveryCountry} onOpenCountry={openCityCountry} onBack={goBack} onOpenCity={openCity} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} initialQuery={cityDiscoveryQuery} onQueryChange={setCityDiscoveryQuery}/>;
+    if (view === "city") {
+      const destination = cityCode ? cityDestination(cityCode, locale) : null;
+      if (!destination) return <section className="screen"><h1>{copy("Şehir bulunamadı", "City not found", "Qyteti nuk u gjet")}</h1><button className="secondary-wide" onClick={() => navigate("cities")}>{copy("Tüm şehirleri keşfet", "Explore all destinations", "Eksploro të gjitha destinacionet")}</button></section>;
+      return <CityDestinationScreen destination={destination} saved={savedCities.owner === ownerId && savedCities.codes.includes(destination.code)} onToggleSaved={() => toggleCitySaved(destination.code)}
+        onPlan={() => planCity(destination)} onBudget={() => { navigate("costs", { budgetCityQuery: locale === "tr" ? destination.name : cityDestination(destination.code, "en")?.name || destination.name }); setScrollPositions(previous => ({ ...previous, costs: 0 })); }}
+        onMap={point => mapCity(destination, point)} onEvents={() => openNearbyEvents({ source: "city", countryCode: destination.countryCode, cityName: cityDestination(destination.code, "en")?.name || destination.name,
+          startDate: localIsoDate(0), endDate: localIsoDate(7) })} onBack={goBack}
+        onOpenReadyRoute={() => { if (destination.route) openSeededRoute(destination.route, "explore"); }}/>
+    }
+    if (view === "home") return <HomeScreen onOpenCity={openCity} onOpenAllCities={() => { setCityDiscoveryQuery(""); setScrollPositions(previous => ({ ...previous, cities: 0 })); navigate("cities"); }} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")}
       savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onToggleSaved={toggleHomeRoute}
       onOpenSavedRoute={code => { const saved = savedInspirationRoute(code, ownerId); if (!saved) return showNotice(copy('Bu rota artık kayıtlı değil.', 'This route is no longer saved.', 'Ky itinerar nuk është më i ruajtur.')); setSavedRouteId(saved.id); openSavedRoutes(); }}
@@ -1202,9 +1299,9 @@ export default function App() {
       onOpenCountryEvents={(countryCode, cityName) => openNearbyEvents({ countryCode, cityName, startDate: activeTrip?.countryCode === countryCode ? activeTrip.startDate : localIsoDate(0), endDate: activeTrip?.countryCode === countryCode ? activeTrip.endDate : localIsoDate(7) })} onNotice={showNotice} />;
     if (view === "events") return <EventsScreen profileEvent={eventProfileReturn?.owner === ownerId && eventProfileReturn.context.kind === "event" ? eventProfileReturn.context.event : null} onProfileEventHandled={() => setEventProfileReturn(previous => previous?.context.kind === "event" ? null : previous)} onCompleteProfile={event => completeProfileForEvent({ kind: "event", event })} pendingTripEvent={pendingEventTrip && (pendingEventTrip.owner === ownerId || pendingEventTrip.owner === null) ? pendingEventTrip.event : null} onTripIntentPending={event => { if (profileOwnerRef.current === ownerId) setPendingEventTrip({owner: ownerId, event}); }} onTripIntentHandled={() => setPendingEventTrip(previous => previous?.event === pendingEventTrip?.event ? null : previous)} initialContext={eventSearchContext?.context || (activeTrip && !(eventFilters?.owner === ownerId && eventFilters.tripKey === activeTripKey) ? { countryCode: activeTrip.countryCode, cityName: activeTrip.city, startDate: activeTrip.startDate, endDate: activeTrip.endDate } : undefined)} initialFilters={eventFilters?.owner === ownerId && (eventFilters.tripKey || '') === activeTripKey ? eventFilters.filters : undefined} onFiltersChange={filters => setEventFilters({owner: ownerId, tripKey: activeTripKey, filters})} onContextHandled={() => setEventSearchContext(previous => previous ? {...previous, context: null} : previous)} onCreateEventTrip={event => { if (!ownerId) { setAccountOpen(true); return; } setEventTripIntent({ ownerId, event }); navigate("cockpit"); }} key={`${ownerId || "guest"}-${eventSearchContext?.id || 0}-${activeTripKey}`} focusEventId={focusEventId} onFocusHandled={() => setFocusEventId("")} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onOpenSaved={() => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection("events"); }} onOpenProfile={profileKey => { setSocialIntent({profileKey}); navigate('community'); }} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
-    if (view === "costs") return <CostsScreen ownerId={ownerId} onPrepareCockpitBudget={prepareCockpitJourney} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
+    if (view === "costs") return <CostsScreen key={cityBudgetRequest?.id || 0} initialCityQuery={cityBudgetRequest?.query} ownerId={ownerId} onPrepareCockpitBudget={prepareCockpitJourney} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
-    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={`${ownerId || "guest"}-${toolRequest?.id || 0}-${activeTrip?.tripId || ''}`} initialCountry={toolRequest?.country || activeTrip?.countryCode || ''} initialTool={toolRequest?.tool} onOpenEvents={openNearbyEvents} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={`${ownerId || "guest"}-${toolRequest?.id || 0}-${activeTrip?.tripId || ''}`} initialCountry={toolRequest?.country || activeTrip?.countryCode || ''} initialMapSearch={toolRequest?.mapSearch} initialTool={toolRequest?.tool} onOpenEvents={openNearbyEvents} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "passport") return <PassportScreen ownerId={ownerId} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={route => openSeededRoute(route, "surprise")} onNotice={showNotice} />;
     if (view === "route") return <RouteAssistantScreen onOpenSavedRoutes={openSavedRoutes} onOpenAccount={() => setAccountOpen(true)} key={`planner-${ownerId || "guest"}-${routeResetToken}`} placeName={routePlaceName} placeArea={routeArea} mapRequestId={mapRequestId} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
@@ -1225,7 +1322,7 @@ export default function App() {
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
     <header className="topbar shared-topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
-        {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
+        {(nestedView || (activeView === "companion" && toolRequest?.mapSearch)) && activeView !== "city" && activeView !== "cities" && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
       </div>
       <div className="topbar-actions">
@@ -1250,7 +1347,7 @@ export default function App() {
         )}
         {activeView !== "explore" && activeView !== "route" &&
           <Suspense key={activeView} fallback={<div className="screen screen-module-loading" role="status"><p>{copy("Ekran hazırlanıyor…", "Getting things ready…")}</p><div className="skeleton-list"><div /><div /></div></div>}>
-            <NavigationPane restoreTop={scrollPositions[activeView] || 0} direction={navigationDirection}>{renderView(activeView)}</NavigationPane>
+            <NavigationPane key={activeView === "cities" ? cityDiscoveryCountry || "countries" : activeView} restoreTop={scrollPositions[activeView] || 0} direction={navigationDirection}>{renderView(activeView)}</NavigationPane>
           </Suspense>
         }
       </div>
@@ -1269,7 +1366,7 @@ export default function App() {
     </LazyOverlay>}
     {searchOpen && <LazyOverlay title={copy('Uygulamada ara', 'Search the app', 'Kërko në aplikacion')} loadingMessage={copy('Arama hazırlanıyor…', 'Preparing search…', 'Po përgatitet kërkimi…')} onClose={() => setSearchOpen(false)}>
       <GlobalSearchSheet key={authUiKey} open onClose={() => setSearchOpen(false)} ownerId={ownerId} accessToken={auth.accessToken} initialQuery={globalQuery}
-        onNavigate={openNavigationView} onOpenTool={openTool} onOpenJourneyTool={openJourneyTool} onOpenGuide={reopenGuide} onSearchDestination={searchDestinations}
+        onNavigate={openNavigationView} onOpenTool={openTool} onOpenJourneyTool={openJourneyTool} onOpenGuide={reopenGuide} onSearchDestination={searchDestinations} onOpenCity={openCity}
         onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate('country-news'); }}
         onPlanPlace={(name, area) => { setRoutePlaceName(name); setRouteArea(area); setSurpriseRoute(null); setRouteResetToken(value => value + 1); setMapRequestId(value => value + 1); navigate('route'); }}
         onOpenCountryGuide={code => openTool('guide', alpha2FromAlpha3(code))}

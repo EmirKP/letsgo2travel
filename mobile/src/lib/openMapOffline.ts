@@ -18,14 +18,23 @@ const memory = new Map<string, OpenMapPack>();
 const eventName = 'l2t-open-map-packs';
 export function subscribeOpenMapPacks(listener: () => void) { window.addEventListener(eventName, listener); return () => window.removeEventListener(eventName, listener); }
 function db() {
-  if (!database) database = new Promise<IDBDatabase>((resolve, reject) => {
+  if (!database) {
+    const opening = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('storage_unavailable')); return; }
     const request = indexedDB.open(DB_NAME, 1);
+    let abandoned = false;
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'id' });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => { database = undefined; reject(new Error('storage_unavailable')); };
-    request.onblocked = () => { database = undefined; reject(new Error('storage_unavailable')); };
-  });
+    request.onsuccess = () => { if (abandoned) request.result.close?.(); else resolve(request.result); };
+    request.onerror = request.onblocked = () => { abandoned = true; reject(new Error('storage_unavailable')); };
+    });
+    const attempt = opening.catch(() => {
+      // indexedDB.open may throw synchronously while storage is temporarily
+      // unavailable. Do not cache that rejected promise for the entire session.
+      if (database === attempt) database = undefined;
+      throw new Error('storage_unavailable');
+    });
+    database = attempt;
+  }
   return database;
 }
 function summary(p: OpenMapPack): OpenMapPackSummary {

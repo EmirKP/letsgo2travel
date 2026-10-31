@@ -98,7 +98,7 @@ test('Retry confirms a server-saved preference after a lost response and updates
 });
 
 const notification=(id='one',kind='comment')=>({id,kind,author:{username:`person-${id}`,key:`user:${id}`},postId:kind==='follow'?null:'post-one',commentId:kind==='follow'?null:'comment-one',createdAt:'2026-10-11T12:00:00Z',readAt:null});
-function centerHarness(initial={}) {
+function centerHarness(initial={},write) {
   const requests=[],writes=[],intents=[],reads=new Map(),unread=[];
   const copy=(_,en)=>en;
   const request=(kind,token,signal)=>{const task=deferred();requests.push({kind,token,signal,...task});return task.promise;};
@@ -112,7 +112,7 @@ function centerHarness(initial={}) {
       markNotificationsRead:(ids,owner)=>{const next=[...new Set([...(reads.get(owner)||[]),...ids])];reads.set(owner,next);return next;}},
     '../lib/config':{config:{buildNumber:'test'},releaseId:'test'},
     './Icon':{Icon:'icon'},'./Sheet':{Sheet:'sheet'},'../lib/i18n':{useI18n:()=>({copy,dateLocale:'en-GB'})},
-    '../lib/social':{socialRead:(_params,token,signal)=>request('social',token,signal),socialWrite:async(action,value,token)=>writes.push({action,value,token})},
+    '../lib/social':{socialRead:(_params,token,signal)=>request('social',token,signal),socialWrite:async(action,value,token)=>{writes.push({action,value,token});if(write)return write(action,value,token);}},
   },{window:{addEventListener(){},removeEventListener(){}}});
   const resolveBatch=(offset,items=[])=>{requests[offset].resolve([]);requests[offset+1].resolve([]);requests[offset+2].resolve({items,nextOffset:null});};
   return Object.assign(h,{requests,writes,intents,reads,unread,resolveBatch});
@@ -159,5 +159,52 @@ test('closed inbox refreshes unread badge and older pages preserve the server to
   h.requests[3].resolve({items:[notification('older')],nextOffset:40,unreadCount:45});await h.settle();
   assert.ok(socialButton(h,'first'));assert.ok(socialButton(h,'older'));assert.equal(h.unread.at(-1),45);
   socialButton(h,'older').props.onClick();await h.settle();assert.equal(h.unread.at(-1),44);
+ }finally{h.dispose();}
+});
+
+test('Opening the same unread notification twice acknowledges it once and preserves the server-wide unread total',async()=>{
+ const h=centerHarness();try{
+  h.requests[0].resolve([]);h.requests[1].resolve([]);h.requests[2].resolve({items:[notification('one'),notification('two')],nextOffset:20,unreadCount:45});await h.settle();
+  const row=socialButton(h,'one');row.props.onClick();row.props.onClick();await h.settle();assert.equal(h.writes.length,1);assert.equal(h.unread.at(-1),44,'Only the chosen item is read, not another unseen item');
+  socialButton(h,'one').props.onClick();await h.settle();assert.equal(h.writes.length,1,'An already acknowledged item can reopen without repeating the write');assert.equal(h.unread.at(-1),44);
+  socialButton(h,'two').props.onClick();await h.settle();assert.equal(h.unread.at(-1),43);
+ }finally{h.dispose();}
+});
+
+test('A rejected read acknowledgement leaves the unread badge intact and permits an explicit retry',async()=>{
+ let fail=true;const h=centerHarness({},async()=>{if(fail)throw Error('offline');});try{
+  h.resolveBatch(0,[notification('one'),notification('two')]);await h.settle();socialButton(h,'one').props.onClick();await h.settle();assert.equal(h.unread.at(-1),2);assert.match(text(h.tree),/Could not save read status/);
+  fail=false;socialButton(h,'one').props.onClick();await h.settle();assert.equal(h.writes.length,2);assert.equal(h.unread.at(-1),1);
+ }finally{h.dispose();}
+});
+
+test('An inbox refresh started before a read acknowledgement cannot restore its stale unread total',async()=>{
+ const h=centerHarness();try{
+  h.resolveBatch(0,[notification('one'),notification('two')]);await h.settle();h.render({open:false});h.render({open:true});assert.equal(h.requests.length,6);
+  socialButton(h,'one').props.onClick();await h.settle();assert.equal(h.unread.at(-1),1);
+  h.resolveBatch(3,[notification('one'),notification('two')]);await h.settle();assert.equal(h.unread.at(-1),1,'The older snapshot cannot make the acknowledged item unread again');assert.equal(h.requests.length,9,'An obsolete snapshot requests a fresh authoritative page');
+  h.requests[6].resolve([]);h.requests[7].resolve([]);h.requests[8].resolve({items:[{...notification('one'),readAt:'2026-10-30T19:00:00Z'},notification('two')],nextOffset:null,unreadCount:1});await h.settle();assert.equal(h.unread.at(-1),1);
+ }finally{h.dispose();}
+});
+
+test('An older notification page cannot restore an unread total from before a confirmed read',async()=>{
+ const h=centerHarness();try{
+  h.requests[0].resolve([]);h.requests[1].resolve([]);h.requests[2].resolve({items:[notification('first')],nextOffset:20,unreadCount:45});await h.settle();button(h.tree,'Show older notifications').props.onClick();h.render();
+  socialButton(h,'first').props.onClick();await h.settle();assert.equal(h.unread.at(-1),44);h.requests[3].resolve({items:[notification('older')],nextOffset:40,unreadCount:45});await h.settle();assert.equal(h.unread.at(-1),44);assert.equal(h.requests.length,7);
+  h.requests[4].resolve([]);h.requests[5].resolve([]);h.requests[6].resolve({items:[{...notification('first'),readAt:'2026-10-30T19:00:00Z'}],nextOffset:20,unreadCount:44});await h.settle();assert.equal(h.unread.at(-1),44);
+ }finally{h.dispose();}
+});
+
+test('A read-all acknowledgement prevents a late per-item acknowledgement from consuming a newer unread notification',async()=>{
+ const pending=deferred(),h=centerHarness({},async(_action,value)=>{if(value.id==='one')return pending.promise;});try{
+  h.resolveBatch(0,[notification('one'),notification('two')]);await h.settle();socialButton(h,'one').props.onClick();button(h.tree,'Mark all as read').props.onClick();await h.settle();assert.equal(h.unread.at(-1),0);
+  h.render({open:false});h.render({open:true});h.requests[3].resolve([]);h.requests[4].resolve([]);h.requests[5].resolve({items:[{...notification('one'),readAt:'2026-10-30T19:00:00Z'},notification('new')],nextOffset:null,unreadCount:1});await h.settle();pending.resolve();await h.settle();assert.equal(h.unread.at(-1),1);assert.ok(socialButton(h,'new'));
+ }finally{h.dispose();}
+});
+
+test('A pending old-account read acknowledgement cannot change the new owner inbox or unread badge',async()=>{
+ const pending=deferred(),h=centerHarness({},()=>pending.promise);try{
+  h.resolveBatch(0,[notification('one'),notification('two')]);await h.settle();socialButton(h,'one').props.onClick();h.render({ownerId:'owner-two',accessToken:'other-token'});h.resolveBatch(3,[notification('other')]);await h.settle();assert.equal(h.unread.at(-1),1);
+  pending.resolve();await h.settle();assert.equal(h.unread.at(-1),1);assert.equal(socialButton(h,'one'),undefined);assert.ok(socialButton(h,'other'));assert.equal(h.writes[0].token,'token');
  }finally{h.dispose();}
 });

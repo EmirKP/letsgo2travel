@@ -546,7 +546,7 @@ export async function searchTravelEventPage(search: EventSearch, rawCursor?: str
   };
   const curatedPage = pageState(cursor?.curated ?? 0), automaticPage = pageState(cursor?.automatic ?? 0);
   let provider: EventPageCursor['provider'] = cursor?.provider || 'none';
-  let partial = false, fallbackUsed = false;
+  let partial = false, fallbackUsed = false, fallbackUnavailable = false;
   const readAutomatic = async () => {
     if (cursor?.automatic === -1) return [];
     const read = async (source: 'ticketmaster' | 'predicthq') => {
@@ -567,7 +567,15 @@ export async function searchTravelEventPage(search: EventSearch, rawCursor?: str
     if (providers.predicthq.configured) {
       fallbackUsed = true;
       automaticPage.positions.clear(); automaticPage.endOffset = 0; automaticPage.hasMore = false; automaticPage.limited = false;
-      return read('predicthq');
+      try { return await read('predicthq'); }
+      catch (error) {
+        if (!providers.ticketmaster.succeeded) throw error;
+        // A completed empty primary remains usable when its optional fallback
+        // fails. Keep the incomplete coverage in subsequent editorial pages.
+        partial = true; fallbackUnavailable = true;
+        automaticPage.hasMore = false; automaticPage.limited = false;
+        return [];
+      }
     }
     if (Object.values(providers).some(item => item.attempted) && !Object.values(providers).some(item => item.succeeded)) throw new Error('event_provider_unavailable');
     return [];
@@ -579,7 +587,7 @@ export async function searchTravelEventPage(search: EventSearch, rawCursor?: str
   // Later pages cannot silently change provider, drop a failed source's offset,
   // or erase the already displayed list. The client can retry the same cursor.
   const curated = curatedResult.status === 'fulfilled' ? curatedResult.value : [];
-  const unavailable = automaticResult.status === 'rejected' || cursor?.unavailable === true;
+  const unavailable = fallbackUnavailable || automaticResult.status === 'rejected' || cursor?.unavailable === true;
   if (automaticResult.status === 'rejected' && (cursor || !curated.length)) throw new Error('event_provider_unavailable');
   if (automaticResult.status === 'rejected') { partial = true; provider = 'none'; }
   const automatic = automaticResult.status === 'fulfilled' ? automaticResult.value : [];
@@ -607,7 +615,7 @@ export async function searchTravelEventPage(search: EventSearch, rawCursor?: str
   return {
     events, providerConfigured, providers, fallbackUsed, partial: partial || unavailable,
     coverageLimited,
-    coverageStatus: unavailable ? 'provider_unavailable' : !providerConfigured ? 'not_configured' : coverageLimited ? 'limited' : events.length || next.automatic !== -1 ? 'live' : 'no_results',
+    coverageStatus: unavailable ? succeeded ? 'limited' : 'provider_unavailable' : !providerConfigured ? 'not_configured' : coverageLimited ? 'limited' : events.length || next.automatic !== -1 ? 'live' : 'no_results',
     nextCursor: next.curated === -1 && next.automatic === -1 ? null : encodeURIComponent(JSON.stringify(next)),
     paginationLimited: Boolean(automaticPage.limited || atSafetyLimit),
   };

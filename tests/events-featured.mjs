@@ -147,3 +147,13 @@ test("Provider outages are not cached while successful live responses retain cac
   const live = await route.GET(new Request("https://example.test/api/events?featured=true"));
   assert.match(live.headers.get("cache-control"), /s-maxage=900/);
 });
+
+test('Incomplete fallback or editorial results remain immediately retryable in paged and ordinary event searches',async()=>{
+  let partial=true;
+  const result=async()=>({events:[],providerConfigured:true,providers:{ticketmaster:{configured:true,attempted:true,succeeded:true},predicthq:{configured:true,attempted:true,succeeded:false}},coverageStatus:'limited',coverageLimited:true,partial});
+  const load=modules({'next/server':{NextResponse:Response},'@/lib/airport-search':{listEventCities:()=>[]},'@/lib/travel-events':{searchTravelEvents:result,searchTravelEventPage:result}}),route=load('app/api/events/route.ts');
+  for(const suffix of ['', '&paged=true']){
+    const response=await route.GET(new Request(`https://example.test/api/events?countryCode=IT&city=Rome${suffix}`));assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store','A failed source must not trap Retry behind the browser or CDN cache');assert.equal((await response.json()).meta.coverageStatus,'limited');
+  }
+  partial=false;const healthyLimited=await route.GET(new Request('https://example.test/api/events?countryCode=IT&city=Rome&paged=true'));assert.match(healthyLimited.headers.get('cache-control'),/s-maxage=900/,'Healthy coverage limits retain the ordinary cache policy');
+});

@@ -168,6 +168,23 @@ test('An offline direction request from Saved reveals the actual place and a vis
   assert.equal(app.calls.routes.length,0);assert.equal(app.calls.gps,0);app.dispose();
 });
 
+test('Directions to a saved place outside the open download keep the boundary recovery visible instead of drawing against the wrong region',()=>{
+  for(const online of [true,false])for(const oldFormat of [false,true]){
+    const app=fixture(),savedPlace=poi(7,'Istanbul saved museum');
+    nodes(app.tree).find(node=>node.type==='button'&&node.key==='offline').props.onClick();app.render();
+    const downloads=nodes(app.tree).find(node=>node.type==='TravelMapDownloads');
+    const pack={id:'paris',name:'Paris offline',center:{latitude:48.86,longitude:2.35},bounds:{south:48.84,north:48.88,west:2.32,east:2.38},places:[]};
+    (oldFormat?downloads.props.onOpenLegacy:downloads.props.onOpenPack)(pack);app.render();
+    app.network(online);nodes(app.tree).find(node=>node.type==='button'&&node.key==='saved').props.onClick();app.render();
+    nodes(app.tree).find(node=>node.type==='TravelMapLibrary').props.onDirections(savedPlace);app.render();
+    assert.equal(nodes(app.tree).some(node=>node.type==='UnifiedMapCanvas'),false,'An outside destination must not be rendered against the current download bounds');
+    assert.match(text(app.tree),/outside the open download/);
+    assert.equal(app.calls.routes.length,0,'Choose the appropriate region before asking for directions');
+    app.click('Open downloaded regions');assert.ok(nodes(app.tree).some(node=>node.type==='TravelMapDownloads'));
+    assert.equal(app.calls.gps,0);app.dispose();
+  }
+});
+
 test('A selected POI preserves the previous map centre as route origin and a late old route cannot overwrite another selection',async()=>{
   const app=fixture();const origin={latitude:41.02,longitude:29.01};app.map.props.onMove(origin);app.render();app.map.props.onSelect(poi(1));app.render();
   app.click('Show directions');assert.deepEqual(plain(app.calls.routes[0].origin),origin);assert.equal(app.calls.routes[0].destination.id,'node/1');
