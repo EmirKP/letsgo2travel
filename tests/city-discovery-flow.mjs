@@ -91,7 +91,7 @@ function pinsHarness(storage = new Map()) {
 // Run the actual App navigation/handlers in memory. Unrelated React, network,
 // device and account effects never run; the browser history model is synthetic.
 function appHarness({ href = 'https://local.test/#home', historyState = null, historyEntries, historyIndex = 0, locale = 'en' } = {}) {
-  const state = { activeView: 'home', cityCode: navigation.cityCodeFromUrl(href), cityDiscoveryCountry: navigation.cityCountryFromUrl(href), cityDiscoveryQuery: '', cityBudgetRequest: null, visitedViews: ['home'], scrollPositions: {}, exploreSearch: { query: '', requestId: 0 }, routeResetToken: 0, mapRequestId: 0, toolRequest: null, notices: [], events: [], readyRoutes: [], countryChoices: [], savedCityRequests: [] };
+  const state = { activeView: 'home', cityCode: navigation.cityCodeFromUrl(href), cityDiscoveryCountry: navigation.cityCountryFromUrl(href), cityDiscoveryQuery: '', cityDiscoverySavedOnly: false, savedCityRefresh: 0, cityBudgetRequest: null, visitedViews: ['home'], scrollPositions: {}, exploreSearch: { query: '', requestId: 0 }, routeResetToken: 0, mapRequestId: 0, toolRequest: null, notices: [], events: [], readyRoutes: [], countryChoices: [], savedCityRequests: [] };
   const location = { href, origin: 'https://local.test' }, listeners = new Map();
   const entries = historyEntries ? plain(historyEntries) : [{ url: href, state: historyState }]; let position = historyEntries ? historyIndex : 0;
   const window = {
@@ -104,14 +104,14 @@ function appHarness({ href = 'https://local.test/#home', historyState = null, hi
       back() { if (!position) return; position--; location.href = entries[position].url; listeners.get('popstate')?.({ state: plain(entries[position].state) }); },
     },
   };
-  const context = { Date, URL, window, locale, ownerId: 'owner-a', cityCode: state.cityCode, cityDiscoveryCountry: state.cityDiscoveryCountry, cityDiscoveryQuery: '', savedCities: { owner: 'owner-a', codes: [] }, CityDestinationScreen: 'CityDestinationScreen', CityDiscoveryScreen: 'CityDiscoveryScreen',
+  const context = { Date, URL, window, locale, ownerId: 'owner-a', cityCode: state.cityCode, cityDiscoveryCountry: state.cityDiscoveryCountry, cityDiscoveryQuery: '', cityDiscoverySavedOnly: false, savedCities: { owner: 'owner-a', codes: [] }, CityDestinationScreen: 'CityDestinationScreen', CityDiscoveryScreen: 'CityDiscoveryScreen',
     toggleCitySaved: code => state.savedCityRequests.push(code),
     ...navigation, ...catalog, copy: (_tr, en) => en, activeViewRef: { current: 'home' }, activeTabRef: { current: 'home' }, historyDepth: { current: 0 }, mainRef: { current: null }, toolRequestCounter: { current: 0 },
     tabDefinitions: ['home', 'trips', 'community', 'companion', 'profile'].map(id => ({ id })), impact: async () => {},
     selectTravelCountry: code => state.countryChoices.push(code), openNearbyEvents: value => state.events.push(plain(value)), openSeededRoute: (route, kind) => state.readyRoutes.push({ route, kind }), showNotice: value => state.notices.push(value),
     localIsoDate: offset => { const date = new Date('2030-07-10T12:00:00Z'); date.setUTCDate(date.getUTCDate() + offset); return date.toISOString().slice(0, 10); },
   };
-  for (const key of ['ActiveView', 'CityCode', 'CityDiscoveryCountry', 'CityDiscoveryQuery', 'CityBudgetRequest', 'VisitedViews', 'ScrollPositions', 'ExploreSearch', 'OpenTransfer', 'ExploreCode', 'NavigationDirection', 'ActiveTab', 'CommunityCountryCode', 'RoutePlaceName', 'RouteArea', 'SurpriseRoute', 'RouteResetToken', 'MapRequestId', 'ToolRequest']) {
+  for (const key of ['ActiveView', 'CityCode', 'CityDiscoveryCountry', 'CityDiscoveryQuery', 'CityDiscoverySavedOnly', 'SavedCityRefresh', 'CityBudgetRequest', 'VisitedViews', 'ScrollPositions', 'ExploreSearch', 'OpenTransfer', 'ExploreCode', 'NavigationDirection', 'ActiveTab', 'CommunityCountryCode', 'RoutePlaceName', 'RouteArea', 'SurpriseRoute', 'RouteResetToken', 'MapRequestId', 'ToolRequest']) {
     const field = key[0].toLowerCase() + key.slice(1);
     context[`set${key}`] = value => { state[field] = typeof value === 'function' ? value(state[field]) : value; context[field] = state[field]; };
   }
@@ -126,8 +126,66 @@ function appHarness({ href = 'https://local.test/#home', historyState = null, hi
   state.cityBudgetRequest = evaluate(budget.initializer.arguments[0].getText(app), context)();
   const effect = locate(app, node => ts.isCallExpression(node) && node.expression.getText(app) === 'useEffect' && node.arguments[0]?.getText(app).includes('const initialCityCode = cityCodeFromUrl'));
   evaluate(effect.arguments[0].getText(app), context)();
-  for (const name of ['navigate', 'searchDestinations', 'openCity', 'openCityCountry', 'planCity', 'mapCity', 'goBack', 'renderView']) context[name] = appFunction(name, context);
+  for (const name of ['navigate', 'searchDestinations', 'openCity', 'openCityCountry', 'searchAllCityCountries', 'planCity', 'mapCity', 'searchCityPlace', 'goBack', 'renderView']) context[name] = appFunction(name, context);
   return { state, context, window, entries, get position() { return position; }, destination: () => context.renderView('city') };
+}
+
+// Exercise the actual rendered recovery button with App's actual link handlers.
+// Only decorative children and React state plumbing are synthetic.
+function countryRecoveryScreen(h, locale) {
+  const source = ast('mobile/src/screens/CityDiscoveryScreen.tsx');
+  const declaration = locate(source, node => ts.isFunctionDeclaration(node) && node.name?.text === 'CityDiscoveryScreen');
+  const slots = []; let cursor = 0;
+  const component = evaluate(declaration.getText(source).replace(/^export\s+/, ''), {
+    ...catalog, ...modules()('mobile/src/lib/searchText.ts'),
+    useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }),
+    useState(initial) { const index = cursor++; if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[index].value, next => { slots[index].value = typeof next === 'function' ? next(slots[index].value) : next; }]; },
+    useMemo: fn => fn(), useRef: () => ({ current: null }),
+    CityHeartButton: 'CityHeartButton', CityPhotoCredits: 'CityPhotoCredits', CountryFlag: 'CountryFlag', DestinationPhoto: 'DestinationPhoto', Icon: 'Icon',
+  });
+  const props = h.context.renderView('cities').props;
+  return () => { cursor = 0; return component(props); };
+}
+
+const recoveryNodes = tree => Array.isArray(tree) ? tree.flatMap(recoveryNodes) : tree && typeof tree === 'object'
+  ? [tree, ...recoveryNodes(tree.props?.children)] : [];
+const recoveryText = tree => Array.isArray(tree) ? tree.map(recoveryText).join('') : typeof tree === 'string' || typeof tree === 'number'
+  ? String(tree) : tree?.props ? recoveryText(tree.props.children) : '';
+
+function countryLinkHandler(h, cold = false) {
+  const expression = cold
+    ? locate(app, node => ts.isCallExpression(node) && node.expression.getText(app) === 'app.getLaunchUrl().then').arguments[0]
+    : locate(app, node => ts.isCallExpression(node) && node.expression.getText(app) === 'addPluginListener' && node.arguments[1]?.text === 'appUrlOpen').arguments[2];
+  return evaluate(expression.getText(app), { ...h.context, active: true, isJourneyGuideUrl: () => false, tripIdFromUrl: () => null, tripInviteFromUrl: () => '' });
+}
+
+for (const [locale, label] of Object.entries({ tr: 'Tüm ülkeler', en: 'All countries', sq: 'Të gjitha shtetet', ro: 'Toate țările' })) {
+  for (const entry of ['cold web', 'cold native', 'warm Home', 'warm Profile', 'warm country']) {
+    test(`${locale}: unsupported-country recovery reaches the unfiltered catalogue from ${entry}`, () => {
+      const url = 'https://local.test/#/cities/ZZ';
+      const h = appHarness({ locale, ...(entry === 'cold web' ? { href: url } : {}) });
+      if (entry === 'warm Profile') h.context.navigate('profile');
+      if (entry === 'warm country') h.context.openCityCountry('FR');
+      if (entry !== 'cold web') countryLinkHandler(h, entry === 'cold native')({ url });
+      assert.equal(h.state.activeView, 'cities'); assert.equal(h.state.cityDiscoveryCountry, 'ZZ');
+      const incoming = h.context.renderView('cities').props;
+      incoming.onQueryChange('no-such-city'); incoming.onSavedOnlyChange(true);
+      h.context.savedCities = { owner: 'owner-a', codes: ['FCO'] };
+      const render = countryRecoveryScreen(h, locale), tree = render();
+      const recovery = recoveryNodes(tree).find(node => node.type === 'button' && recoveryText(node) === label);
+      assert.ok(recovery, 'The labelled empty-state action is visible');
+      recovery.props.onClick();
+      assert.equal(new URL(h.window.location.href).hash, '#cities', 'Explicit All countries never resolves to the previous screen');
+      assert.equal(h.state.activeView, 'cities'); assert.equal(h.state.cityDiscoveryCountry, null);
+      assert.equal(h.state.cityDiscoveryQuery, ''); assert.equal(h.state.cityDiscoverySavedOnly, false);
+      const local = render();
+      assert.equal(recoveryNodes(local).find(node => node.type === 'input').props.value, '');
+      assert.equal(recoveryNodes(local).filter(node => node.type === 'button' && node.props['aria-pressed'] === true).length, 1);
+      assert.deepEqual(plain(h.context.savedCities), { owner: 'owner-a', codes: ['FCO'] });
+      for (const key of ['savedCityRequests', 'events', 'readyRoutes', 'countryChoices']) assert.equal(h.state[key].length, 0, `${key}: recovery makes no provider, account or record mutation`);
+      assert.equal(h.state.toolRequest, null); assert.equal(h.state.mapRequestId, 0);
+    });
+  }
 }
 
 test('City URLs survive refresh and Back, including switching cities without leaving the city view', () => {
@@ -305,4 +363,71 @@ test('Nearby map searches start after the incoming city intent id rather than co
     const onSearch = evaluate(callback.getText(source), globals); onSearch('museum', { latitude: 41.9, longitude: 12.5 }, 'museum'); onSearch('cafe', { latitude: 41.91, longitude: 12.51 }, 'cafe');
     assert.deepEqual(writes.map(item => item.id), [(incoming?.id || 0) + 1, (incoming?.id || 0) + 2]); assert.equal(writes[1].category, 'cafe');
   }
+});
+
+test('Country-wide search exits country and saved-only scopes while keeping the actual query', () => {
+  const h = appHarness(); h.context.openCityCountry('RO');
+  const view = h.context.renderView('cities');
+  view.props.onQueryChange('Fransa'); view.props.onSavedOnlyChange(true);
+  assert.equal(h.context.renderView('cities').props.initialSavedOnly, true);
+  view.props.onSearchAllCountries('  Fransa  ');
+  assert.equal(new URL(h.window.location.href).hash, '#cities');
+  const all = h.context.renderView('cities');
+  assert.equal(all.props.countryCode, null);
+  assert.equal(all.props.initialQuery, 'Fransa');
+  assert.equal(all.props.initialSavedOnly, false);
+  assert.deepEqual(h.state.savedCityRequests, [], 'Changing catalogue scope never modifies bookmarks');
+});
+
+test('Saved-city view preference follows the actual App city roundtrip without becoming a second collection', () => {
+  const h = appHarness(); h.context.openCityCountry('RO');
+  h.context.renderView('cities').props.onSavedOnlyChange(true);
+  h.context.renderView('cities').props.onOpenCity('OTP');
+  h.destination().props.onBack();
+  assert.equal(new URL(h.window.location.href).hash, '#cities/RO');
+  assert.equal(h.context.renderView('cities').props.initialSavedOnly, true);
+  assert.deepEqual(h.state.savedCityRequests, []);
+});
+
+test('Unlocated editorial places search around the city without inventing precise venue coordinates', () => {
+  for (const locale of ['tr', 'en', 'sq', 'ro']) {
+    const h = appHarness({ locale }); h.context.openCity('OTP');
+    const view = h.destination();
+    view.props.onSearchPlace('Palatul Parlamentului');
+    assert.equal(h.state.activeView, 'companion');
+    const search = h.state.toolRequest.mapSearch;
+    assert.equal(h.state.toolRequest.country, 'RO');
+    assert.deepEqual(plain(search.center), plain(view.props.destination.center));
+    assert.equal(search.label, view.props.destination.name, 'The map context identifies the city, not a false venue pin');
+    assert.equal(search.query, 'Palatul Parlamentului, Bucharest', 'The map provider receives an international city name in every UI language');
+    assert.deepEqual(h.state.savedCityRequests, []);
+  }
+});
+
+test('App keeps failed bookmark reads distinct from a real empty result without leaking an old owner', () => {
+  const effect = locate(app, node => ts.isCallExpression(node) && node.expression.getText(app) === 'useEffect' && node.arguments[0]?.getText(app).includes('const state = readPersonalMapPins(ownerId)'));
+  for (const owner of ['owner-a', 'owner-b']) {
+    let saved = { owner: 'owner-a', codes: ['FCO'] }, result = { items: [], error: 'storage_unavailable' }, refresh;
+    const reads = [], globals = { ownerId: owner,
+      readPersonalMapPins: id => { reads.push(id); return result; },
+      setSavedCities: value => { saved = typeof value === 'function' ? value(saved) : value; },
+      subscribePersonalMapPins: (callback, id) => { assert.equal(id, owner); refresh = callback; return () => {}; },
+    };
+    evaluate(effect.arguments[0].getText(app), globals)();
+    assert.equal(saved.error, true); assert.equal(saved.owner, owner);
+    assert.deepEqual(plain(saved.codes), owner === 'owner-a' ? ['FCO'] : [], 'An unavailable read can retain only the same owner’s last known view');
+    result = { items: [{ destinationCode: 'OTP' }], error: null }; refresh();
+    assert.equal(saved.error, false); assert.deepEqual(plain(saved.codes), ['OTP']);
+    result = { items: [], error: null }; refresh();
+    assert.equal(saved.error, false); assert.deepEqual(plain(saved.codes), [], 'A successful empty document is really empty');
+    assert.deepEqual(reads, [owner, owner, owner]);
+  }
+  const h = appHarness(); h.context.navigate('cities');
+  h.context.savedCities = { owner: 'owner-a', codes: ['FCO'], error: true };
+  assert.equal(h.context.renderView('cities').props.savedUnavailable, true);
+  h.context.renderView('cities').props.onRetrySaved();
+  assert.equal(h.state.savedCityRefresh, 1); assert.deepEqual(h.state.savedCityRequests, []);
+  h.context.savedCities = { owner: 'other-owner', codes: ['FCO'], error: true };
+  assert.equal(h.context.renderView('cities').props.savedUnavailable, false);
+  assert.deepEqual(plain(h.context.renderView('cities').props.savedCityCodes), []);
 });

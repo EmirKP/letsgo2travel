@@ -6,6 +6,8 @@ import { CityPhotoCredits } from '../components/CityPhotoCredits';
 import { CountryFlag } from '../components/CountryFlag';
 import { Sheet } from '../components/Sheet';
 import { cityHighlightDetails } from '../data/cityHighlightDetails';
+import { cityEssentials } from '../data/cityEssentials';
+import { cityEssentialPhoto } from '../data/cityEssentialPhotos';
 import { openExternal } from '../lib/native';
 import type { CityDestination } from '../data/cityDestinations';
 import { useI18n } from '../lib/i18n';
@@ -18,6 +20,7 @@ type Props = {
   onPlan: () => void;
   onBudget: () => void;
   onMap: (point?: CityDestination['highlights'][number]) => void;
+  onSearchPlace?: (name: string) => void;
   onEvents: () => void;
   onBack: () => void;
   onOpenReadyRoute: () => void;
@@ -35,7 +38,7 @@ function ItinerarySteps({ steps, compact = false }: { steps: readonly string[]; 
   })}</ol>;
 }
 
-export function CityDestinationScreen({ destination, saved, onToggleSaved, onPlan, onBudget, onMap, onEvents, onBack, onOpenReadyRoute }: Props) {
+export function CityDestinationScreen({ destination, saved, onToggleSaved, onPlan, onBudget, onMap, onSearchPlace, onEvents, onBack, onOpenReadyRoute }: Props) {
   const { copy, locale } = useI18n();
   const label = (tr: string, en: string, sq: string, ro: string) => locale === 'ro' ? ro : copy(tr, en, sq);
   const [panel, setPanel] = useState<{ city: string; detail: Detail | null }>(() => ({ city: destination.code, detail: null }));
@@ -43,6 +46,14 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
   // A new city must discard the old panel, including a quick return to it.
   if (!currentCity) setPanel({ city: destination.code, detail: null });
   const highlights = destination.highlights;
+  const essentials = cityEssentials(destination.code, locale);
+  // Map providers recognise the reviewed international venue names more
+  // reliably than translated editorial labels. Keep the page in its locale.
+  const mapPlaces = locale === 'en' ? essentials?.places : cityEssentials(destination.code, 'en')?.places;
+  const essentialPhotos = !highlights.length && essentials ? essentials.places.flatMap(place => {
+    const image = cityEssentialPhoto(destination.code, place.id);
+    return image ? [{ code: place.id, name: place.name, ...image }] : [];
+  }) : [];
   const route = destination.route;
   const routeTitle = label(`${destination.name} rotası`, `${destination.name} route`, `Itinerar në ${destination.name}`, `Traseu în ${destination.name}`);
   const activeDetail = currentCity ? panel.detail : null;
@@ -57,8 +68,8 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
       <DestinationPhoto src={destination.heroPhoto || destination.photo} code={destination.code} countryCode={destination.countryCode} label={destination.name}/>
       <div className="city-destination-hero-shade" aria-hidden="true"/>
       <div className="city-destination-hero-tools">
-        <button className="city-destination-back" type="button" onClick={onBack} aria-label={label('Keşfet’e dön', 'Back to Discover', 'Kthehu te Zbulo', 'Înapoi la Descoperă')}>
-          <Icon name="back" size={21}/><span>{label('Keşfet', 'Discover', 'Zbulo', 'Descoperă')}</span>
+        <button className="city-destination-back" type="button" onClick={onBack} aria-label={label('Geri', 'Back', 'Prapa', 'Înapoi')}>
+          <Icon name="back" size={21}/><span>{label('Geri', 'Back', 'Prapa', 'Înapoi')}</span>
         </button>
         <CityHeartButton className="city-destination-heart" onToggle={onToggleSaved} saved={saved} label={saved
           ? label(`${destination.name} kaydını kaldır`, `Unsave ${destination.name}`, `Hiq ${destination.name} nga të ruajturat`, `Elimină ${destination.name} din salvate`)
@@ -74,6 +85,7 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
         </div>
         <button className="city-destination-plan" type="button" onClick={onPlan}><Icon name="route" size={20}/>{label('Rota oluştur', 'Create a route', 'Krijo itinerar', 'Creează un traseu')}</button>
       </div>
+      {essentials && <p className="city-destination-summary">{essentials.summary}</p>}
       <div className="city-destination-actions" role="group" aria-label={label('Şehir araçları', 'City tools', 'Mjetet e qytetit', 'Instrumente pentru oraș')}>
         <button type="button" onClick={onBudget}><Icon name="wallet" size={21}/><span>{label('Bütçe', 'Budget', 'Buxheti', 'Buget')}</span></button>
         <button type="button" onClick={() => onMap()}><Icon name="map" size={21}/><span>{label('Harita', 'Map', 'Harta', 'Hartă')}</span></button>
@@ -103,6 +115,25 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
         </div>
       </section>}
 
+      {highlights.length === 0 && essentials && <section className="city-essentials" aria-labelledby="city-essentials-title">
+        <div className="city-destination-section-heading">
+          <h2 id="city-essentials-title">{label('Şehirde keşfet', 'Explore the city', 'Eksploro qytetin', 'Explorează orașul')}</h2>
+        </div>
+        <div className="city-essentials-list">{essentials.places.map((place, index) => {
+          const image = essentialPhotos.find(photo => photo.code === place.id);
+          return <article className="city-essential" key={place.id}>
+          <span className="city-essential-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+          <div className="city-essential-copy"><small>{place.category}</small><h3>{place.name}</h3>
+            <div className="city-essential-actions">
+              {onSearchPlace && <button type="button" onClick={() => onSearchPlace(mapPlaces?.find(point => point.id === place.id)?.name || place.name)} aria-label={label(`${place.name} için haritada ara`, `Search the map for ${place.name}`, `Kërko ${place.name} në hartë`, `Caută ${place.name} pe hartă`)}><Icon name="map" size={16}/>{label('Haritada ara', 'Search map', 'Kërko në hartë', 'Caută pe hartă')}</button>}
+              <button type="button" className="city-essential-source" onClick={() => void openExternal(place.source.url)} aria-label={label(`${place.name} resmî rehberini aç`, `Open the official guide for ${place.name}`, `Hap udhëzuesin zyrtar për ${place.name}`, `Deschide ghidul oficial pentru ${place.name}`)}>{label('Resmî rehber', 'Official guide', 'Udhëzuesi zyrtar', 'Ghid oficial')}<Icon name="external" size={13}/></button>
+            </div>
+          </div>
+          {image && <span className="city-essential-photo"><DestinationPhoto src={image.photo} countryCode={destination.countryCode} label={place.name}/></span>}
+        </article>;
+        })}</div>
+      </section>}
+
       {route && <section className="city-destination-ready-route" aria-labelledby="city-ready-route-title">
         <div className="city-ready-heading">
           <span className="city-destination-ready-icon" aria-hidden="true"><Icon name="route" size={24}/></span>
@@ -115,7 +146,7 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
           <button type="button" className="city-detail-primary" onClick={onOpenReadyRoute}>{label('Rotayı aç', 'Open route', 'Hap itinerarin', 'Deschide traseul')}<Icon name="chevron" size={17}/></button>
         </div>
       </section>}
-      <CityPhotoCredits destinations={[destination, ...highlights.map(point => ({ code: point.id, name: point.name, photoCredit: point.photoCredit }))]}/>
+      <CityPhotoCredits destinations={[destination, ...highlights.map(point => ({ code: point.id, name: point.name, photoCredit: point.photoCredit })), ...essentialPhotos]}/>
     </div>
     {(selectedPlace || selectedRoute) && <Sheet open title={selectedPlace?.name || routeTitle} onClose={closeDetail} size="large" className="city-detail-sheet">
       {selectedPlace && <div className="city-place-detail">

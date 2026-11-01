@@ -31,6 +31,32 @@ function unlockBodyScroll() {
   else root.setAttribute("aria-hidden", rootAriaHidden);
 }
 
+function sheetTabStops(sheet: HTMLElement) {
+  return Array.from(sheet.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], summary, [tabindex]"))
+    .filter(element => {
+      if (element.tabIndex < 0 || element.matches(':disabled, input[type="hidden"]') || element.closest("[hidden], [inert]")) return false;
+      if (!element.getClientRects().length || ["hidden", "collapse"].includes(window.getComputedStyle(element).visibility)) return false;
+      if (element.tagName === "SUMMARY" && !element.hasAttribute("tabindex")) {
+        const parent = element.parentElement;
+        if (parent?.tagName !== "DETAILS" || Array.from(parent.children).find(child => child.tagName === "SUMMARY") !== element) return false;
+      }
+      // Some browsers report rectangles for closed-details descendants even
+      // though they cannot accept focus. Only the first summary stays active.
+      for (let ancestor: HTMLElement | null = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        if (ancestor.tagName === "DETAILS" && !ancestor.hasAttribute("open")) {
+          const summary = Array.from(ancestor.children).find(child => child.tagName === "SUMMARY");
+          if (!summary?.contains(element)) return false;
+        }
+      }
+      return true;
+    })
+    .sort((first, second) => {
+      const firstOrder = first.tabIndex > 0 ? first.tabIndex : Number.MAX_SAFE_INTEGER;
+      const secondOrder = second.tabIndex > 0 ? second.tabIndex : Number.MAX_SAFE_INTEGER;
+      return firstOrder - secondOrder;
+    });
+}
+
 export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true, className = "", renderHeader }: {
   open: boolean;
   title: string;
@@ -73,7 +99,7 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
         return;
       }
       if (event.key !== "Tab" || !sheetRef.current) return;
-      const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]")).filter(element => element.getClientRects().length > 0);
+      const focusable = sheetTabStops(sheetRef.current);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

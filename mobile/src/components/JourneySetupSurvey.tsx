@@ -25,6 +25,8 @@ export type JourneySurveyValues = {
 type Props = {
   ownerId?: string | null;
   draftScope?: string;
+  cityRequestId?: number;
+  cityNames?: readonly string[];
   initialCity?: string;
   initialArea?: JourneyArea;
   initialTrip?: { startDate: string; endDate: string; adults?: number; children?: number };
@@ -49,6 +51,34 @@ const EXAMPLE_CITIES = ['İstanbul', 'Paris', 'Tokyo', 'Tirana'];
 const validDate = (value: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value)
   && Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
 
+function matchesCityTarget(draft: JourneySurveyDraft, target: JourneyArea, cityNames?: readonly string[]) {
+  const knownDraft = draft.area && knownJourneyArea(draft.area.name), knownTarget = knownJourneyArea(target.name);
+  const sameKnownCity = knownDraft && knownTarget && knownDraft.latitude === knownTarget.latitude && knownDraft.longitude === knownTarget.longitude;
+  const draftName = draft.area?.name;
+  const sameCatalogCity = cityNames && draftName && cityNames.some(name => name.localeCompare(draftName, undefined, { sensitivity: 'base' }) === 0)
+    && cityNames.some(name => name.localeCompare(target.name, undefined, { sensitivity: 'base' }) === 0);
+  return Boolean(draft.area && (draft.area.latitude === target.latitude && draft.area.longitude === target.longitude
+    || draft.area.name.trim().localeCompare(target.name.trim(), undefined, { sensitivity: 'base' }) === 0 || sameKnownCity || sameCatalogCity));
+}
+function restoreSurvey(ownerId: string | null, scope: string, cityRequestId: number | undefined, target: JourneyArea | undefined, initialDraft: JourneySurveyDraft | undefined, cityNames?: readonly string[]) {
+  const original = readJourneySurveyDraft(ownerId, scope);
+  if (!Number.isSafeInteger(cityRequestId) || cityRequestId! <= 0 || !target || initialDraft || !original.draft || matchesCityTarget(original.draft, target, cityNames)) return { ...original, scope };
+  // A prior edit may have changed the destination inside this entry scope.
+  // Preserve those bytes and use a separate target draft, never its place notes.
+  let nextScope = `${scope}:city-entry`, previous = readJourneySurveyDraft(ownerId, nextScope), index = 1;
+  // Occupied drafts belong to their existing destinations. The finite stored
+  // family is read only until a matching or unused slot is found.
+  while (previous.draft && !matchesCityTarget(previous.draft, target, cityNames)) {
+    nextScope = `${scope}:city-entry:${++index}`;
+    previous = readJourneySurveyDraft(ownerId, nextScope);
+  }
+  if (previous.draft && matchesCityTarget(previous.draft, target, cityNames)) return { ...previous, error: original.error || previous.error, scope: nextScope };
+  const shared = original.draft;
+  const draft: JourneySurveyDraft = { ...shared, step: 0, query: target.name, area: { ...target },
+    dateMode: 'flexible', startDate: '', firstDayStartTime: '', notes: '' };
+  return { draft, error: original.error || previous.error, scope: nextScope };
+}
+
 function ChoiceGroup<T extends string>({ label, name, choices, value, onChange, disabled, hint }: {
   label: string; name: string; choices: Choice<T>[]; value: T; onChange: (value: T) => void; disabled: boolean; hint?: string;
 }) {
@@ -67,12 +97,13 @@ function ChoiceGroup<T extends string>({ label, name, choices, value, onChange, 
 
 /** Only resolved destinations reach generation; typed text never reuses an old city's coordinates. */
 export function JourneySetupSurvey(props: Props) {
-  return <SurveyForm key={JSON.stringify([props.ownerId ?? null, props.draftScope || 'new'])} {...props} />;
+  return <SurveyForm key={JSON.stringify([props.ownerId ?? null, props.draftScope || 'new', props.cityRequestId || 0])} {...props} />;
 }
 
-function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', initialArea, initialTrip, initialValues, initialDraft, busy = false, error = '', allowance, generationDisabled=false, generationLabel, onSignIn, onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
+function SurveyForm({ ownerId = null, draftScope = 'new', cityRequestId, cityNames, initialCity = '', initialArea, initialTrip, initialValues, initialDraft, busy = false, error = '', allowance, generationDisabled=false, generationLabel, onSignIn, onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
   const { copy, locale } = useI18n();
-  const [restored] = useState(() => readJourneySurveyDraft(ownerId, draftScope));
+  const explicitCityEntry = Number.isSafeInteger(cityRequestId) && cityRequestId! > 0 && !!initialArea && !initialDraft;
+  const [restored] = useState(() => restoreSurvey(ownerId, draftScope, cityRequestId, initialArea, initialDraft, cityNames));
   const draft = restored.draft || initialDraft;
   const [step, setStep] = useState(draft?.step ?? 0);
   const [query, setQuery] = useState(draft?.query ?? initialValues?.area.name ?? initialArea?.name ?? initialCity);
@@ -90,6 +121,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
   const [interests, setInterests] = useState<JourneySurveyValues['interests']>(() => draft ? draft.interests : initialValues ? [...initialValues.interests] : journeyInterestsFromWelcome(readWelcomePreferences().interests));
   const [notes, setNotes] = useState(draft?.notes ?? initialValues?.notes ?? '');
   const [storageError, setStorageError] = useState(restored.error);
+  const lastDraft = useRef<string | null>(null);
   const [searchRetry, setSearchRetry] = useState(0);
   const [activeResult, setActiveResult] = useState(-1);
   const [fieldError, setFieldError] = useState<FieldError>(null);
@@ -122,8 +154,11 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
   }, [step]);
   useEffect(() => {
     const next: JourneySurveyDraft = { step, query, area, dayText, dateMode, startDate, firstDayStartTime, party, budget, pace, walking, interests, notes };
-    setStorageError(!saveJourneySurveyDraft(ownerId, next, draftScope));
-  }, [ownerId, draftScope, step, query, area, dayText, dateMode, startDate, firstDayStartTime, party, budget, pace, walking, interests, notes]);
+    const snapshot = JSON.stringify(next);
+    if (explicitCityEntry && (lastDraft.current === null || lastDraft.current === snapshot)) { lastDraft.current = snapshot; return; }
+    lastDraft.current = snapshot;
+    setStorageError(!saveJourneySurveyDraft(ownerId, next, restored.scope));
+  }, [ownerId, restored.scope, explicitCityEntry, step, query, area, dayText, dateMode, startDate, firstDayStartTime, party, budget, pace, walking, interests, notes]);
   useEffect(() => {
     sequence.current++;
     request.current?.abort();

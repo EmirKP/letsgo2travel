@@ -42,6 +42,7 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../lib/savedRouteDisplay') return load('mobile/src/lib/savedRouteDisplay.ts');
     if (name === './cityDestinationExtras') return load('mobile/src/data/cityDestinationExtras.ts', { './budgetCityPhotos': load('mobile/src/data/budgetCityPhotos.ts') });
     if (name === '../lib/bundledImageSource') return load('mobile/src/lib/bundledImageSource.ts');
+    if (name === '../data/cityDestinations') return cityData;
     if (name === '../assets/budget/cities/photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/budget/cities/photo-credits.json', 'utf8')) };
     if (name === '../assets/city-destinations/rome-photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/city-destinations/rome-photo-credits.json', 'utf8')) };
     if (/\.(?:webp|png|jpe?g)$/.test(name)) return { default: name };
@@ -294,7 +295,7 @@ test('Home opens all fifty canonical city details, saves independently and omits
     assert.equal(nodes(nav).some(node => node.props?.className === 'rh-city-route-badge'),false,'Home no longer shows itinerary day badges');
     const photos=articles.map(article=>find(article,'img'));
     assert.ok(photos.slice(4).every(photo=>photo.props.loading==='lazy'),'Offscreen city photography does not eagerly fetch the extra forty-six images');
-    button(view, 'See all').props.onClick();
+    button(view, 'Countries').props.onClick();
     assert.deepEqual(all, ['cities']);
   } finally { host.dispose(); }
 });

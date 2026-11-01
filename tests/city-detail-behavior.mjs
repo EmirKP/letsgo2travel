@@ -85,7 +85,7 @@ async function fixture(locale) {
     let host;
     const capture = action => { calls.push(action); snapshots.push(nodes(render()).some(node => node.type === 'Sheet')); };
     const actions = Object.fromEntries(['Plan', 'Budget', 'Events', 'Back', 'OpenReadyRoute', 'ToggleSaved'].map(name => [`on${name}`, () => capture({ action: name })]));
-    host = hooks(CityDestinationScreen, { destination, saved, ...actions, onMap: point => capture({ action: 'Map', point }) });
+    host = hooks(CityDestinationScreen, { destination, saved, ...actions, onMap: point => capture({ action: 'Map', point }), onSearchPlace: name => capture({ action: 'SearchPlace', name }) });
     const render = (next, flush) => { active = host; return host.render(next, flush); };
     return { get destination() { return destination; }, get tree() { return render(); }, calls, snapshots,
       get buttons() { return nodes(render()).filter(node => node.type === 'button'); },
@@ -98,10 +98,10 @@ async function fixture(locale) {
 }
 
 const labels = {
-  tr: { plan: 'Rota oluştur', budget: 'Bütçe', map: 'Harita', events: 'Etkinlikler', back: 'Keşfet’e dön', open: 'Rotayı aç', full: 'Tüm planı gör', save: name => `${name} şehrini kaydet`, unsave: name => `${name} kaydını kaldır`, landmark: name => `${name} konumunu haritada gör` },
-  en: { plan: 'Create a route', budget: 'Budget', map: 'Map', events: 'Events', back: 'Back to Discover', open: 'Open route', full: 'View full plan', save: name => `Save ${name}`, unsave: name => `Unsave ${name}`, landmark: name => `See ${name} on the map` },
-  sq: { plan: 'Krijo itinerar', budget: 'Buxheti', map: 'Harta', events: 'Aktivitete', back: 'Kthehu te Zbulo', open: 'Hap itinerarin', full: 'Shiko planin e plotë', save: name => `Ruaj ${name}`, unsave: name => `Hiq ${name} nga të ruajturat`, landmark: name => `Shih ${name} në hartë` },
-  ro: { plan: 'Creează un traseu', budget: 'Buget', map: 'Hartă', events: 'Evenimente', back: 'Înapoi la Descoperă', open: 'Deschide traseul', full: 'Vezi planul complet', save: name => `Salvează ${name}`, unsave: name => `Elimină ${name} din salvate`, landmark: name => `Vezi ${name} pe hartă` },
+  tr: { plan: 'Rota oluştur', budget: 'Bütçe', map: 'Harita', events: 'Etkinlikler', back: 'Geri', open: 'Rotayı aç', full: 'Tüm planı gör', save: name => `${name} şehrini kaydet`, unsave: name => `${name} kaydını kaldır`, landmark: name => `${name} konumunu haritada gör` },
+  en: { plan: 'Create a route', budget: 'Budget', map: 'Map', events: 'Events', back: 'Back', open: 'Open route', full: 'View full plan', save: name => `Save ${name}`, unsave: name => `Unsave ${name}`, landmark: name => `See ${name} on the map` },
+  sq: { plan: 'Krijo itinerar', budget: 'Buxheti', map: 'Harta', events: 'Aktivitete', back: 'Prapa', open: 'Hap itinerarin', full: 'Shiko planin e plotë', save: name => `Ruaj ${name}`, unsave: name => `Hiq ${name} nga të ruajturat`, landmark: name => `Shih ${name} në hartë` },
+  ro: { plan: 'Creează un traseu', budget: 'Buget', map: 'Hartă', events: 'Evenimente', back: 'Înapoi', open: 'Deschide traseul', full: 'Vezi planul complet', save: name => `Salvează ${name}`, unsave: name => `Elimină ${name} din salvate`, landmark: name => `Vezi ${name} pe hartă` },
 };
 function button(view, label) {
   const matches = view.buttons.filter(node => accessibleName(node) === label);
@@ -255,5 +255,35 @@ test('Rome editorial additions retain four distinct categories, translations and
       assert.equal(highlightDetails(ids[index], locale).source.title, title);
     }
     for (const id of ['__proto__', 'constructor', 'toString', 'missing-place']) assert.equal(highlightDetails(id, locale), undefined);
+  }
+});
+
+test('Bucharest keeps all three real places, venue-specific photos and their attribution in all languages', async () => {
+  for (const locale of Object.keys(labels)) {
+    const { render } = await fixture(locale);
+    const view = render('OTP');
+    const articles = nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-essential');
+    assert.equal(articles.length, 3, 'A place without a licensed photo must remain discoverable');
+    const photos = articles.map(article => nodes(article).find(node => node.type === 'DestinationPhoto'));
+    assert.equal(photos[0], undefined, 'Do not reuse a city panorama for Parliament');
+    assert.match(photos[1].props.src, /otp-romanian-athenaeum\.webp$/);
+    assert.match(photos[2].props.src, /otp-dimitrie-gusti-village-museum\.webp$/);
+    const credits = nodes(view.tree).find(node => node.type === 'CityPhotoCredits');
+    for (const [index, id] of [[1, 'romanian-athenaeum'], [2, 'dimitrie-gusti-village-museum']]) {
+      const credit = credits.props.destinations.find(item => item.code === id);
+      assert.equal(credit.name, photos[index].props.label);
+      assert.ok(credit.photoCredit.author);
+      assert.match(credit.photoCredit.source, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+      assert.match(credit.photoCredit.licenseUrl, /^https:\/\/creativecommons\.org\/licenses\/by-sa\//);
+    }
+    for (const [index, article] of articles.entries()) {
+      const name = text(nodes(article).find(node => node.type === 'h3'));
+      const search = nodes(article).find(node => node.type === 'button' && /harita|map|hart[ëă]/i.test(accessibleName(node)));
+      assert.ok(search, `${locale}: one useful map search for ${name}`);
+      search.props.onClick();
+      assert.deepEqual(view.calls.at(-1), { action: 'SearchPlace', name: ['Palace of Parliament', 'Romanian Athenaeum', 'Dimitrie Gusti National Village Museum'][index] }, 'All UI languages retain a recognised international place query');
+    }
+    assert.ok(view.calls.every(call => call.action === 'SearchPlace'), 'Reading and searching do not save a record or start a paid route');
+    view.dispose();
   }
 });

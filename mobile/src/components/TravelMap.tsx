@@ -46,7 +46,25 @@ export function TravelMap({ownerId,destinationCountry='',initialSection='map',ne
   const [selectedOrigin,setSelectedOrigin]=useState<Coordinates|null>(null),detailRef=useRef<HTMLElement|null>(null);
   const [pickingOrigin,setPickingOrigin]=useState(false),[routeFromLocation,setRouteFromLocation]=useState(false);
   const lastNearbySearch=useRef<number|null>(null);
-  useEffect(()=>{if(!nearbySearch||lastNearbySearch.current===nearbySearch.id)return;lastNearbySearch.current=nearbySearch.id;manualArea.current=true;if(nearbySearch.label)setAreaLabel(nearbySearch.label);setCenter(nearbySearch.center);setMapCenter(nearbySearch.center);setCategory(nearbySearch.category||'all');setSelected(null);resetRoute();setFocusRequest(v=>v+1);void searchArea(nearbySearch.center,nearbySearch.category||'all',nearbySearch.query);onNearbySearchHandled?.(nearbySearch.id);},[nearbySearch]);
+  useEffect(()=>{
+    const search=nearbySearch;
+    if(!search||lastNearbySearch.current===search.id)return;
+    let active=true;const revision=serial.current;
+    // StrictMode replays mount effects with the same refs. Start and consume
+    // the intent only after that replay, so cleanup cannot strand its spinner.
+    void Promise.resolve().then(()=>{
+      if(!active||revision!==serial.current||lastNearbySearch.current===search.id)return;
+      lastNearbySearch.current=search.id;manualArea.current=true;
+      if(search.label)setAreaLabel(search.label);
+      setQuery(search.query);setCenter(search.center);setMapCenter(search.center);
+      setCategory(search.category||'all');setSelected(null);resetRoute();setFocusRequest(v=>v+1);
+      void searchArea(search.center,search.category||'all',search.query);
+      onNearbySearchHandled?.(search.id);
+    });
+    // Parent acknowledgement removes the intent; the started request keeps
+    // its own controller/serial guards until completion or explicit navigation.
+    return()=>{active=false;};
+  },[nearbySearch]);
   useEffect(()=>{setSection(initialSection);if(initialSection==='needs')setCategory('pharmacy');if(initialSection==='embassies'){setCategory('embassy');setEmbassyContactsOpen(true);}},[initialSection]);
   useEffect(()=>{if(destinationCountry&&!embassyCountryEdited.current)setEmbassyCountry(destinationCountry);},[destinationCountry]);
   useEffect(()=>{const update=()=>{setSaved(readSavedPlaces(ownerId));setPins(readPersonalMapPins(ownerId));};update();const a=subscribeSavedPlaces(update,ownerId),b=subscribePersonalMapPins(update,ownerId);return()=>{a();b();};},[ownerId]);
@@ -78,8 +96,8 @@ export function TravelMap({ownerId,destinationCountry='',initialSection='map',ne
       if(result.status==='fulfilled'&&!Array.isArray(result.value)){setPlaces(result.value.places);setLimited(result.value.limited);setStale(Boolean(result.value.stale));}
       const areas=responses[1];if(areas?.status==='fulfilled')setAreaResults(areas.value as MapAreaResult[]);
       if(result.status==='rejected'&&(!areas||areas.status==='rejected'||!(areas.value as MapAreaResult[]).length))throw result.reason;
-      if(result.status==='rejected')setSearchError(copy('Şehir sonuçları hazır; yakındaki yerler alınamadı. Şehri seçebilir veya yerleri yeniden arayabilirsin.','City results are ready, but nearby places could not load. Choose a city or retry places.','Rezultatet e qytetit janë gati, por vendet pranë nuk u ngarkuan. Zgjidh qytetin ose provo sërish.'));
-      else if(areas?.status==='rejected')setSearchError(copy('Şehir araması tamamlanamadı. Yüklenen yerleri kullanabilir veya aramayı yeniden deneyebilirsin.','City search could not finish. Use the loaded places or retry the search.','Kërkimi i qytetit nuk përfundoi. Përdor vendet e ngarkuara ose provo sërish.'));
+      if(result.status==='rejected')setSearchError(copy('Arama sonuçları hazır; yakındaki yerler alınamadı. Bir sonuç seçebilir veya aramayı yeniden deneyebilirsin.','Search results are ready, but nearby places could not load. Choose a result or retry the search.','Rezultatet e kërkimit janë gati, por vendet pranë nuk u ngarkuan. Zgjidh një rezultat ose provo sërish kërkimin.'));
+      else if(areas?.status==='rejected')setSearchError(copy('Arama önerileri alınamadı. Haritayı kullanabilir veya yeniden deneyebilirsin.','Search suggestions could not load. Use the map or retry the search.','Sugjerimet e kërkimit nuk u ngarkuan. Përdor hartën ose provo sërish kërkimin.'));
       setPack(null);setLegacy(null);setCenter(target);setSection('map');setNotice('');
     }catch(e){if(request===serial.current&&!controller.signal.aborted){const delay=e&&typeof e==='object'&&'retryAfter'in e&&typeof e.retryAfter==='number'?e.retryAfter:0;setSearchError((e instanceof Error&&e.message==='busy'?copy('Arama şu anda yoğun. Biraz sonra yeniden dene.','Search is busy. Please retry shortly.','Kërkimi është i zënë. Provo pak më vonë.'):copy('Yerler alınamadı. Haritayı kullanabilir, kayıtlarını açabilir veya yeniden deneyebilirsin.','Places could not load. Use the map, open saved places, or retry.','Vendet nuk u ngarkuan. Përdor hartën, vendet e ruajtura ose provo sërish.'))+(delay?copy(` ${delay} saniye sonra yeniden dene.`,` Retry in ${delay} seconds.`,` Provo sërish pas ${delay} sekondash.`):''));}}
     finally{if(request===serial.current)setBusy(false);}

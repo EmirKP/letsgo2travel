@@ -29,7 +29,7 @@ import type { JourneyArea } from '../lib/mapJourneyClient';
 import type { NoticeAction } from '../lib/notices';
 import { JourneyLiveGuide } from './JourneyLiveGuide';
 
-type Props = { ownerId?: string | null; accessToken: string; initialCity?: string; initialArea?: JourneyArea; initialJourney?: MapJourney; initialDay?:number; initialDayRequestId?:number; tripId?:string; onNotice:(message:string,action?:NoticeAction)=>void; onOpenSaved?:(id?:string)=>void; onClose?:()=>void; onOpenAccount?:()=>void; onUpdateTrip?:(journey:MapJourney)=>Promise<void> };
+type Props = { ownerId?: string | null; accessToken: string; initialCity?: string; initialArea?: JourneyArea; cityRequestId?:number; cityNames?:readonly string[]; initialJourney?: MapJourney; initialDay?:number; initialDayRequestId?:number; tripId?:string; onNotice:(message:string,action?:NoticeAction)=>void; onOpenSaved?:(id?:string)=>void; onClose?:()=>void; onOpenAccount?:()=>void; onUpdateTrip?:(journey:MapJourney)=>Promise<void> };
 const groups: DiscoveryGroup[] = ['culture','food','shopping','nature','essentials'];
 const groupNames = { culture:['Kültür','Culture','Kulturë'], food:['Yeme & içme','Food & drink','Ushqim & pije'], shopping:['Alışveriş','Shopping','Blerje'], nature:['Doğa','Nature','Natyrë'], essentials:['İhtiyaçlar','Essentials','Nevoja'] };
 const groupIcons = {culture:'◈',food:'☕',shopping:'◇',nature:'❧',essentials:'＋'};
@@ -46,29 +46,41 @@ function guideSnapshot(value:MapJourney) { return JSON.stringify(value,(_key,ite
 
 export function MapJourneyPlanner(props:Props) {
   // An account switch remounts the complete editor, including all async fences.
-  return <JourneyEditor key={`${props.ownerId || 'guest'}:${props.initialJourney?.id || (props.initialArea ? `area:${props.initialArea.latitude}:${props.initialArea.longitude}` : props.initialCity || 'draft')}`} {...props}/>;
+  const cityRequest = Number.isSafeInteger(props.cityRequestId) && props.cityRequestId! > 0 ? `:city-request:${props.cityRequestId}` : '';
+  return <JourneyEditor key={`${props.ownerId || 'guest'}:${props.initialJourney?.id || (props.initialArea ? `area:${props.initialArea.latitude}:${props.initialArea.longitude}` : props.initialCity || 'draft')}${cityRequest}`} {...props}/>;
 }
 
-function JourneyEditor({ownerId,accessToken,initialCity,initialArea,initialJourney,initialDay,initialDayRequestId,tripId,onNotice,onOpenSaved,onClose,onOpenAccount,onUpdateTrip}:Props) {
+function JourneyEditor({ownerId,accessToken,initialCity,initialArea,cityRequestId,cityNames,initialJourney,initialDay,initialDayRequestId,tripId,onNotice,onOpenSaved,onClose,onOpenAccount,onUpdateTrip}:Props) {
   const activeTrip = useActiveTripContext(ownerId);
   const {copy,locale} = useI18n();
   const owner = ownerId || 'guest';
   const entryScope = initialJourney?.id || (initialArea ? `area:${initialArea.latitude}:${initialArea.longitude}` : initialCity ? `city:${initialCity.slice(0,120)}` : activeTrip ? `trip:${activeTrip.tripId}` : 'new');
   const draftOwner = `${owner}:${entryScope}`;
-  const [journey,setJourney] = useState<MapJourney|null>(() => decodeStoredMapJourney(initialJourney) || drafts.get(draftOwner) || null);
+  const explicitCityEntry = Number.isSafeInteger(cityRequestId) && cityRequestId! > 0;
+  const [journey,setJourney] = useState<MapJourney|null>(() => {
+    const saved = decodeStoredMapJourney(initialJourney); if (saved) return saved;
+    const cached = drafts.get(draftOwner);
+    const knownCached = cached && knownJourneyArea(cached.city), knownTarget = initialArea && knownJourneyArea(initialArea.name);
+    const sameKnownCity = knownCached && knownTarget && knownCached.latitude === knownTarget.latitude && knownCached.longitude === knownTarget.longitude;
+    const sameCatalogCity = cityNames && cached && initialArea && cityNames.some(name => name.localeCompare(cached.city, undefined, { sensitivity: 'base' }) === 0)
+      && cityNames.some(name => name.localeCompare(initialArea.name, undefined, { sensitivity: 'base' }) === 0);
+    if (cached && explicitCityEntry && initialArea && !(cached.center.latitude === initialArea.latitude && cached.center.longitude === initialArea.longitude
+      || cached.city.trim().localeCompare(initialArea.name.trim(), undefined, { sensitivity: 'base' }) === 0 || sameKnownCity || sameCatalogCity)) return null;
+    return cached || null;
+  });
   const [undo,setUndo] = useState<MapJourney|null>(null);
   const [step,setStep] = useState<'setup'|'map'>(initialJourney && validateMapJourney(initialJourney) ? 'map':'setup');
   const [surveyValues,setSurveyValues]=useState<JourneySurveyValues|undefined>(()=>journey?.planning?{area:{...journey.center,name:journey.city},dayCount:journey.dayCount,startDate:journey.startDate,firstDayStartTime:journey.firstDayStartTime,...journey.planning.preferences}:undefined);
   const [signInSurvey,setSignInSurvey]=useState<ReturnType<typeof takeJourneySurveySignIn>>(null);
   const signInHandled=useRef<string|null>(null);
-  const [recoverySurvey,setRecoverySurvey]=useState(()=>hasPendingJourneyPlan(ownerId)?readJourneyRecoveryDraft(ownerId):null);
+  const [recoverySurvey,setRecoverySurvey]=useState(()=>!explicitCityEntry&&hasPendingJourneyPlan(ownerId)?readJourneyRecoveryDraft(ownerId):null);
   const [surveyScope,setSurveyScope]=useState(signInSurvey?.scope || initialJourney?.id || recoverySurvey?.scope || entryScope);
   useEffect(()=>{
-    if(!ownerId||initialJourney||signInHandled.current===ownerId)return;
+    if(explicitCityEntry||!ownerId||initialJourney||signInHandled.current===ownerId)return;
     signInHandled.current=ownerId;
     const pending=takeJourneySurveySignIn(ownerId);
     if(pending){setSignInSurvey(pending);setSurveyScope(pending.scope);setSurveyValues(undefined);}
-  },[ownerId,initialJourney]);
+  },[ownerId,initialJourney,explicitCityEntry]);
   const [generating,setGenerating]=useState(false);
   const [generationError,setGenerationError]=useState('');
   const generation=useRef(0);
@@ -78,7 +90,8 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialArea,initialJourn
   const [quotaState,setQuotaState]=useState<{identity:string;state:'loading'|'ready'|'error'|'sign-in';data?:JourneyPlanQuota}>({identity:quotaIdentity,state:'loading'});
   const quota=quotaState.identity===quotaIdentity&&quotaState.state==='ready'&&quotaState.data?quotaState.data:null;
   const needsSignIn=!quotaIdentity||quotaState.identity===quotaIdentity&&quotaState.state==='sign-in';
-  const recoveryAvailable=hasPendingJourneyPlan(ownerId);
+  const pendingRecovery=hasPendingJourneyPlan(ownerId);
+  const recoveryAvailable=pendingRecovery&&(!explicitCityEntry||recoverySurvey?.scope===surveyScope||signInSurvey?.scope===surveyScope);
   const [bookmarks,setBookmarks] = useState(()=>readSavedPlaces(ownerId));
   const [savedJourneys,setSavedJourneys] = useState(()=>readMapJourneys(ownerId));
   const [busy,setBusy] = useState(false);
@@ -413,7 +426,7 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialArea,initialJourn
     <p>{needsSignIn?copy('Rotanı oluşturmak için giriş yap. Yanıtların korunur.','Sign in to create your itinerary. Your answers are kept.','Hyr për të krijuar itinerarin. Përgjigjet ruhen.')
       :copy('Yalnızca başarıyla hazırlanan yeni rota günlük hakkını kullanır. Plan açma, elle düzenleme ve kaydetme ücretsizdir.','Only a successfully created new itinerary uses your daily allowance. Opening, manually editing and saving plans is free.','Vetëm një itinerar i ri i krijuar me sukses përdor të drejtën ditore. Hapja, ndryshimi manual dhe ruajtja e planeve janë falas.')}</p>
     {!needsSignIn&&recoveryAvailable&&<p>{copy('Önceki denemenin sonucunu aynı yanıtlarla kontrol edebilirsin; ikinci bir hak kullanılmaz.','Check your previous attempt using the same answers; no second allowance is used.','Kontrollo provën e mëparshme me të njëjtat përgjigje; nuk përdoret një e drejtë e dytë.')}</p>}
-    {!needsSignIn&&recoveryAvailable&&readJourneyRecoveryDraft(ownerId)&&<button type="button" className="jsv-text-button" disabled={generating} onClick={()=>{const previous=readJourneyRecoveryDraft(ownerId);if(previous){setRecoverySurvey(previous);setSurveyScope(previous.scope);setSurveyValues(undefined);setGenerationError('');}}}>{copy('Önceki seçimlerimi geri getir','Restore previous choices','Rikthe zgjedhjet e mëparshme')}</button>}
+    {!needsSignIn&&pendingRecovery&&readJourneyRecoveryDraft(ownerId)&&<button type="button" className="jsv-text-button" disabled={generating} onClick={()=>{const previous=readJourneyRecoveryDraft(ownerId);if(previous){setRecoverySurvey(previous);setSurveyScope(previous.scope);setSurveyValues(undefined);setGenerationError('');}}}>{copy('Önceki seçimlerimi geri getir','Restore previous choices','Rikthe zgjedhjet e mëparshme')}</button>}
     {!needsSignIn&&!quotaLoading&&<button type="button" className="jsv-text-button" disabled={generating} onClick={()=>setQuotaRefresh(value=>value+1)}>{copy('Hakkımı kontrol et','Refresh allowance','Rifresko të drejtën')}</button>}
   </aside>;
   function signInForPlan(values:JourneySurveyValues) {
@@ -424,7 +437,7 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialArea,initialJourn
   if(step!=='map')return <div ref={editorRoot} className="mj-survey-shell">
     {savedJourneys.error&&<p className="mj-error" role="alert">{copy('Kayıtlı planlar okunamadı. Mevcut kayıtların değiştirilmedi.','Saved plans could not be read. Existing records were preserved.','Planet e ruajtura nuk u lexuan. Të dhënat ekzistuese u ruajtën.')}</p>}
     {journey&&<button className="mj-resume" disabled={generating} onClick={()=>{setStep('map');setGenerationError('');}}>{copy('Açık planıma dön','Return to my open plan','Kthehu te plani i hapur')} · {journey.city}</button>}
-    <JourneySetupSurvey ownerId={ownerId || null} draftScope={surveyScope} initialCity={initialCity || activeTrip?.city} initialArea={initialArea} initialTrip={activeTrip || undefined} initialValues={surveyValues} busy={generating} error={generationError}
+    <JourneySetupSurvey ownerId={ownerId || null} draftScope={surveyScope} cityRequestId={cityRequestId} cityNames={cityNames} initialCity={initialCity || activeTrip?.city} initialArea={initialArea} initialTrip={activeTrip || undefined} initialValues={surveyValues} busy={generating} error={generationError}
       initialDraft={signInSurvey?.scope===surveyScope?signInSurvey.draft:recoverySurvey?.scope===surveyScope?recoverySurvey.draft:undefined} allowance={quotaPanel}
       generationDisabled={!needsSignIn&&!recoveryAvailable&&(!quota||quota.remaining===0)}
       generationLabel={needsSignIn?copy('Giriş yap ve devam et','Sign in to continue','Hyr dhe vazhdo'):recoveryAvailable&&(!quota||quota.remaining===0)?copy('Önceki rotayı / sonucu aç','Open previous itinerary / result','Hap itinerarin / rezultatin e mëparshëm'):undefined}

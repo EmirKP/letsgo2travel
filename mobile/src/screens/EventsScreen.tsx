@@ -26,6 +26,17 @@ import "./daily-journey.css";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
+function canAddEventToTrip(event: TravelEvent, now: number) {
+  if (!['scheduled', 'postponed'].includes(event.status)) return false;
+  const day = eventLocalDate(event);
+  if (!day) return false;
+  if (!hasEventTime(event)) return day >= localIsoDate(0);
+  // Exact events may still be ahead after the device crosses midnight in
+  // another timezone. An announced future end also keeps an ongoing event usable.
+  const start = Date.parse(event.startsAt), end = Date.parse(event.endsAt || '');
+  return start > now || (Number.isFinite(end) && end > start && end > now);
+}
+
 export function EventsScreen({ initialContext, initialFilters, onFiltersChange, onContextHandled, focusEventId, onFocusHandled, profileEvent, onProfileEventHandled, pendingTripEvent, onTripIntentPending, onTripIntentHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onOpenProfile, onCompleteProfile, onCreateEventTrip, onNavigate, onNotice }: {
   initialContext?: EventSearchContext;
   initialFilters?: EventSearchFilters;
@@ -69,14 +80,14 @@ export function EventsScreen({ initialContext, initialFilters, onFiltersChange, 
   const [restoredFilters] = useState(() => entryContext ? undefined : initialFilters);
   const [countryCode, setCountryCode] = useState(entryContext?.countryCode ?? initialFilters?.countryCode ?? "TR");
   const [cityPlaceCode, setCityPlaceCode] = useState(entryContext ? "" : initialFilters?.cityPlaceCode || "");
-  const [cityText, setCityText] = useState(entryContext?.cityName || initialFilters?.cityName || '');
+  const [cityText, setCityText] = useState(entryContext?.cityName || restoredFilters?.cityName || '');
   const [cities, setCities] = useState<EventCityOption[]>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState(false);
   const [citiesReloadKey, setCitiesReloadKey] = useState(0);
   const [startDate, setStartDate] = useState(() => clampLocalDate(entryContext?.startDate || initialFilters?.startDate || localIsoDate(0), localIsoDate(0), localIsoDate(366)));
   const [endDate, setEndDate] = useState(() => clampLocalDate(entryContext?.endDate || initialFilters?.endDate || localIsoDate(7), startDate, localIsoDate(366)));
-  const [query, setQuery] = useState(initialFilters?.query || '');
+  const [query, setQuery] = useState(restoredFilters?.query || '');
   const [contextReady, setContextReady] = useState(!entryContext?.cityName && !(initialFilters?.cityPlaceCode && !initialFilters.cityName));
   const [contextUnknown, setContextUnknown] = useState(Boolean(entryContext && !entryContext.countryCode));
   const [category, setCategory] = useState<(typeof CATEGORY_IDS)[number]>(entryContext ? "all" : initialFilters?.category || "all");
@@ -398,8 +409,7 @@ export function EventsScreen({ initialContext, initialFilters, onFiltersChange, 
   };
 
   const openTripPicker = useCallback(async (event: TravelEvent) => {
-    const day = eventLocalDate(event);
-    if (!day || day < localIsoDate(0) || !['scheduled', 'postponed'].includes(event.status)) {
+    if (!canAddEventToTrip(event, Date.now())) {
       onNotice(copy("Bu etkinliğin tarihi veya durumu seyahate eklemeye uygun değil. Güncel bilgiyi kaynağından kontrol et.", "This event's date or status cannot be added to a trip. Check the source for current details.", "Data ose gjendja e aktivitetit nuk lejon shtimin në udhëtim. Kontrollo burimin për të dhënat aktuale."));
       return;
     }
@@ -464,8 +474,7 @@ export function EventsScreen({ initialContext, initialFilters, onFiltersChange, 
     : undefined;
 
   function eventPlanningActions(event: TravelEvent) {
-    const day = eventLocalDate(event);
-    const canAdd = (event.status === 'scheduled' || event.status === 'postponed') && Boolean(day) && day >= localIsoDate(0);
+    const canAdd = canAddEventToTrip(event, now);
     const reminder = ownedReminders.find(item => item.eventId === event.id);
     if (!canAdd && !reminder) return null;
     const canRemind = hasEventTime(event) && event.status === 'scheduled' && Date.parse(event.startsAt) > now + 60_000;

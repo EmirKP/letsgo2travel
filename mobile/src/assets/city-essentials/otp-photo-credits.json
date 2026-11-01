@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "cityCode": "OTP",
+  "reviewedOn": "2026-11-01",
+  "photos": [
+    {
+      "placeId": "romanian-athenaeum",
+      "filename": "otp-romanian-athenaeum.webp",
+      "title": "Romanian Atheneum, Bucharest",
+      "author": "Alex Siro",
+      "source": "https://commons.wikimedia.org/wiki/File:Romanian_Atheneum,_Bucharest.jpg",
+      "license": "CC BY-SA 3.0 RO",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/ro/deed.en",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fb/Romanian_Atheneum%2C_Bucharest.jpg",
+      "photoDate": "2011-09-30",
+      "assetPath": "mobile/src/assets/city-essentials/otp-romanian-athenaeum.webp",
+      "bytes": 125854,
+      "width": 840,
+      "height": 690,
+      "sha256": "ac7a8e518fd670769ec824286e3060bba9c054e857dd1daf9a579874bcab81a3",
+      "originalBytes": 1399405,
+      "originalSha256": "b02dc05c949a64866bc1ed794dd631d7c644c4e76b79d4c4f7afcee3413d68f0",
+      "originalDimensions": {
+        "width": 1957,
+        "height": 1607
+      },
+      "webpQuality": 84,
+      "changes": "EXIF orientation normalized; resized proportionally to a maximum 840 px edge with Lanczos3; converted to WebP; metadata removed. No crop, recolouring, retouching or generated content.",
+      "derivativeLicense": "CC BY-SA 3.0 RO",
+      "visualReview": "Passed: inspected the final WebP; the Athenaeum dome and columned side entrance are visible, not a generic city panorama. Commons monument ID B-II-m-A-18789 also matches the Romanian National Heritage Institute register.",
+      "identitySources": [
+        "https://temp-18-250.cimec.ro/images/lmi-2015/LMI-B.pdf",
+        "https://filarmonicaenescu.ro/ro/vizitarea-ateneului-roman"
+      ]
+    },
+    {
+      "placeId": "dimitrie-gusti-village-museum",
+      "filename": "otp-dimitrie-gusti-village-museum.webp",
+      "title": "National Village Museum, house from Dumitra, Alba",
+      "author": "Britchi V.I.Iulia",
+      "source": "https://commons.wikimedia.org/wiki/File:Bucharest,_Romania._National_Village_Museum._House_from_Transilvania_(Comuna_Dumitra_Alba)_DSCN8711.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/12/Bucharest%2C_Romania._National_Village_Museum._House_from_Transilvania_%28Comuna_Dumitra_Alba%29_DSCN8711.jpg",
+      "photoDate": "2014-09-25",
+      "assetPath": "mobile/src/assets/city-essentials/otp-dimitrie-gusti-village-museum.webp",
+      "bytes": 140846,
+      "width": 840,
+      "height": 630,
+      "sha256": "ef5d9a64d4f1079ef33b7c7597575db432914408a44ae8ae0728b59892d8be4e",
+      "originalBytes": 4570820,
+      "originalSha256": "da8c3876151f98ef3c571da746e4c83d9f314ed3b0e25910cdd440deac6a0e8e",
+      "originalDimensions": {
+        "width": 3648,
+        "height": 2736
+      },
+      "webpQuality": 76,
+      "changes": "EXIF orientation normalized; resized proportionally to a maximum 840 px edge with Lanczos3; converted to WebP; metadata removed. No crop, recolouring, retouching or generated content.",
+      "derivativeLicense": "CC BY-SA 4.0",
+      "visualReview": "Passed: inspected the final WebP; the thatched-roof Dumitra household exhibit and woven fence are visible. This is one genuine outdoor exhibit at the Village Museum, not its entrance or an entire-museum view.",
+      "identitySources": [
+        "https://muzeul-satului.ro/en/despre-noi/patrimoniul-muzeului/expozitia-permanenta-in-aer-liber/gospodaria-dumitra/"
+      ]
+    }
+  ],
+  "missing": [
+    {
+      "placeId": "palace-of-parliament",
+      "reason": "Held pending clarification of underlying building-rights limitations: Commons search returned Parliament images explicitly redacted for lack of freedom of panorama in Romania. Photographer CC licences alone were not treated as confirmation of all rights.",
+      "evidence": [
+        "https://commons.wikimedia.org/wiki/File:Palatul_Parlamentului,_Bucure%C8%99ti.jpg",
+        "https://commons.wikimedia.org/wiki/User_talk:Geo_Swan/archive/2022"
+      ]
+    }
+  ],
+  "notes": [
+    "Each derivative remains under its source CC BY-SA licence; display author, source and licence links and the resize/conversion notice.",
+    "These two photographs are visually different and neither reuses the current Bucharest University Square city hero.",
+    "No Parliament photo was added, and no generated replacement, collage or colour filter was used."
+  ]
+}

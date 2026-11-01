@@ -188,8 +188,10 @@ export default function App() {
   const [homeSavedRoutes, setHomeSavedRoutes] = useState<{ owner: string | null; codes: string[] } | null>(null);
   const [cityCode, setCityCode] = useState<string | null>(() => cityCodeFromUrl(window.location.href));
   const [cityDiscoveryQuery, setCityDiscoveryQuery] = useState("");
+  const [cityDiscoverySavedOnly, setCityDiscoverySavedOnly] = useState(false);
   const [cityDiscoveryCountry, setCityDiscoveryCountry] = useState<string | null>(() => cityCountryFromUrl(window.location.href));
-  const [savedCities, setSavedCities] = useState<{ owner: string | null; codes: string[] }>({ owner: null, codes: [] });
+  const [savedCities, setSavedCities] = useState<{ owner: string | null; codes: string[]; error?: boolean }>({ owner: null, codes: [] });
+  const [savedCityRefresh, setSavedCityRefresh] = useState(0);
   const [cityBudgetRequest, setCityBudgetRequest] = useState<{ query: string; id: number } | null>(() => {
     const query = window.history.state?.budgetCityQuery;
     return viewFromUrl(window.location.href) === "costs" && typeof query === "string" && query.trim()
@@ -355,11 +357,15 @@ export default function App() {
   useEffect(() => {
     const refresh = () => {
       const state = readPersonalMapPins(ownerId);
-      setSavedCities({ owner: ownerId, codes: state.items.flatMap(item => item.destinationCode ? [item.destinationCode] : []) });
+      if (state.error) {
+        setSavedCities(previous => ({ owner: ownerId, codes: previous.owner === ownerId ? previous.codes : [], error: true }));
+        return;
+      }
+      setSavedCities({ owner: ownerId, codes: state.items.flatMap(item => item.destinationCode ? [item.destinationCode] : []), error: false });
     };
     refresh();
     return subscribePersonalMapPins(refresh, ownerId);
-  }, [ownerId]);
+  }, [ownerId, savedCityRefresh]);
 
   const toggleHomeRoute = (route: RouteSuggestion, passport?: { passportCountry?: string; passportType?: string }) => {
     const code = route.destinationCode?.toUpperCase();
@@ -535,6 +541,12 @@ export default function App() {
     navigate("cities", { cityCountryCode: code });
     setScrollPositions(previous => ({ ...previous, cities: 0 }));
   };
+  const searchAllCityCountries = (query: string) => {
+    setCityDiscoveryQuery(query.trim().slice(0, 120));
+    setCityDiscoverySavedOnly(false);
+    navigate("cities");
+    setScrollPositions(previous => ({ ...previous, cities: 0 }));
+  };
   const toggleCitySaved = (code: string) => {
     const destination = cityDestination(code, locale);
     if (!destination) return;
@@ -561,6 +573,16 @@ export default function App() {
     selectTravelCountry(destination.countryCode);
     setToolRequest({ tool: "map", id, country: destination.countryCode,
       mapSearch: { id, query: point?.name || "", center: point ? { latitude: point.latitude, longitude: point.longitude } : destination.center, label: point?.name || destination.name } });
+    navigate("companion");
+    setScrollPositions(positions => ({ ...positions, companion: 0 }));
+  };
+  const searchCityPlace = (destination: CityDestination, name: string) => {
+    const id = ++toolRequestCounter.current;
+    selectTravelCountry(destination.countryCode);
+    // Editorial places without verified coordinates start a search around the
+    // actual city. They never become a fabricated pin at the city centre.
+    setToolRequest({ tool: "map", id, country: destination.countryCode,
+      mapSearch: { id, query: `${name}, ${cityDestination(destination.code, "en")?.name || destination.name}`.slice(0, 80), center: destination.center, label: destination.name } });
     navigate("companion");
     setScrollPositions(positions => ({ ...positions, companion: 0 }));
   };
@@ -1280,17 +1302,17 @@ export default function App() {
     setCockpitJourneyIntent(intent); navigate("cockpit");
   };
   const renderView = (view: ViewId) => {
-    if (view === "cities") return <CityDiscoveryScreen countryCode={cityDiscoveryCountry} onOpenCountry={openCityCountry} onBack={goBack} onOpenCity={openCity} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} initialQuery={cityDiscoveryQuery} onQueryChange={setCityDiscoveryQuery}/>;
+    if (view === "cities") return <CityDiscoveryScreen countryCode={cityDiscoveryCountry} onOpenCountry={openCityCountry} onSearchAllCountries={searchAllCityCountries} onBack={goBack} onOpenCity={openCity} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} savedUnavailable={savedCities.owner === ownerId && Boolean(savedCities.error)} onRetrySaved={() => setSavedCityRefresh(value => value + 1)} initialQuery={cityDiscoveryQuery} onQueryChange={setCityDiscoveryQuery} initialSavedOnly={cityDiscoverySavedOnly} onSavedOnlyChange={setCityDiscoverySavedOnly}/>;
     if (view === "city") {
       const destination = cityCode ? cityDestination(cityCode, locale) : null;
       if (!destination) return <section className="screen"><h1>{copy("Şehir bulunamadı", "City not found", "Qyteti nuk u gjet")}</h1><button className="secondary-wide" onClick={() => navigate("cities")}>{copy("Tüm şehirleri keşfet", "Explore all destinations", "Eksploro të gjitha destinacionet")}</button></section>;
       return <CityDestinationScreen destination={destination} saved={savedCities.owner === ownerId && savedCities.codes.includes(destination.code)} onToggleSaved={() => toggleCitySaved(destination.code)}
         onPlan={() => planCity(destination)} onBudget={() => { navigate("costs", { budgetCityQuery: locale === "tr" ? destination.name : cityDestination(destination.code, "en")?.name || destination.name }); setScrollPositions(previous => ({ ...previous, costs: 0 })); }}
-        onMap={point => mapCity(destination, point)} onEvents={() => openNearbyEvents({ source: "city", countryCode: destination.countryCode, cityName: cityDestination(destination.code, "en")?.name || destination.name,
+        onMap={point => mapCity(destination, point)} onSearchPlace={name => searchCityPlace(destination, name)} onEvents={() => openNearbyEvents({ source: "city", countryCode: destination.countryCode, cityName: cityDestination(destination.code, "en")?.name || destination.name,
           startDate: localIsoDate(0), endDate: localIsoDate(7) })} onBack={goBack}
         onOpenReadyRoute={() => { if (destination.route) openSeededRoute(destination.route, "explore"); }}/>
     }
-    if (view === "home") return <HomeScreen onOpenCity={openCity} onOpenAllCities={() => { setCityDiscoveryQuery(""); setScrollPositions(previous => ({ ...previous, cities: 0 })); navigate("cities"); }} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "home") return <HomeScreen onOpenCity={openCity} onOpenAllCities={() => { setCityDiscoveryQuery(""); setCityDiscoverySavedOnly(false); setScrollPositions(previous => ({ ...previous, cities: 0 })); navigate("cities"); }} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")}
       savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onToggleSaved={toggleHomeRoute}
       onOpenSavedRoute={code => { const saved = savedInspirationRoute(code, ownerId); if (!saved) return showNotice(copy('Bu rota artık kayıtlı değil.', 'This route is no longer saved.', 'Ky itinerar nuk është më i ruajtur.')); setSavedRouteId(saved.id); openSavedRoutes(); }}

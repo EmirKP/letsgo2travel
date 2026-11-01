@@ -9,6 +9,8 @@ import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly:true,compilerOptions:{module:'CommonJS',moduleResolution:'node'} });
 const placesModel = require('../lib/travel-assistant/places.ts');
+const localeHelpers = realLocaleModule('../lib/locale');
+await Promise.all(['sq', 'ro'].map(locale => localeHelpers.loadLocaleMessages(locale)));
 const plain = value => JSON.parse(JSON.stringify(value));
 const jsx = (type, props, key) => ({type,props,key});
 const nodes = value => Array.isArray(value) ? value.flatMap(nodes) : !value || typeof value !== 'object' || (value.type==='Sheet'&&!value.props.open) ? [] : [value,...nodes(value.props?.children)];
@@ -36,7 +38,7 @@ function host() {
   };
   return {react,render(fn){for(let pass=0;pass<20;pass++){cursor=0;effects=[];dirty=false;const tree=fn();effects.forEach(effect=>effect());if(!dirty)return tree;}throw Error('Unstable unified map');},dispose(){slots.forEach(slot=>slot?.cleanup?.());}};
 }
-function fixture(initialOwner=null,initialProps={}) {
+function fixture(initialOwner=null,initialProps={},locale='en') {
   const storage=new Map(),window=new EventTarget();let ids=0,currentHost=host(),ownerId=initialOwner,tree,props={destinationCountry:'TR',...initialProps};
   const localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
   window.localStorage=localStorage;
@@ -48,12 +50,12 @@ function fixture(initialOwner=null,initialProps={}) {
   const pins=load('mobile/src/lib/personalMapPins.ts',{'./id':id},globals);
   const calls={find:[],areas:[],routes:[],providerSaves:[],providerDays:[],privateDays:[],gps:0,watches:[],clearedWatches:[]};
   const asyncCall=(list,fields)=>{const waiting=deferred();list.push({...fields,...waiting});return waiting.promise;};
-  const copy=(_tr,en)=>en;
+  const copy=(tr,en,sq)=>localeHelpers.translateCopy(locale,tr,en,sq);
   const deviceNavigator={onLine:true,geolocation:{watchPosition(success,failure,options){const id=++calls.gps;calls.watches.push({id,success,failure,options});return id;},clearWatch(id){calls.clearedWatches.push(id);}}};
   const react=Object.fromEntries(['useState','useMemo','useCallback','useEffect','useRef','lazy'].map(name=>[name,(...args)=>currentHost.react[name](...args)]));react.Suspense='Suspense';
   const component=load('mobile/src/components/TravelMap.tsx',{
     react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../../lib/travel-assistant/places':placesModel,
-    '../lib/i18n':{useI18n:()=>({copy,locale:'en'})},'../lib/travelAreas':{TRAVEL_CENTRES:[{name:'Istanbul',country:'TR',latitude:41.01,longitude:28.98}]},
+    '../lib/i18n':{useI18n:()=>({copy,locale})},'../lib/travelAreas':{TRAVEL_CENTRES:[{name:'Istanbul',country:'TR',latitude:41.01,longitude:28.98}]},
     '../lib/deviceArea':{countryMapBounds:async()=>null},
     '../lib/native':{openExternal:async()=>true},
     '../lib/savedPlaces':{...saved,saveTravelPlace:(place,owner)=>{calls.providerSaves.push({place,owner});return saved.saveTravelPlace(place,owner);},setTravelDayStop:(id,inDay,owner)=>{calls.providerDays.push({id,inDay,owner});return saved.setTravelDayStop(id,inDay,owner);}},
@@ -338,17 +340,69 @@ test('Existing EmbassyCards keeps genuine bundled contact details and routes opt
 
 test('A failed city lookup is visible beside successful empty POIs and retry retains the submitted query',async()=>{
   const app=fixture();app.search('Paris');app.calls.find[0].resolve({places:[],limited:false});app.calls.areas[0].reject(Error('temporary city failure'));await app.flush();
-  assert.match(text(app.tree),/City search could not finish/);assert.equal(nodes(app.tree).some(n=>n.props?.className==='um-empty'),false);
+  assert.match(text(app.tree),/Search suggestions could not load/);assert.equal(nodes(app.tree).some(n=>n.props?.className==='um-empty'),false);
   app.click('Retry search');assert.equal(app.calls.areas[1].query,'Paris');assert.equal(app.calls.find[1].query,'Paris');
   app.calls.find[1].resolve({places:[],limited:false});app.calls.areas[1].resolve([area(20,'Paris',48.86,2.35)]);await app.flush();
-  assert.doesNotMatch(text(app.tree),/City search could not finish/);app.dispose();
+  assert.doesNotMatch(text(app.tree),/Search suggestions could not load/);app.dispose();
 });
 
 test('Successful city suggestions survive a failed POI service with an explicit partial-failure notice',async()=>{
   const app=fixture();app.search('Paris');app.calls.areas[0].resolve([area(21,'Paris',48.86,2.35)]);app.calls.find[0].reject(Error('places unavailable'));await app.flush();
-  assert.match(text(app.tree),/City results are ready, but nearby places could not load/);
+  assert.match(text(app.tree),/Search results are ready, but nearby places could not load/);
   assert.ok(nodes(app.tree).some(n=>n.type==='button'&&n.key==='relation/21'));assert.ok(nodes(app.tree).some(n=>n.type==='button'&&text(n)==='Retry search'));app.dispose();
 });
+
+const partialMessages = {
+  tr: { places: 'Arama sonuçları hazır; yakındaki yerler alınamadı. Bir sonuç seçebilir veya aramayı yeniden deneyebilirsin.', suggestions: 'Arama önerileri alınamadı. Haritayı kullanabilir veya yeniden deneyebilirsin.' },
+  en: { places: 'Search results are ready, but nearby places could not load. Choose a result or retry the search.', suggestions: 'Search suggestions could not load. Use the map or retry the search.' },
+  sq: { places: 'Rezultatet e kërkimit janë gati, por vendet pranë nuk u ngarkuan. Zgjidh një rezultat ose provo sërish kërkimin.', suggestions: 'Sugjerimet e kërkimit nuk u ngarkuan. Përdor hartën ose provo sërish kërkimin.' },
+  ro: { places: 'Rezultatele căutării sunt gata, dar locurile din apropiere nu s-au putut încărca. Alege un rezultat sau reîncearcă căutarea.', suggestions: 'Sugestiile de căutare nu s-au putut încărca. Folosește harta sau reîncearcă căutarea.' },
+};
+const partialNotice = app => nodes(app.tree).find(node => node.props?.className === 'um-notice' && node.props.role === 'alert');
+function retryPartial(app) {
+  const retry = nodes(partialNotice(app)).find(node => node.type === 'button');
+  assert.ok(retry); assert.equal(Boolean(retry.props.disabled), false);
+  retry.props.onClick(); app.render();
+}
+
+for (const [locale, messages] of Object.entries(partialMessages)) {
+  for (const kind of ['area', 'place', 'mixed']) test(`${locale}: partial results describe ${kind} matches truthfully and retain selection and retry`, async () => {
+    const app = fixture(null, {}, locale), query = 'Ateneum, Bucharest';
+    const city = area(711, 'Bucharest', 44.4268, 26.1025);
+    const venue = { id: 'apple/I_ATHENAEUM_FIXTURE', source: 'apple', kind: 'place', category: 'attraction', name: 'Ateneum', address: 'Strada Benjamin Franklin 1-3', latitude: 44.4413, longitude: 26.0973, sourceUrl: 'https://maps.apple.com/place?place-id=I_ATHENAEUM_FIXTURE' };
+    const results = kind === 'area' ? [city] : kind === 'place' ? [venue] : [city, venue];
+    app.search(query); app.calls.areas[0].resolve(results); app.calls.find[0].reject(Error('Synthetic nearby service failure')); await app.flush();
+    assert.equal(text(nodes(partialNotice(app)).find(node => node.type === 'p')), messages.places);
+    for (const result of results) assert.ok(nodes(app.tree).some(node => node.type === 'button' && node.key === (result.id || result.osmId)));
+    retryPartial(app);
+    assert.equal(app.calls.areas[1].query, query); assert.equal(app.calls.find[1].query, query);
+    assert.equal(app.calls.areas[1].locale, locale); assert.deepEqual(plain(app.calls.find[1].center), plain(app.calls.find[0].center));
+    assert.equal(app.calls.find[1].category, app.calls.find[0].category);
+    app.calls.areas[1].resolve(results); app.calls.find[1].reject(Error('Synthetic retry failure')); await app.flush();
+    const chosen = kind === 'area' ? city : venue;
+    nodes(app.tree).find(node => node.type === 'button' && node.key === (chosen.id || chosen.osmId)).props.onClick(); app.render();
+    assert.deepEqual(plain(app.map.props.center), { latitude: chosen.latitude, longitude: chosen.longitude });
+    assert.equal(app.map.props.selectedId, chosen.kind === 'place' ? chosen.id : undefined);
+    assert.equal(partialNotice(app), undefined, 'Selecting a real result clears the old partial notice');
+    assert.equal(app.calls.providerSaves.length, 0); assert.equal(app.calls.providerDays.length, 0); assert.equal(app.calls.routes.length, 0); assert.equal(app.calls.gps, 0);
+    assert.equal(app.storage.size, 0); app.dispose();
+  });
+
+  for (const count of [0, 1]) test(`${locale}: failed suggestions with ${count} nearby POIs do not claim city results or a verified empty search`, async () => {
+    const app = fixture(null, {}, locale), query = 'Museum', loaded = count ? [poi(712, 'Loaded museum', { latitude: 41.012, longitude: 28.98 })] : [];
+    app.search(query); app.calls.find[0].resolve({ places: loaded, limited: false }); app.calls.areas[0].reject(Error('Synthetic suggestion failure')); await app.flush();
+    assert.equal(text(nodes(partialNotice(app)).find(node => node.type === 'p')), messages.suggestions);
+    assert.equal(nodes(app.tree).some(node => node.props?.className === 'um-empty'), false);
+    assert.deepEqual(plain(app.map.props.places.map(place => place.id)), loaded.map(place => place.id));
+    retryPartial(app); assert.equal(app.calls.areas[1].query, query); assert.equal(app.calls.find[1].query, query);
+    assert.equal(app.calls.areas[1].locale, locale);
+    app.calls.find[1].resolve({ places: loaded, limited: false }); app.calls.areas[1].resolve([]); await app.flush();
+    assert.equal(partialNotice(app), undefined, 'A successful retry clears the partial message');
+    if (count) { app.map.props.onSelect(loaded[0]); app.render(); assert.equal(app.map.props.selectedId, loaded[0].id); }
+    assert.equal(app.calls.providerSaves.length, 0); assert.equal(app.calls.providerDays.length, 0); assert.equal(app.calls.routes.length, 0); assert.equal(app.calls.gps, 0);
+    assert.equal(app.storage.size, 0); app.dispose();
+  });
+}
 
 test('Loaded-map museum fallback remains usable and savable while the live POI service fails',async()=>{
   const app=fixture('account-a');const tileModel=require('../lib/maps/open-map-pois.ts');

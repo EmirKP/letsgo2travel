@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Icon } from "../components/Icon";
 import { CityHeartButton } from "../components/CityHeartButton";
 import { CityPhotoCredits } from "../components/CityPhotoCredits";
@@ -19,6 +19,37 @@ import coastal from "../assets/home-reference/coastal-banner.webp";
 import communityTravelers from "../assets/home-reference/community-travelers.webp";
 import "./reference-home.css";
 import type { AuthUser, RouteSuggestion, ViewId } from "../types";
+
+type CityStripPosition = { code: string | undefined; offset: number; left: number };
+// Only public catalog position lives here, never saved-city/account records.
+// Memory survives a detail/back navigation without writing browser storage.
+const cityStripPositions = new Map<string, CityStripPosition>();
+const countryCatalogLabels = {
+  tr: { label: "Ülkeler", action: "Ülkelere göre şehirleri keşfet" },
+  en: { label: "Countries", action: "Explore cities by country" },
+  sq: { label: "Shtetet", action: "Zbulo qytetet sipas shtetit" },
+  ro: { label: "Țări", action: "Descoperă orașele după țară" },
+};
+
+function rememberCityStrip(element: HTMLElement | null, scope: string) {
+  if (!element || element.clientWidth <= 0 || !Number.isFinite(element.scrollLeft)) return;
+  const left = Math.max(0, element.scrollLeft);
+  const cards = Array.from(element.querySelectorAll<HTMLElement>("[data-home-city-code]"));
+  const anchor = cards.find(card => card.offsetLeft + card.offsetWidth > left + 6) || cards.at(-1);
+  cityStripPositions.delete(scope);
+  cityStripPositions.set(scope, { code: anchor?.dataset.homeCityCode, offset: anchor ? left - anchor.offsetLeft : 0, left });
+  if (cityStripPositions.size > 12) {
+    const oldest = cityStripPositions.keys().next().value;
+    if (oldest !== undefined) cityStripPositions.delete(oldest);
+  }
+}
+
+function restoreCityStrip(element: HTMLElement, scope: string) {
+  const saved = cityStripPositions.get(scope);
+  const anchor = saved?.code ? Array.from(element.querySelectorAll<HTMLElement>("[data-home-city-code]")).find(card => card.dataset.homeCityCode === saved.code) : undefined;
+  const left = saved ? anchor ? anchor.offsetLeft + saved.offset : saved.left : 0;
+  element.scrollLeft = Math.max(0, Math.min(element.scrollWidth - element.clientWidth, left));
+}
 
 function Arrow() {
   return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15m-6-7 7 7-7 7" /></svg>;
@@ -76,6 +107,31 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
 }) {
   const { locale, copy, dateLocale } = useI18n();
   const cities = useMemo(() => cityDestinations(locale), [locale]);
+  const cityScope = JSON.stringify([ownerId || null, locale]);
+  const cityStrip = useRef<HTMLElement | null>(null);
+  const cityVisibility = useRef<IntersectionObserver | null>(null);
+  const bindCityStrip = useCallback((element: HTMLElement | null) => {
+    if (cityStrip.current === element) return;
+    rememberCityStrip(cityStrip.current, cityScope);
+    cityVisibility.current?.disconnect();
+    cityVisibility.current = null;
+    cityStrip.current = element;
+    if (!element) return;
+    // Callback refs restore before paint; an anchor also survives width changes.
+    restoreCityStrip(element, cityScope);
+    if (typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const observer = new IntersectionObserver(entries => {
+      if (cityStrip.current !== element) return;
+      for (const entry of entries) if (entry.isIntersecting) {
+        (entry.target as HTMLElement).dataset.homeCityVisible = "true";
+        observer.unobserve(entry.target);
+      }
+    }, { root: element, threshold: 0.12 });
+    cityVisibility.current = observer;
+    element.querySelectorAll<HTMLElement>("[data-home-city-code]").forEach(card => {
+      if (!card.dataset.homeCityVisible) observer.observe(card);
+    });
+  }, [cityScope]);
   const shortcuts = useHomeShortcuts(ownerId);
   const [editingShortcuts, setEditingShortcuts] = useState(false);
   const [query, setQuery] = useState(initialSearchQuery ?? "");
@@ -159,15 +215,15 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
       <section className="rh-city-discovery" aria-labelledby="rh-city-title">
         <div className="rh-city-section-bar">
           <div className="rh-city-heading"><HeadingArtwork kind="city"/><h2 id="rh-city-title">{copy("Bir şehirle başla", "Start with a city", "Fillo me një qytet")}</h2></div>
-          <button type="button" className="rh-city-view-all" onClick={() => onOpenAllCities ? onOpenAllCities() : onNavigate("explore")}>{locale === "ro" ? "Vezi toate" : copy("Tümünü gör", "See all", "Shiko të gjitha")}<Arrow/></button>
+          <button type="button" className="rh-city-view-all" aria-label={countryCatalogLabels[locale].action} onClick={() => { rememberCityStrip(cityStrip.current, cityScope); if (onOpenAllCities) onOpenAllCities(); else onNavigate("explore"); }}>{countryCatalogLabels[locale].label}<Arrow/></button>
         </div>
-        <nav className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries", "Zbulime të shpejta")}>{cities.map((city, index) => {
+        <nav className="rh-city-chips" ref={bindCityStrip} onScroll={event => rememberCityStrip(event.currentTarget, cityScope)} aria-label={copy("Hızlı keşfet", "Quick discoveries", "Zbulime të shpejta")}>{cities.map((city, index) => {
           const saved = savedCityCodes?.includes(city.code) ?? false;
           const saveLabel = saved
             ? locale === "ro" ? "Elimină din salvate" : copy("Kaydedilenlerden çıkar", "Remove from saved", "Hiqe nga të ruajturat")
             : locale === "ro" ? "Salvează orașul" : copy("Şehri kaydet", "Save city", "Ruaj qytetin");
-          return <article className="rh-city-tile" key={city.code}>
-            <button type="button" className={`rh-city-card rh-city-card-v2 rh-city-${city.code.toLowerCase()}`} aria-label={city.name} aria-describedby={`home-city-${city.code}-country`} onClick={() => onOpenCity ? onOpenCity(city.code) : search(city.name)}>
+          return <article className="rh-city-tile" key={city.code} data-home-city-code={city.code} data-home-long-name={city.name.split(/\s+/u).some(word => Array.from(word).length >= (locale === "en" ? 6 : 7)) ? "true" : undefined}>
+            <button type="button" className={`rh-city-card rh-city-card-v2 rh-city-${city.code.toLowerCase()}`} aria-label={city.name} aria-describedby={`home-city-${city.code}-country`} onClick={() => { rememberCityStrip(cityStrip.current, cityScope); if (onOpenCity) onOpenCity(city.code); else search(city.name); }}>
               <span className="rh-city-image"><img src={city.photo} alt="" width={400} height={600} loading={index < 4 ? "eager" : "lazy"} decoding="async"/></span>
               <span className="rh-city-caption rh-city-caption-v2"><span className="rh-city-name-line"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><path d="M6 0a6 6 0 0 0-6 6c0 4 6 10 6 10s6-6 6-10a6 6 0 0 0-6-6Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><strong>{city.name}</strong></span><small id={`home-city-${city.code}-country`}>{city.country}</small></span>
             </button>

@@ -16,6 +16,7 @@ import { normalizePlannerPreferences, validTravelParty, type TravelTier } from "
 import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
 import { createFallbackPlan, routeByDestinationCode } from "../data/routes";
+import { cityDestination, cityDestinations } from "../data/cityDestinations";
 import { generateRoutePlan, hasPendingRoutePlan, hasRoutePlanRecovery } from "../lib/api";
 import { loadJourneyPlanQuota, type JourneyPlanQuota } from '../lib/journeyPlanClient';
 import { preparePlannerSignInDraft, takePlannerSignInDraft, readPlannerRecoveryDraft, savePlannerRecoveryDraft, type PlannerRecoveryDraft } from '../lib/plannerSignInDraft';
@@ -39,6 +40,16 @@ import "../components/map-journey-planner.css";
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const VIBES = ["Şehir", "Kültür", "Yeme-içme", "Deniz", "Doğa", "Gece hayatı", "Alışveriş", "Macera"];
 const MapJourneyPlanner = lazy(() => import("../components/MapJourneyPlanner").then(module => ({ default: module.MapJourneyPlanner })));
+
+function cityNamesForArea(area: { latitude: number; longitude: number } | undefined) {
+  if (!area) return undefined;
+  const city = cityDestinations('en').find(item => item.center.latitude === area.latitude && item.center.longitude === area.longitude);
+  if (!city) return undefined;
+  return [...new Set((['tr', 'en', 'sq', 'ro'] as const).flatMap(locale => {
+    const localized = cityDestination(city.code, locale);
+    return localized ? [localized.name] : [];
+  }))];
+}
 
 const INITIAL: PlannerInput = {
   origin: "",
@@ -81,7 +92,11 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   mapRequestId?: number;
 }) {
   const { copy, locale } = useI18n();
-  const [signInDraft]=useState(()=>!surpriseRoute&&hasPendingRoutePlan(ownerId)?readPlannerRecoveryDraft(ownerId):null);
+  const hasCityMapIntent = !surpriseRoute && mapRequestId > 0 && !!placeArea;
+  const cityNames = useMemo(() => hasCityMapIntent ? cityNamesForArea(placeArea) : undefined, [hasCityMapIntent, placeArea]);
+  // An explicit city selection wins over automatic recovery. Keep the old
+  // receipt and draft available for the user's separate recovery action.
+  const [signInDraft]=useState(()=>!surpriseRoute&&!hasCityMapIntent&&hasPendingRoutePlan(ownerId)?readPlannerRecoveryDraft(ownerId):null);
   const signInHandled=useRef<string|null>(null);
   const [mapPlannerOpen, setMapPlannerOpen] = useState(!surpriseRoute&&!signInDraft);
   const [discoveryOpen, setDiscoveryOpen] = useState(!!signInDraft);
@@ -99,11 +114,11 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(signInDraft?.origin || null);
   const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(signInDraft?.destination || null);
   useEffect(()=>{
-    if(!ownerId||signInHandled.current===ownerId)return;
+    if(hasCityMapIntent||!ownerId||signInHandled.current===ownerId)return;
     signInHandled.current=ownerId;
     const pending=takePlannerSignInDraft(ownerId);
     if(pending){setForm(snapshotPlannerInput(pending.form));setOriginAirport(pending.origin);setDestinationAirport(pending.destination);setMapPlannerOpen(false);setDiscoveryOpen(true);}
-  },[ownerId]);
+  },[ownerId,hasCityMapIntent]);
   const [editingRoute, setEditingRoute] = useState<number | null>(null);
   const [editStops, setEditStops] = useState<string[]>([]);
   const [newStop, setNewStop] = useState("");
@@ -386,7 +401,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
       {savedRouteState.unavailable && <RequestFailure message={copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")} onRetry={refreshSavedRoutes} />}
-      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} cityRequestId={hasCityMapIntent ? mapRequestId : undefined} cityNames={cityNames} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
         <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>
