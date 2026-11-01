@@ -125,7 +125,7 @@ test('Long public city names remain complete and receive compact fit treatment i
   }
 });
 
-test('Seven-letter Turkish city names found clipped on phones receive the same wider fit as longer names', () => {
+test('Seven-letter Turkish city names found clipped on phones receive the same compact text fit as longer names', () => {
   const f = homeFixture(), row = f.mount('phone-name-owner', 'tr');
   for (const code of ['SJJ', 'LUX', 'HAM', 'AMS', 'WAW', 'VCE', 'GVA']) {
     const article = row.articles.find(node => node.props['data-home-city-code'] === code);
@@ -137,12 +137,12 @@ test('Seven-letter Turkish city names found clipped on phones receive the same w
   f.unmount();
 });
 
-test('English Warsaw fits the wider phone card while the original four remain compact in every language', () => {
+test('English Warsaw receives compact text fit while original four retain their typography in every language', () => {
   const f = homeFixture(), row = f.mount('english-phone-name-owner', 'en');
   const article = row.articles.find(node => node.props['data-home-city-code'] === 'WAW');
   const card = f.find(article, 'button', props => props.className?.includes('rh-city-card'));
   assert.equal(card.props['aria-label'], 'Warsaw');
-  assert.equal(article.props['data-home-long-name'], 'true', 'Six-letter Warsaw needs additional room at320px');
+  assert.equal(article.props['data-home-long-name'], 'true', 'Six-letter Warsaw needs compact typography at320px');
   f.unmount();
   for (const locale of ['tr', 'en', 'sq', 'ro']) {
     const localized = f.mount('original-phone-name-owner', locale);

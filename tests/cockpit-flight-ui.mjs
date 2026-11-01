@@ -917,3 +917,39 @@ test('Event trip creation persists the same destination-local date used by its f
     await saving;
   } finally { h.host.dispose(); }
 });
+
+test('Manual flight arrival opens on the selected departure day and changing flight dates removes stale arrival limits', async () => {
+  const h = cockpitHarness();
+  try {
+    await h.open();
+    lookup(h.host.render()).props.onQueryChange('PC3663', '2026-11-27');
+    lookup(h.host.render()).props.onManual();
+    let view = h.host.render();
+    assert.equal(dateField(view, 'Scheduled arrival date').props.value, '2026-11-27');
+    dateField(view, 'Scheduled arrival date').props.onChange('2026-11-28');
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-11-29');
+    lookup(h.host.render()).props.onExpand();
+    lookup(h.host.render()).props.onQueryChange('PC3663', '2026-12-03');
+    lookup(h.host.render()).props.onManual();
+    view = h.host.render();
+    const arrival = dateField(view, 'Scheduled arrival date');
+    assert.equal(arrival.props.value, '2026-12-03');
+    assert.equal(arrival.props.min, '2026-12-02');
+    assert.ok(arrival.props.max >= arrival.props.min);
+    assert.equal(dateField(view, 'When does your trip end?').props.value, '');
+    arrival.props.onChange('2026-12-04');
+    assert.equal(dateField(h.host.render(), 'Scheduled arrival date').props.value, '2026-12-04');
+    assert.equal(h.creates.length, 0, 'Picking dates never submits a real trip');
+  } finally { h.host.dispose(); }
+});
+
+test('Compact flight summary shows a readable selected-language date instead of an ISO string', () => {
+  const h = lookupHarness();
+  try {
+    const view = h.host.render({ date: '2026-11-27', compact: true });
+    assert.match(text(view), /27 November 2026/);
+    assert.doesNotMatch(text(view), /2026-11-27/);
+    h.language('tr');
+    assert.match(text(h.host.render()), /27 Kasım 2026/);
+  } finally { h.host.dispose(); }
+});

@@ -88,7 +88,7 @@ export function tripInviteFromUrl(value: string) {
 const pendingKey = "l2t:pending-trip-invite:v1";
 export function rememberTripInvite(value: string) {
   const code = parseTripInvite(value);
-  try { if (code) localStorage.setItem(pendingKey,JSON.stringify({code,expires:Date.now()+7*86400000})); else localStorage.removeItem(pendingKey); } catch { /* the current screen still holds the code */ }
+  try { if (code) localStorage.setItem(pendingKey,JSON.stringify({code,expires:Date.now()+5*60_000})); else localStorage.removeItem(pendingKey); } catch { /* the current screen still holds the code */ }
   return code;
 }
 export function pendingTripInvite(url: string) {

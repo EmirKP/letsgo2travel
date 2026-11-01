@@ -1,6 +1,8 @@
 export function parseTripInvite(value: string): string {
   const text = value.trim();
-  const valid = (code: string) => /^[A-Za-z0-9_-]{20,200}$/.test(code) ? code : "";
+  // Keep existing deep links parseable; the server alone decides whether an
+  // invitation is current. Numeric codes are strings so leading zeros survive.
+  const valid = (code: string) => /^(?:\d{6}|[A-Za-z0-9_-]{20,200})$/.test(code) ? code : "";
   if (valid(text)) return text;
   try {
     const url = new URL(text, "https://www.letsgo2travel.com.tr");

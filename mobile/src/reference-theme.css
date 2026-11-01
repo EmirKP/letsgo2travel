@@ -255,8 +255,11 @@ html, body, #root { background: var(--theme-page, #fff); }
 .editorial-app:not(.view-home) .screen :is(.guide-search, .daily-library-search, .search-input, .editorial-search) { min-height: 50px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 17px; background: var(--reference-soft); box-shadow: none; }
 .editorial-app:not(.view-home) .screen :is(.guide-search, .daily-library-search, .search-input, .editorial-search) input { min-height: 44px; color: var(--ink); background: transparent; border: 0; font-size: 16px; }
 .editorial-app:not(.view-home) .screen :is(input, textarea)::placeholder { color: var(--theme-muted, #64768e); opacity: 1; }
-.editorial-app:not(.view-home) .screen .date-time-control:focus-within { outline: 3px solid #0066ff; outline-offset: 3px; border-color: #0066ff; }
+.editorial-app:not(.view-home) .screen .date-time-control:focus-within { outline: 2px solid var(--theme-link, #0066ff); outline-offset: 0; border-color: transparent; box-shadow: none; }
 .editorial-app:not(.view-home) .screen :is(button, a, input, select, textarea):focus-visible { outline: 3px solid #0066ff; outline-offset: 3px; }
+:root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) .date-time-control input:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+:root[data-theme="dark"] .date-time-control input { color-scheme: dark; }
+:root[data-theme="light"] .date-time-control input { color-scheme: light; }
 .editorial-app:not(.view-home) .screen :is([id], input, select, textarea) { scroll-margin-top: calc(92px + env(safe-area-inset-top)); }
 
 /* Five equal destinations: no raised centre tab or implied hierarchy. */

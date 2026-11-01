@@ -5,6 +5,7 @@ import { useI18n } from "../lib/i18n";
 import { localIsoDate } from "../lib/dates";
 import { normalizeFlightNumber } from "../lib/cockpitForm";
 import { DateTimeField } from "./DateTimeField";
+import { formatCalendarDate } from "../lib/localeFormatting";
 import { Icon } from "./Icon";
 import { TravelToolArtwork } from "./TravelToolArtwork";
 import { CockpitFlightDetails } from "./CockpitFlightDetails";
@@ -100,7 +101,7 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
     return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", expire); };
   }, [flights, clock]);
 
-  if (compact) return <div className="cockpit-query-summary"><span><small>{copy("Uçuş", "Flight")}</small><strong>{flightNumber || copy("Bilet bilgileri", "Ticket details")}</strong><small>{date}</small></span><button type="button" onClick={onExpand}>{copy("Uçuşu değiştir", "Change flight")}</button></div>;
+  if (compact) return <div className="cockpit-query-summary"><span><small>{copy("Uçuş", "Flight")}</small><strong>{flightNumber || copy("Bilet bilgileri", "Ticket details")}</strong><small>{formatCalendarDate(date, locale)}</small></span><button type="button" onClick={onExpand}>{copy("Uçuşu değiştir", "Change flight")}</button></div>;
 
   return <section className="cockpit-flight-lookup" aria-label={copy("Uçuşunu bul", "Find your flight")}>
     <header><span className="flight-lookup-icon cockpit-feature-artwork"><TravelToolArtwork kind="flight" size={56}/></span><div><h3>{copy("Uçuşunu bul", "Find your flight")}</h3><p>{copy("Yaklaşan veya devam eden uçuşunla başla.", "Start with an upcoming or ongoing flight.")}</p></div></header>

@@ -1733,8 +1733,8 @@ body,.app-shell { color: var(--theme-ink, #111); background: var(--theme-page, #
 .date-time-control > svg:first-child { color: var(--theme-link, var(--brand-blue)); }
 .date-time-control > svg:nth-of-type(2) { color: var(--theme-muted, #818995); transform: rotate(90deg); }
 .date-time-control strong { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 800; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-.date-time-control input { position: absolute; z-index: 2; inset: 0; width: 100%; min-width: 0; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: inherit; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; }
-.date-time-control:focus-within { border-color: var(--brand-blue); outline: 2px solid rgba(35,82,196,.25); outline-offset: 1px; }
+.date-time-control input { position: absolute; z-index: 2; inset: 0; width: 100%; min-width: 0; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: inherit; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; font-size: 16px; color-scheme: inherit; }
+.date-time-control:focus-within { border-color: transparent; outline: 2px solid var(--theme-link, var(--brand-blue)); outline-offset: 0; box-shadow: none; }
 .date-time-field.disabled { opacity: .55; }
 .date-time-field.disabled .date-time-control { background: var(--theme-soft, #f3f4f7); }
 .form-grid > .date-time-field,.event-search-grid > .date-time-field,.admin-event-form .date-time-field { min-width: 0; max-width: 100%; }

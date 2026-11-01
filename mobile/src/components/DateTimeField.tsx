@@ -1,5 +1,5 @@
 import { isCalendarDate, validPickerValue } from "../lib/dates";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { useI18n } from "../lib/i18n";
 import type { AppLocale } from '../lib/locale';
@@ -41,7 +41,10 @@ function visibleValue(value: string, type: DateTimeFieldProps["type"], locale: A
 
 export function DateTimeField({ type, label, value, onChange, min, max, required = false, disabled = false, className = "" }: DateTimeFieldProps) {
   const inputId = useId();
-  const [invalid, setInvalid] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const [invalidFor, setInvalidFor] = useState<string | null>(null);
+  const constraintKey = JSON.stringify([value || "", type, min, max]);
+  const invalid = invalidFor === constraintKey;
   const { copy, locale } = useI18n();
   const display = visibleValue(value || "", type, locale);
   const placeholder = type === "time"
@@ -50,10 +53,17 @@ export function DateTimeField({ type, label, value, onChange, min, max, required
       ? copy("Tarih ve saat seç", "Choose date and time")
       : copy("Tarih seç", "Choose date");
 
+  // Keep the native picker's draft in the DOM. Reapplying a controlled blank or
+  // previous value after an out-of-range intermediate iOS input resets its
+  // calendar/wheels before the user can reach the intended date.
+  useEffect(() => {
+    if (input.current) input.current.value = value || "";
+  }, [value, type]);
+
   // iOS date/time wheels can emit input before committing change on dismissal.
   const accept = (requested: string) => {
     const valid = validPickerValue(requested, type, min, max);
-    setInvalid(!valid);
+    setInvalidFor(valid ? null : constraintKey);
     if (valid && requested !== (value || "")) onChange(requested);
   };
 
@@ -64,9 +74,10 @@ export function DateTimeField({ type, label, value, onChange, min, max, required
       <strong>{display || placeholder}</strong>
       <Icon name="chevron" size={16} />
       <input
+        ref={input}
         id={inputId}
         type={type}
-        value={value || ""}
+        defaultValue={value || ""}
         min={min}
         max={max}
         required={required}
@@ -81,6 +92,12 @@ export function DateTimeField({ type, label, value, onChange, min, max, required
         }}
         onInput={(event) => accept(event.currentTarget.value)}
         onChange={(event) => accept(event.currentTarget.value)}
+        onBlur={(event) => {
+          // Some WebViews commit only when Done dismisses the native control.
+          const requested = event.currentTarget.value;
+          accept(requested);
+          if (!validPickerValue(requested, type, min, max)) event.currentTarget.value = value || "";
+        }}
       />
     </span>
     {invalid && <span id={`${inputId}-error`} className="date-time-error" role="alert">{copy("İzin verilen aralıkta geçerli bir tarih veya saat seç.", "Choose a valid date or time within the allowed range.")}</span>}

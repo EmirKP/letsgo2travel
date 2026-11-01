@@ -54,3 +54,25 @@ export function formatAppDate(date: Date, locale = 'tr-TR', options: Intl.DateTi
     return part.value;
   }).join('');
 }
+
+/** A calendar date is a day, not a UTC instant. Keep it stable on every device. */
+export function formatCalendarDate(value: string, locale: AppLocale): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+  const date = new Date(`${value}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return '';
+  return formatAppDate(date, locale === 'en' ? 'en-GB' : locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+// Display labels only; canonical IANA values and flight-time arithmetic stay intact.
+const ZONE_CITY_LABELS: Record<string, Record<AppLocale, string>> = {
+  'Asia/Kabul': { tr: 'Kabil', en: 'Kabul', sq: 'Kabul', ro: 'Kabul' },
+  'Europe/Bucharest': { tr: 'Bükreş', en: 'Bucharest', sq: 'Bukuresht', ro: 'București' },
+  'Europe/Istanbul': { tr: 'İstanbul', en: 'Istanbul', sq: 'Stamboll', ro: 'Istanbul' },
+  'Europe/Tirane': { tr: 'Tiran', en: 'Tirana', sq: 'Tiranë', ro: 'Tirana' },
+  'Europe/London': { tr: 'Londra', en: 'London', sq: 'Londër', ro: 'Londra' },
+};
+
+export function localTimeZoneLabel(zone: string, locale: AppLocale, city = ''): string {
+  const name = ZONE_CITY_LABELS[zone]?.[locale] || city.trim() || zone.split('/').at(-1)?.replaceAll('_', ' ') || 'UTC';
+  return locale === 'tr' ? `${name} yerel saati` : locale === 'sq' ? `Ora lokale · ${name}` : locale === 'ro' ? `Ora locală · ${name}` : `${name} local time`;
+}

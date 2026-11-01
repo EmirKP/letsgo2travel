@@ -18,6 +18,7 @@ function load(file, imports, globals = {}) {
   const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/sharedTripInviteClient') return load('mobile/src/lib/sharedTripInviteClient.ts', {});
     const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name.endsWith('.css')) return {};
@@ -84,17 +85,17 @@ function collaborationFixture({failCreate=false,performAction,options=[]}={}) {
   const trip={...sourceTrip(),destinationCode:'FR',userId:'owner-a',status:'upcoming',checklistItems:[]};
   const workspace={trip,myRole:'owner',members:[{userId:'owner-a',name:'Owner',role:'owner'}],options,budget:{currency:'EUR',targetAmount:0},expenses:[],balances:[]};
   const imports={react:h.react,'../lib/localeFormatting':{formatAppDate:date=>date.toISOString().slice(0,10)},'../lib/dates':dates,'../lib/i18n':{useI18n:()=>language},'../lib/native':{shareContent:async()=>true},
-    '../lib/tripCollaboration':{listSharedTrips:async()=>[],getTripCollaboration:async()=>workspace,collaborationAction:async(_token,body)=>{actions.push(body);if(performAction)return performAction(body);return {data:{tripId:trip.id,inviteCode:'abc',inviteUrl:'https://example.test/invite'}};},tripInviteFromUrl:value=>value,rememberTripInvite:()=>{}},
+    '../lib/tripCollaboration':{listSharedTrips:async()=>[],getTripCollaboration:async()=>workspace,collaborationAction:async(_token,body)=>{actions.push(body);if(performAction)return performAction(body);return {data:{tripId:trip.id,inviteCode:'012345',serverNow:new Date().toISOString(),expiresAt:new Date(Date.now()+299000).toISOString()}};},tripInviteFromUrl:value=>value,rememberTripInvite:()=>{}},
     '../data/countries':{COUNTRY_LIST:[{alpha3:'FRA',name:'France'}]},'../data/countryIso':{alpha2FromAlpha3:()=> 'FR'},'../lib/supabaseData':{createCockpitTrip:async(...args)=>{creates.push(args);if(failCreate)throw Error('offline');return trip;},getSupabaseDataErrorMessage:(_cause,fallback)=>fallback},
     '../lib/activeTripContext':{activeTripContextFromTrip:()=>({tripId:trip.id}),writeActiveTripContext:(...args)=>contexts.push(args)},'../lib/id':{createId:()=> 'request-a'}};
   for(const name of ['DateTimeField','CountryPicker','Icon','TravelToolArtwork','CountryFlag','Sheet'])imports[`./${name}`]={[name]:name};
-  const {TripCollaborationHub}=load('mobile/src/components/TripCollaborationHub.tsx',imports,{navigator:{}});
+  const {TripCollaborationHub}=load('mobile/src/components/TripCollaborationHub.tsx',imports,{navigator:{},window:{setInterval:()=>1,clearInterval(){}},document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
   h.start(TripCollaborationHub,{accessToken:'token',userId:'owner-a',refreshKey:'',initialEntry:'create',onNotice:notice=>notices.push(notice)});
   return {h,creates,actions,contexts,notices,trip};
 }
 test('Creating a shared trip reuses the ordinary trip record and opens its existing collaboration workspace',async()=>{
   const f=collaborationFixture();await tick();let tree=f.h.render();
-  assert.ok(button(tree,'Create shared trip'));assert.ok(button(tree,'Join an invite'));
+  assert.ok(button(tree,'Create shared trip'));assert.ok(button(tree,'Join with code'));
   find(tree,'CountryPicker').props.onChange('FRA');find(tree,'DateTimeField',p=>p.label==='Start date').props.onChange('2026-10-10');
   tree=f.h.render();find(tree,'DateTimeField',p=>p.label==='End date').props.onChange('2026-10-12');
   tree=f.h.render();const submit=find(tree,'form',p=>p.className==='trip-create-form').props.onSubmit;
@@ -120,26 +121,27 @@ async function openCreatedWorkspace(f) {
   return f.h.render();
 }
 
-test('Two rapid invite taps create a single invitation and a later deliberate tap is allowed',async()=>{
+test('Two rapid invite taps create one invitation and replace duplicate entry actions with its code',async()=>{
   const f=collaborationFixture();
   try {
     let tree=await openCreatedWorkspace(f);const invite=button(tree,'Invite friends').props.onClick;
     invite();invite();await tick();tree=f.h.render();
     assert.equal(f.actions.filter(action=>action.action==='create_invite').length,1);
-    assert.equal(button(tree,'Invite friends').props.disabled,false);
-    button(tree,'Invite friends').props.onClick();await tick();f.h.render();
-    assert.equal(f.actions.filter(action=>action.action==='create_invite').length,2);
+    assert.equal(button(tree,'Invite friends'),undefined);
+    assert.match(text(tree),/012345/);
+    assert.ok(button(tree,'Copy'));assert.ok(button(tree,'Share'));
+    assert.equal(f.actions.filter(action=>action.action==='create_invite').length,1);
   } finally {f.h.close();}
 });
 
 test('Two rapid join submissions accept an invitation once and open its exact shared trip',async()=>{
   const f=collaborationFixture();
   try {
-    await tick();button(f.h.render(),'Join an invite').props.onClick();let tree=f.h.render();
-    find(find(tree,'form',p=>p.className==='trip-invite-join'),'input').props.onChange({target:{value:'invite-code'}});
+    await tick();button(f.h.render(),'Join with code').props.onClick();let tree=f.h.render();
+    find(find(tree,'form',p=>p.className==='trip-invite-join'),'input').props.onChange({target:{value:'012345'}});
     tree=f.h.render();const join=find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit;
     const first=join({preventDefault(){}});await join({preventDefault(){}});await first;await tick();tree=f.h.render();
-    assert.deepEqual(plain(f.actions),[{action:'accept_invite',inviteCode:'invite-code'}]);
+    assert.deepEqual(plain(f.actions),[{action:'accept_invite',inviteCode:'012345'}]);
     assert.equal(find(tree,'Sheet').props.open,true);assert.match(text(tree),/Paris trip/);
   } finally {f.h.close();}
 });

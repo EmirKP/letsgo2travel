@@ -1,5 +1,7 @@
 // Bundled Romanian interface and editorial copy.
 export const RO_MESSAGES: Record<string, string> = {
+  "Choose how you appear in the community.": "Alege numele cu care apari în comunitate.",
+  "3–20 lowercase letters, numbers or _": "3–20 de litere mici, cifre sau _",
   "Activity budget missing": "Buget activitate lipsă",
   "Activity prices are unknown and excluded from the subtotal. Enter 0 if you plan free activities.": "Prețurile activităților sunt necunoscute și excluse din subtotal. Introdu 0 dacă planifici activități gratuite.",
   "Actual · reported by source": "Actual · raportat de sursă",

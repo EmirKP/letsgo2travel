@@ -89,6 +89,19 @@ body:has(.editorial-app) .community-profile-sheet .sheet-header h2 { color: var(
 .community-profile-editor { display: grid; gap: 10px; border: 1px solid var(--theme-border, #d7e3f2); border-radius: 18px; padding: 17px; background: var(--theme-soft, #f7faff); }
 .community-profile-editor > label { font-size: .875rem; font-weight: 700; }
 .community-profile-editor > input[type="text"] { width: 100%; min-width: 0; min-height: 46px; padding: 11px 12px; border: 1px solid var(--theme-border, #cedbeb); border-radius: 12px; color: var(--theme-ink, #172d46); background: var(--theme-surface, #fff); font: inherit; font-size: 1rem; }
+.community-profile-editor.community-profile-recovery { gap:10px; padding:18px; margin-top:18px; }
+.profile-recovery-heading { display:flex; align-items:flex-start; gap:11px; margin-bottom:8px; }
+.profile-recovery-heading > span { display:grid; place-items:center; flex:0 0 40px; height:40px; border-radius:12px; background:var(--theme-accent-soft, #eaf3ff); color:var(--theme-link, #0866ed); }
+.profile-recovery-heading > div { min-width:0; }
+.community-profile-recovery .profile-recovery-heading h3 { margin:0 0 5px; font-size:1.125rem; line-height:1.3; }
+.community-profile-recovery .profile-recovery-heading p { margin:0; color:var(--theme-muted, #627895); font-size:.875rem; line-height:1.45; }
+.community-profile-recovery > input[type="text"] { box-sizing:border-box; min-height:50px; }
+.community-profile-recovery > label { margin:2px 0 -3px; }
+.community-profile-recovery > .community-profile-editor-hint { margin:-3px 0 2px; font-size:.75rem; }
+.community-profile-recovery .profile-recovery-error { margin:0; color:var(--theme-danger, #bd3747); font-size:.875rem; line-height:1.45; }
+.profile-recovery-actions { display:grid; gap:8px; margin-top:6px; }
+.profile-recovery-actions > button { box-sizing:border-box; width:100%; min-height:46px; padding:11px 14px; border:1px solid var(--theme-border, #cedbeb); border-radius:12px; font:inherit; font-weight:650; background:transparent; color:var(--theme-muted, #627895); }
+.profile-recovery-actions > button[type="submit"] { margin:0; min-height:50px; border-color:transparent; background:#ffdd36; color:#142a43; }
 .community-profile-editor textarea { width: 100%; min-width: 0; padding: 12px; min-height: 110px; border: 1px solid var(--theme-border, #cedbeb); border-radius: 12px; color: var(--theme-ink, #172d46); background: var(--theme-surface, #fff); font: inherit; font-size: 1rem; resize: vertical; }
 .community-profile-editor > small { justify-self: end; font-size: .6875rem; color: var(--theme-muted, #627895); }
 .community-profile-editor-hint { margin:0; color:var(--theme-muted, #627895); font-size:.8125rem; line-height:1.5; }

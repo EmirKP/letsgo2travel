@@ -1,5 +1,5 @@
 import { parseTripInvite } from "@/lib/trip-invite";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 type MemberRole = "owner" | "editor" | "viewer";
 type ActionBody = Record<string, unknown>;
+
+function privateJson(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}) {
+  return NextResponse.json(body, { ...init, headers: { ...init.headers, "Cache-Control": "no-store" } });
+}
 
 const OPTION_TYPES = new Set(["route", "stay", "activity", "transport", "other"]);
 function cleanText(value: unknown, max: number) {
@@ -20,6 +24,14 @@ function uuid(value: unknown) {
 
 function inviteHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function inviteSchemaError(error: { code?: string; message?: string }) {
+  const missing = databaseUnavailable(error) || error.code === "PGRST202" || error.code === "42883";
+  return privateJson({
+    error: missing ? "Ortak seyahat için sunucu güncellemesi bekleniyor. Biraz sonra yeniden dene." : "İşlem tamamlanamadı. Yeniden deneyebilirsin.",
+    code: missing ? "COLLAB_SCHEMA_MISSING" : "COLLAB_INVITE_FAILED",
+  }, { status: missing ? 503 : 500 });
 }
 
 function money(value: unknown) {
@@ -207,11 +219,11 @@ export async function GET(request: Request) {
   if (!tripId) {
     const result = await tripSummaries(auth.supabase, auth.user.id);
     if (result.error) return NextResponse.json({ error: databaseUnavailable(result.error) ? "Ortak seyahat özelliği için veritabanı güncellemesi bekleniyor." : "Ortak seyahatler yüklenemedi.", code: databaseUnavailable(result.error) ? "COLLAB_SCHEMA_MISSING" : "COLLAB_LOAD_FAILED" }, { status: databaseUnavailable(result.error) ? 503 : 500 });
-    return NextResponse.json({ data: result.data });
+    return privateJson({ data: result.data });
   }
   const result = await workspace(auth.supabase, tripId, auth.user.id);
   if ("error" in result) return result.error;
-  return NextResponse.json(result);
+  return privateJson(result);
 }
 
 export async function POST(request: Request) {
@@ -226,10 +238,12 @@ export async function POST(request: Request) {
 
   if (action === "accept_invite") {
     const inviteCode = parseTripInvite(typeof body.inviteCode === "string" ? body.inviteCode : "");
-    if (!inviteCode) return NextResponse.json({ error: "Davet kodu geçersiz." }, { status: 400 });
-    const { data, error } = await supabase.rpc("accept_trip_invite", { p_token_hash: inviteHash(inviteCode), p_user_id: user.id });
-    if (error || !data) return NextResponse.json({ error: error?.message?.includes("invite_invalid") ? "Davet geçersiz, süresi dolmuş veya kullanım sınırına ulaşmış." : "Davet kabul edilemedi." }, { status: error?.message?.includes("invite_invalid") ? 410 : 500 });
-    return NextResponse.json({ data: { tripId: data }, message: "Ortak seyahate katıldın." });
+    if (!inviteCode) return privateJson({ error: "Davet kodu geçersiz." }, { status: 400 });
+    const { data, error } = await supabase.rpc("accept_shared_trip_invite", { p_token_hash: inviteHash(inviteCode), p_user_id: user.id });
+    if (error) return inviteSchemaError(error);
+    if (data?.status === "rate_limited") return privateJson({ error: "Çok fazla kod denemesi yaptın. Birkaç dakika sonra yeniden dene.", code: "INVITE_RATE_LIMITED", retryAfter: data.retryAfter }, { status: 429, headers: { "Retry-After": String(data.retryAfter || 300) } });
+    if (data?.status !== "joined" || !uuid(data.tripId)) return privateJson({ error: "Davet geçersiz, süresi dolmuş veya kullanım sınırına ulaşmış.", code: "INVITE_EXPIRED" }, { status: 410 });
+    return privateJson({ data: { tripId: data.tripId }, message: "Ortak seyahate katıldın." });
   }
 
   const tripId = uuid(body.tripId);
@@ -238,14 +252,30 @@ export async function POST(request: Request) {
   if ("error" in access) return access.error;
 
   if (action === "create_invite") {
-    if (access.member.role !== "owner") return NextResponse.json({ error: "Davet bağlantısını yalnızca seyahat sahibi oluşturabilir." }, { status: 403 });
+    if (access.member.role !== "owner") return privateJson({ error: "Davet kodunu yalnızca seyahat sahibi oluşturabilir." }, { status: 403 });
     const invitedRole: MemberRole = body.role === "viewer" ? "viewer" : "editor";
-    const rawToken = randomBytes(24).toString("base64url");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { error } = await supabase.from("trip_invites").insert({ trip_id: tripId, created_by: user.id, token_hash: inviteHash(rawToken), invited_role: invitedRole, expires_at: expiresAt, max_uses: 12 });
-    if (error) return NextResponse.json({ error: "Davet oluşturulamadı." }, { status: 500 });
-    const origin = new URL(request.url).origin;
-    return NextResponse.json({ data: { inviteCode: rawToken, inviteUrl: `${origin}/davet/${encodeURIComponent(rawToken)}`, expiresAt, role: invitedRole } });
+    // A database transaction reuses the live code or rotates it at expiry.
+    // Collision retries never return a code assigned to another trip.
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const proposedCode = String(randomInt(0, 1_000_000)).padStart(6, "0");
+      const { data, error } = await supabase.rpc("create_short_trip_invite", { p_trip_id: tripId, p_actor: user.id, p_code: proposedCode, p_code_hash: inviteHash(proposedCode), p_role: invitedRole });
+      if (error?.message?.includes("invite_code_collision")) continue;
+      if (error?.message?.includes("trip_forbidden")) return privateJson({ error: "Bu seyahate davet oluşturma yetkin yok." }, { status: 403 });
+      if (error) return inviteSchemaError(error);
+      const invite = Array.isArray(data) ? data[0] : data;
+      if (!invite || !/^\d{6}$/.test(invite.invite_code)) return inviteSchemaError({});
+      const origin = new URL(request.url).origin;
+      return privateJson({ data: { inviteCode: invite.invite_code, inviteUrl: `${origin}/davet/${invite.invite_code}`, expiresAt: invite.expires_at, serverNow: invite.server_now, role: invite.invited_role } });
+    }
+    return NextResponse.json({ error: "Davet kodu şu anda oluşturulamadı. Yeniden dene.", code: "INVITE_CODE_BUSY" }, { status: 503 });
+  }
+
+  if (action === "delete_trip") {
+    if (access.member.role !== "owner") return NextResponse.json({ error: "Seyahati yalnızca sahibi silebilir." }, { status: 403 });
+    const { error } = await supabase.rpc("delete_shared_trip", { p_trip_id: tripId, p_actor: user.id });
+    if (error?.message?.includes("trip_forbidden")) return NextResponse.json({ error: "Bu seyahati silme yetkin yok." }, { status: 403 });
+    if (error) return inviteSchemaError(error);
+    return NextResponse.json({ success: true });
   }
 
   if (["set_role","remove_member","leave_trip"].includes(action)) {

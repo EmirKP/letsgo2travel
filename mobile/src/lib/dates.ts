@@ -69,3 +69,11 @@ export function validPickerValue(value: string, type: "date" | "time" | "datetim
     : value.length === 16 && value[10] === "T" && isCalendarDate(value.slice(0,10)) && clock.test(value.slice(11));
   return valid && (!min || value >= min) && (!max || value <= max);
 }
+
+/** A previous trip end must never create an impossible range after changing flight. */
+export function flightArrivalDateBounds(startDate: string, endDate: string, latest = localIsoDate(730)) {
+  const min = isCalendarDate(startDate)
+    ? new Date(Date.parse(`${startDate}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+    : localIsoDate(-1);
+  return { min, max: isCalendarDate(endDate) && endDate >= (isCalendarDate(startDate) ? startDate : min) ? endDate : latest };
+}

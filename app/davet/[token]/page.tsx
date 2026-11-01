@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InviteActions } from "./InviteActions";
 import styles from "./invite.module.css";
+import { parseTripInvite } from "@/lib/trip-invite";
 
 export const metadata: Metadata = {
   title: "Ortak seyahat daveti · LetsGo2Travel",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default async function TripInvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token: rawToken } = await params;
   const token = String(rawToken || "").trim();
-  const valid = /^[A-Za-z0-9_-]{20,200}$/.test(token);
+  const valid = parseTripInvite(token) === token;
 
 
   return <main className={styles.page}>
@@ -24,7 +25,7 @@ export default async function TripInvitePage({ params }: { params: Promise<{ tok
       <p>{valid ? "Seyahate katılmak, önerileri oylamak ve ortak masrafları takip etmek için hesabına giriş yap veya daveti uygulamada aç." : "Bağlantı eksik veya bozulmuş olabilir. Daveti gönderen kişiden yeni bağlantı iste."}</p>
       {valid && <InviteActions token={token} />}
       <Link className={styles.secondary} href="/">LetsGo2Travel ana sayfası</Link>
-      <p className={styles.note}>Davetler 7 gün geçerlidir ve yalnız davet bağlantısına sahip kişiler tarafından kullanılabilir.</p>
+      <p className={styles.note}>Davet kodu 5 dakika geçerlidir. Süresi dolduysa seyahat sahibinden güncel kodu iste.</p>
     </section>
   </main>;
 }

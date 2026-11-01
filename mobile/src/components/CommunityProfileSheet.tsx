@@ -84,7 +84,7 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
 type SectionState = Pick<CommunityProfilePage, "items" | "nextOffset">;
 
 function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, identityFullName = "", identityNeedsCompletion = false, onSaveIdentity, editRequest = 0, onEditRequestHandled, onEditingChange, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked, inline = false, externalRevision = 0 }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void; inline?: boolean; externalRevision?: number }) {
-  const { copy, dateLocale } = useI18n();
+  const { copy, dateLocale, locale } = useI18n();
   const id = useId();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [section, setSection] = useState<CommunityProfileSection>("posts");
@@ -304,13 +304,15 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
 
   return <>
     {missingOwnProfile && <form className="community-profile-editor community-profile-recovery" onSubmit={event => { event.preventDefault(); void completeMissingProfile(); }}>
-      <h3>{copy('Profilini tamamla', 'Complete your profile', 'Plotëso profilin')}</h3>
-      <p>{copy('Hesabın açık. Topluluk profilini oluşturmak için adını ve kullanıcı adını tamamla; ardından kaldığın yerden devam edebilirsin.', 'You are signed in. Complete your name and username to create your community profile and continue.', 'Je i identifikuar. Plotëso emrin dhe emrin e përdoruesit për profilin e komunitetit dhe vazhdo.')}</p>
-      <label>{copy('Ad soyad', 'Full name', 'Emri i plotë')}<input name="recovery-full-name" autoComplete="name" maxLength={100} value={fullName} disabled={busy} onChange={event => setFullName(event.target.value)}/></label>
-      <label>{copy('Kullanıcı adı', 'Username', 'Emri i përdoruesit')}<input name="recovery-username" autoComplete="username" autoCapitalize="none" maxLength={20} value={username} disabled={busy} onChange={event => setUsername(event.target.value.toLowerCase())}/></label>
-      {mutationError && <p role="alert">{mutationError}</p>}
-      <button className="primary-wide" type="submit" disabled={busy}>{busy ? copy('Kaydediliyor…', 'Saving…', 'Po ruhet…') : copy('Profili tamamla', 'Complete profile', 'Plotëso profilin')}</button>
-      <button type="button" disabled={busy} onClick={() => { setRecovering(false); handledEditRequest.current = editRequest; onEditRequestHandled?.(); setMutationError(''); onEditingChange?.(false); }}>{copy('Vazgeç', 'Cancel', 'Anulo')}</button>
+      <div className="profile-recovery-heading"><span aria-hidden="true"><Icon name="user" size={21}/></span><div><h3>{locale === 'ro' ? 'Completează profilul' : copy('Profilini tamamla', 'Complete your profile', 'Plotëso profilin')}</h3><p>{locale === 'ro' ? 'Alege numele cu care apari în comunitate.' : copy('Toplulukta görünecek adını seç.', 'Choose how you appear in the community.', 'Zgjidh emrin që shfaqet në komunitet.')}</p></div></div>
+      <label htmlFor={`${id}-recovery-name`}>{copy('Ad soyad', 'Full name', 'Emri i plotë')}</label>
+      <input id={`${id}-recovery-name`} type="text" name="recovery-full-name" autoComplete="name" minLength={2} maxLength={100} required value={fullName} disabled={busy} onChange={event => setFullName(event.target.value)}/>
+      <label htmlFor={`${id}-recovery-username`}>{copy('Kullanıcı adı', 'Username', 'Emri i përdoruesit')}</label>
+      <input id={`${id}-recovery-username`} type="text" name="recovery-username" autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={3} maxLength={20} required aria-describedby={`${id}-recovery-hint`} value={username} disabled={busy} onChange={event => setUsername(event.target.value.toLowerCase())}/>
+      <p id={`${id}-recovery-hint`} className="community-profile-editor-hint">{locale === 'ro' ? '3–20 de litere mici, cifre sau _' : copy('3–20 küçük harf, rakam veya _', '3–20 lowercase letters, numbers or _', '3–20 shkronja të vogla, numra ose _')}</p>
+      {mutationError && <p className="profile-recovery-error" role="alert">{mutationError}</p>}
+      <div className="profile-recovery-actions"><button className="primary-wide" type="submit" disabled={busy}>{busy ? copy('Kaydediliyor…', 'Saving…', 'Po ruhet…') : copy('Profili tamamla', 'Complete profile', 'Plotëso profilin')}</button>
+      <button type="button" disabled={busy} onClick={() => { setRecovering(false); handledEditRequest.current = editRequest; onEditRequestHandled?.(); setMutationError(''); onEditingChange?.(false); }}>{copy('Vazgeç', 'Cancel', 'Anulo')}</button></div>
     </form>}
     {profile && <>
       <div className="community-profile-hero">

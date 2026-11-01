@@ -9,6 +9,7 @@ import { cockpitEditForm, cockpitEditInput, cockpitEditTimeZone, rebaseCockpitEd
 import { flightTimes, normalizeFlightNumber, normalizePnr } from "../lib/cockpitForm";
 import { localIsoDate } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
+import { localTimeZoneLabel } from "../lib/localeFormatting";
 import type { CockpitTrip, UpdateCockpitTripInput } from "../lib/supabaseData";
 
 export function CockpitTripEditor({ trip, busy, error, conflict, onReload, onSave, onClose }: {
@@ -64,7 +65,7 @@ export function CockpitTripEditor({ trip, busy, error, conflict, onReload, onSav
           <DateTimeField type="time" label={copy("Kalkış · yerel saat", "Departure · local time", "Nisja · ora lokale")} value={form.departureTime} required disabled={busy} onChange={departureTime => setForm(current => ({ ...current, departureTime, departureUtc: undefined }))}/>
           <DateTimeField type="date" label={copy("Varış tarihi", "Arrival date", "Data e mbërritjes")} value={form.arrivalDate} max={localIsoDate(730)} required disabled={busy} onChange={arrivalDate => setForm(current => ({ ...current, arrivalDate, arrivalUtc: undefined }))}/>
           <DateTimeField type="time" label={copy("Varış · yerel saat", "Arrival · local time", "Mbërritja · ora lokale")} value={form.arrivalTime} required disabled={busy} onChange={arrivalTime => setForm(current => ({ ...current, arrivalTime, arrivalUtc: undefined }))}/>
-          {(["originAirport", "airport"] as const).map(key => form[key] && <label key={key}>{key === "originAirport" ? copy("Kalkış saat dilimi", "Departure time zone", "Zona kohore e nisjes") : copy("Varış saat dilimi", "Arrival time zone", "Zona kohore e mbërritjes")}<select disabled={busy} value={form[key]?.timeZone || ""} onChange={event => setForm(current => cockpitEditTimeZone(trip, baseline.current, current, key, event.target.value))}><option value="">{copy("Saat dilimi seç", "Select time zone", "Zgjidh zonën kohore")}</option>{[...new Set([form[key]?.timeZone || "", ...zones])].filter(Boolean).map(zone => <option key={zone} value={zone}>{zone}</option>)}</select></label>)}
+          {(["originAirport", "airport"] as const).map(key => form[key] && <label key={key}>{key === "originAirport" ? copy("Kalkış saat dilimi", "Departure time zone", "Zona kohore e nisjes") : copy("Varış saat dilimi", "Arrival time zone", "Zona kohore e mbërritjes")}<select disabled={busy} value={form[key]?.timeZone || ""} onChange={event => setForm(current => cockpitEditTimeZone(trip, baseline.current, current, key, event.target.value))}><option value="">{copy("Saat dilimi seç", "Select time zone", "Zgjidh zonën kohore")}</option>{[...new Set([form[key]?.timeZone || "", ...zones])].filter(Boolean).map(zone => <option key={zone} value={zone}>{localTimeZoneLabel(zone, locale, zone === form[key]?.timeZone ? form[key]?.city : undefined)}</option>)}</select></label>)}
           {(["departure", "arrival"] as const).map(key => {
             const result = ambiguities[key];
             if (result.ok !== false || result.reason !== "ambiguous") return null;

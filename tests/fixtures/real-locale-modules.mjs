@@ -22,6 +22,7 @@ function load(path) {
 }
 
 export function realLocaleModule(id) {
+  if (/(?:^|\/)localeFormatting$/.test(id)) return load('mobile/src/lib/localeFormatting.ts');
   if (/(?:^|\/)planner-copy$/.test(id)) return load('lib/planner-copy.ts');
   if (/(?:^|\/)locale-copy$/.test(id)) return load('lib/locale-copy.ts');
   if (/(?:^|\/)locale$/.test(id)) return load('mobile/src/lib/locale.ts');
