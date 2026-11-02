@@ -5,6 +5,8 @@ import { Sheet } from "../components/Sheet";
 import { LazyOverlay } from "../components/LazyOverlay";
 import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
+import { RouteAllowance } from "../components/RouteAllowance";
+import { routeAllowanceLabel } from "../lib/routeAllowance";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
 import { RouteWeather } from "../components/RouteWeather";
@@ -397,11 +399,16 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
     }
   };
 
+  const closeMapPlanner = () => {
+    setMapPlannerOpen(false);
+    onNavigate("trips");
+  };
+
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
       {savedRouteState.unavailable && <RequestFailure message={copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")} onRetry={refreshSavedRoutes} />}
-      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} cityRequestId={hasCityMapIntent ? mapRequestId : undefined} cityNames={cityNames} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={closeMapPlanner}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={closeMapPlanner} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={closeMapPlanner} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} cityRequestId={hasCityMapIntent ? mapRequestId : undefined} cityNames={cityNames} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
         <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>
@@ -469,18 +476,17 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
           <fieldset className="vibe-fieldset" data-planner-field="interests" aria-invalid={!!errors.interests}><legend>{copy("İlgi alanların · 1–4 seçim", "Your interests · choose 1–4")}</legend>{errors.interests && <p className="planner-field-error" role="alert">{errors.interests}</p>}<p className="planner-interest-count" role="status">{copy(`${form.vibe.length}/4 seçildi`, `${form.vibe.length}/4 selected`)}</p><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} disabled={form.vibe.length >= 4 && !form.vibe.includes(vibe)} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div><p className="planner-hint">{copy("Bir ilgi alanını değiştirmek için önce seçimini kaldır.", "Remove a selected interest before choosing another.")}</p>{interestNotice && <p className="planner-interest-notice" role="status">{interestNotice}</p>}</fieldset>
           <button type="button" className="secondary-wide" onClick={() => selectPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
         </>}
-        <aside className="planner-allowance" aria-live="polite">
-          <strong>{needsSignIn?copy('Her hesap için günde 3 yeni AI rota','3 new AI itineraries per account each day','3 itinerare të reja me AI në ditë për çdo llogari')
+        <RouteAllowance attention={needsSignIn || !quota || quota.pending || quota.remaining === 0 || canRecover} summary={needsSignIn?copy('Her hesap için günde 3 yeni AI rota','3 new AI itineraries per account each day','3 itinerare të reja me AI në ditë për çdo llogari')
             :quota?quota.pending?copy('Önceki isteğin hâlâ işleniyor','Your previous request is still processing','Kërkesa e mëparshme po përpunohet')
-            :quota.remaining?copy(`Bugün ${quota.remaining} yeni AI rota hakkın var`,`${quota.remaining} new AI ${quota.remaining===1?'itinerary':'itineraries'} available today`,quota.remaining===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${quota.remaining} itinerare të reja me AI`)
+            :quota.remaining?routeAllowanceLabel(quota.remaining, locale)
             :copy('Bugünkü AI rota haklarını kullandın (0 kaldı)','Today’s AI itinerary allowance is used (0 remaining)','E drejta e sotme për itinerar me AI është përdorur (0 të mbetura)')
             :allowance.state==='error'?copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')
-            :copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')}</strong>
+            :copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')}>
           {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{formatAppDate(new Date(quota.resetAt),DATE_LOCALES[locale],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</time></p>}
           <p>{copy('Haritalı planlama ve bu bölüm aynı günlük hakkı kullanır. Yalnız başarıyla hazırlanan yeni AI rota hakkından düşer; mevcut planları elle düzenlemek ve kaydetmek ücretsizdir.','Map planning and this section share the daily allowance. Only a successfully created new AI itinerary uses it; manually editing and saving existing plans is free.','Planifikimi në hartë dhe kjo pjesë ndajnë të njëjtën të drejtë ditore. Vetëm një itinerar i ri me AI i krijuar me sukses e përdor; ndryshimi manual dhe ruajtja e planeve ekzistuese janë falas.')}</p>
           {!needsSignIn&&canRecover&&readPlannerRecoveryDraft(ownerId)&&<button type="button" disabled={loading} onClick={()=>{const previous=readPlannerRecoveryDraft(ownerId);if(previous){setForm(snapshotPlannerInput(previous.form));setOriginAirport(previous.origin);setDestinationAirport(previous.destination);void generate(previous);}}}>{copy('Önceki isteğimin sonucunu getir','Recover my previous result','Rikthe rezultatin e mëparshëm')}</button>}
           {!needsSignIn&&allowance.state!=='loading'&&<button type="button" disabled={loading} onClick={()=>setQuotaRefresh(value=>value+1)}>{copy('Hakkımı kontrol et','Refresh allowance','Rifresko të drejtën')}</button>}
-        </aside>
+        </RouteAllowance>
         <button type="button" className="primary-wide" disabled={loading||!needsSignIn&&!canRecover&&(!quota||quota.remaining===0)} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : needsSignIn?copy('Giriş yap ve devam et','Sign in to continue','Hyr dhe vazhdo'):canRecover&&(!quota||quota.remaining===0)?copy('Önceki rotayı / sonucu aç','Open previous itinerary / result','Hap itinerarin / rezultatin e mëparshëm'):copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
         {!form.origin && <p className="planner-hint">{copy("Başlamak için çıkış şehrini seç.", "Choose your departure city to begin.")}</p>}
       </section>}

@@ -4,6 +4,8 @@ import { formatAppDate } from '../lib/localeFormatting';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '../lib/i18n';
 import { Icon } from './Icon';
+import { RouteAllowance } from './RouteAllowance';
+import { routeAllowanceLabel } from '../lib/routeAllowance';
 import { JourneyMap, type JourneyMapRoute } from './JourneyMap';
 import { CATEGORY_LABELS } from '../../../lib/travel-assistant/places';
 import type { Coordinates } from '../../../lib/travel-assistant/types';
@@ -415,20 +417,19 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialArea,cityRequestI
 
   const resetLabel=quota?formatAppDate(new Date(quota.resetAt),DATE_LOCALES[locale],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}):'';
   const quotaLoading=quotaState.identity!==quotaIdentity||quotaState.state==='loading';
-  const quotaPanel=<aside className="jsv-allowance" aria-live="polite">
-    <strong>{needsSignIn?copy('Her hesap için günde 3 yeni AI rota','3 new AI itineraries per account each day','3 itinerare të reja me AI në ditë për çdo llogari')
+  const quotaPanel=<RouteAllowance attention={needsSignIn || !quota || quota.pending || quota.remaining === 0 || recoveryAvailable || pendingRecovery} summary={needsSignIn?copy('Her hesap için günde 3 yeni AI rota','3 new AI itineraries per account each day','3 itinerare të reja me AI në ditë për çdo llogari')
       :quota?quota.pending?copy('Önceki rota isteğin kontrol ediliyor','Your previous itinerary request is pending','Kërkesa e mëparshme është në pritje')
-      :quota.remaining?copy(`Bugün ${quota.remaining} yeni AI rota hakkın var`,`${quota.remaining} new AI ${quota.remaining===1?'itinerary':'itineraries'} available today`,quota.remaining===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${quota.remaining} itinerare të reja me AI`)
+      :quota.remaining?routeAllowanceLabel(quota.remaining, locale)
       :copy('Bugünkü AI rota haklarını kullandın (0 kaldı)','Today’s AI itinerary allowance is used (0 remaining)','E drejta e sotme për itinerar me AI është përdorur (0 të mbetura)')
       :quotaLoading?copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')
-      :copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')}</strong>
+      :copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')}>
     {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{resetLabel}</time></p>}
     <p>{needsSignIn?copy('Rotanı oluşturmak için giriş yap. Yanıtların korunur.','Sign in to create your itinerary. Your answers are kept.','Hyr për të krijuar itinerarin. Përgjigjet ruhen.')
       :copy('Yalnızca başarıyla hazırlanan yeni rota günlük hakkını kullanır. Plan açma, elle düzenleme ve kaydetme ücretsizdir.','Only a successfully created new itinerary uses your daily allowance. Opening, manually editing and saving plans is free.','Vetëm një itinerar i ri i krijuar me sukses përdor të drejtën ditore. Hapja, ndryshimi manual dhe ruajtja e planeve janë falas.')}</p>
     {!needsSignIn&&recoveryAvailable&&<p>{copy('Önceki denemenin sonucunu aynı yanıtlarla kontrol edebilirsin; ikinci bir hak kullanılmaz.','Check your previous attempt using the same answers; no second allowance is used.','Kontrollo provën e mëparshme me të njëjtat përgjigje; nuk përdoret një e drejtë e dytë.')}</p>}
     {!needsSignIn&&pendingRecovery&&readJourneyRecoveryDraft(ownerId)&&<button type="button" className="jsv-text-button" disabled={generating} onClick={()=>{const previous=readJourneyRecoveryDraft(ownerId);if(previous){setRecoverySurvey(previous);setSurveyScope(previous.scope);setSurveyValues(undefined);setGenerationError('');}}}>{copy('Önceki seçimlerimi geri getir','Restore previous choices','Rikthe zgjedhjet e mëparshme')}</button>}
     {!needsSignIn&&!quotaLoading&&<button type="button" className="jsv-text-button" disabled={generating} onClick={()=>setQuotaRefresh(value=>value+1)}>{copy('Hakkımı kontrol et','Refresh allowance','Rifresko të drejtën')}</button>}
-  </aside>;
+  </RouteAllowance>;
   function signInForPlan(values:JourneySurveyValues) {
     setSurveyValues(values);
     if(!ownerId)prepareJourneySurveySignIn(surveyDraft(values));

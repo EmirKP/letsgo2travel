@@ -8,6 +8,7 @@ import { Sheet } from '../components/Sheet';
 import { cityHighlightDetails } from '../data/cityHighlightDetails';
 import { cityEssentials } from '../data/cityEssentials';
 import { cityEssentialPhoto } from '../data/cityEssentialPhotos';
+import { cityEssentialDescription } from '../data/cityEssentialDescriptions';
 import { openExternal } from '../lib/native';
 import type { CityDestination } from '../data/cityDestinations';
 import { useI18n } from '../lib/i18n';
@@ -57,13 +58,32 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
     return image ? [{ code: place.id, name: place.name, ...image }] : [];
   }) : [];
   const route = destination.route;
+  // Every destination uses this one card contract. A venue photo is never
+  // substituted with the destination panorama or another landmark.
+  const cards = highlights.length ? highlights.map(point => {
+    const details = cityHighlightDetails(point.id, locale);
+    return { id: point.id, name: point.name, photo: point.photo, photoCredit: point.photoCredit,
+      category: details?.category, summary: details?.summary, point, essential: undefined };
+  }) : (essentials?.places || []).map(place => {
+    const image = essentialPhotos.find(photo => photo.code === place.id);
+    return { id: place.id, name: place.name, photo: image?.photo, photoCredit: image?.photoCredit,
+      category: place.category, summary: cityEssentialDescription(place.id, locale), point: undefined, essential: place };
+  });
   const routeTitle = label(`${destination.name} rotası`, `${destination.name} route`, `Itinerar në ${destination.name}`, `Traseu în ${destination.name}`);
   const activeDetail = currentCity ? panel.detail : null;
   const selectedPlace = activeDetail?.kind === 'place' ? highlights.find(point => point.id === activeDetail.id) : undefined;
+  const selectedCard = activeDetail?.kind === 'place' ? cards.find(card => card.id === activeDetail.id) : undefined;
   const placeDetails = selectedPlace ? cityHighlightDetails(selectedPlace.id, locale) : undefined;
+  const selectedSource = placeDetails?.source || selectedCard?.essential?.source;
+  const selectedSourceKey = selectedPlace ? `highlight:${selectedPlace.id}` : `essential:${selectedCard?.id}`;
   const selectedRoute = activeDetail?.kind === 'route' ? route : null;
   const openPlace = (id: string) => setPanel({ city: destination.code, detail: { kind: 'place', id } });
   const closeDetail = () => setPanel({ city: destination.code, detail: null });
+  const openCardMap = (card: typeof cards[number]) => {
+    if (card.point) onMap(card.point);
+    else if (onSearchPlace) onSearchPlace(mapPlaces?.find(point => point.id === card.id)?.name || card.name);
+    else onMap();
+  };
   useEffect(() => {
     setSourceFailure(null);
     return () => { sourceRequest.current++; };
@@ -111,47 +131,26 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
         <button type="button" onClick={onEvents}><Icon name="calendar" size={21}/><span>{label('Etkinlikler', 'Events', 'Aktivitete', 'Evenimente')}</span></button>
       </div>
 
-      {highlights.length > 0 && <section className="city-destination-discover" aria-labelledby="city-destination-discover-title">
+      {cards.length > 0 && <section className="city-destination-discover" aria-labelledby="city-destination-discover-title">
         <div className="city-destination-section-heading">
           <h2 id="city-destination-discover-title">{label('Şehirde keşfet', 'Explore the city', 'Eksploro qytetin', 'Explorează orașul')}</h2>
           <button className="city-destination-map-link" type="button" onClick={() => onMap()}>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}<Icon name="chevron" size={16}/></button>
         </div>
         <div className="city-destination-highlights">
-          {highlights.map(point => {
-            const info = cityHighlightDetails(point.id, locale);
-            return <article key={point.id} className="city-place-card">
-              <button className="city-place-open" type="button" onClick={() => openPlace(point.id)} aria-label={label(`${point.name} ayrıntılarını aç`, `Open ${point.name} details`, `Hap detajet për ${point.name}`, `Deschide detaliile pentru ${point.name}`)}>
-                <DestinationPhoto src={point.photo} countryCode={destination.countryCode} label={point.name}/>
+          {cards.map(card => {
+            return <article key={card.id} className="city-place-card">
+              <button className="city-place-open" type="button" onClick={() => openPlace(card.id)} aria-label={label(`${card.name} ayrıntılarını aç`, `Open ${card.name} details`, `Hap detajet për ${card.name}`, `Deschide detaliile pentru ${card.name}`)}>
+                <DestinationPhoto src={card.photo} countryCode={destination.countryCode} label={card.name}/>
                 <span className="city-place-card-copy">
-                  {info && <small className="city-place-category">{info.category}</small>}
-                  <span className="city-destination-highlight-name"><strong>{point.name}</strong><Icon name="chevron" size={16}/></span>
-                  {info && <span className="city-place-summary">{info.summary}</span>}
+                  {card.category && <small className="city-place-category">{card.category}</small>}
+                  <span className="city-destination-highlight-name"><strong>{card.name}</strong><Icon name="chevron" size={16}/></span>
+                  {card.summary && <span className="city-place-summary">{card.summary}</span>}
                 </span>
               </button>
-              <button className="city-place-map" type="button" onClick={() => onMap(point)} aria-label={label(`${point.name} konumunu haritada gör`, `See ${point.name} on the map`, `Shih ${point.name} në hartë`, `Vezi ${point.name} pe hartă`)}><Icon name="map" size={16}/>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}</button>
+              <button className="city-place-map" type="button" onClick={() => openCardMap(card)} aria-label={label(`${card.name} konumunu haritada gör`, `See ${card.name} on the map`, `Shih ${card.name} në hartë`, `Vezi ${card.name} pe hartă`)}><Icon name="map" size={16}/>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}</button>
             </article>;
           })}
         </div>
-      </section>}
-
-      {highlights.length === 0 && essentials && <section className="city-essentials" aria-labelledby="city-essentials-title">
-        <div className="city-destination-section-heading">
-          <h2 id="city-essentials-title">{label('Şehirde keşfet', 'Explore the city', 'Eksploro qytetin', 'Explorează orașul')}</h2>
-        </div>
-        <div className="city-essentials-list">{essentials.places.map((place, index) => {
-          const image = essentialPhotos.find(photo => photo.code === place.id);
-          return <article className="city-essential" key={place.id}>
-          <span className="city-essential-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-          <div className="city-essential-copy"><small>{place.category}</small><h3>{place.name}</h3>
-            <div className="city-essential-actions">
-              {onSearchPlace && <button type="button" onClick={() => onSearchPlace(mapPlaces?.find(point => point.id === place.id)?.name || place.name)} aria-label={label(`${place.name} için haritada ara`, `Search the map for ${place.name}`, `Kërko ${place.name} në hartë`, `Caută ${place.name} pe hartă`)}><Icon name="map" size={16}/>{label('Haritada ara', 'Search map', 'Kërko në hartë', 'Caută pe hartă')}</button>}
-              <button type="button" className="city-essential-source" onClick={() => void openSource(place.source.url, `essential:${place.id}`)} aria-label={label(`${place.name} resmî rehberini aç`, `Open the official guide for ${place.name}`, `Hap udhëzuesin zyrtar për ${place.name}`, `Deschide ghidul oficial pentru ${place.name}`)}>{label('Resmî rehber', 'Official guide', 'Udhëzuesi zyrtar', 'Ghid oficial')}<Icon name="external" size={13}/></button>
-            </div>
-            {sourceNotice(`essential:${place.id}`, place.source.url)}
-          </div>
-          {image && <span className="city-essential-photo"><DestinationPhoto src={image.photo} countryCode={destination.countryCode} label={place.name}/></span>}
-        </article>;
-        })}</div>
       </section>}
 
       {route && <section className="city-destination-ready-route" aria-labelledby="city-ready-route-title">
@@ -168,18 +167,19 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
       </section>}
       <CityPhotoCredits destinations={[destination, ...highlights.map(point => ({ code: point.id, name: point.name, photoCredit: point.photoCredit })), ...essentialPhotos]}/>
     </div>
-    {(selectedPlace || selectedRoute) && <Sheet open title={selectedPlace?.name || routeTitle} onClose={closeDetail} size="large" className="city-detail-sheet">
-      {selectedPlace && <div className="city-place-detail">
-        <DestinationPhoto src={selectedPlace.photo} countryCode={destination.countryCode} label={selectedPlace.name}/>
+    {(selectedCard || selectedRoute) && <Sheet open title={selectedCard?.name || routeTitle} onClose={closeDetail} size="large" className="city-detail-sheet">
+      {selectedCard && <div className="city-place-detail">
+        <DestinationPhoto src={selectedCard.photo} countryCode={destination.countryCode} label={selectedCard.name}/>
+        {!placeDetails && <><span className="city-place-category">{selectedCard.category}</span><p className="city-place-description">{selectedCard.summary}</p></>}
         {placeDetails && <>
           <span className="city-place-category">{placeDetails.category}</span>
           <p className="city-place-description">{placeDetails.description}</p>
           <div className="city-place-tip"><Icon name="compass" size={21}/><div><h3>{label('Ziyaret notu', 'Visit note', 'Shënim për vizitën', 'Notă de vizitare')}</h3><p>{placeDetails.tip}</p></div></div>
         </>}
-        <button type="button" className="city-detail-primary" onClick={() => { closeDetail(); onMap(selectedPlace); }}><Icon name="map" size={19}/>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}</button>
-        {placeDetails && <><button type="button" className="city-place-source" onClick={() => void openSource(placeDetails.source.url, `highlight:${selectedPlace.id}`)}><span><small>{label('Resmî kaynak', 'Official source', 'Burimi zyrtar', 'Sursa oficială')}</small><strong>{placeDetails.source.title}</strong></span><Icon name="external" size={17}/></button>
-          {sourceNotice(`highlight:${selectedPlace.id}`, placeDetails.source.url)}</>}
-        <CityPhotoCredits compact destinations={[{ code: selectedPlace.id, name: selectedPlace.name, photoCredit: selectedPlace.photoCredit }]}/>
+        <button type="button" className="city-detail-primary" onClick={() => { closeDetail(); openCardMap(selectedCard); }}><Icon name="map" size={19}/>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}</button>
+        {selectedSource && <><button type="button" className="city-place-source" onClick={() => void openSource(selectedSource.url, selectedSourceKey)}><span><small>{label('Resmî kaynak', 'Official source', 'Burimi zyrtar', 'Sursa oficială')}</small><strong>{selectedSource.title}</strong></span><Icon name="external" size={17}/></button>
+          {sourceNotice(selectedSourceKey, selectedSource.url)}</>}
+        <CityPhotoCredits compact destinations={[{ code: selectedCard.id, name: selectedCard.name, photoCredit: selectedCard.photoCredit }]}/>
       </div>}
       {selectedRoute && <div className="city-route-detail">
         {selectedRoute.idealDuration && <p className="city-ready-duration"><Icon name="clock" size={17}/>{selectedRoute.idealDuration}</p>}

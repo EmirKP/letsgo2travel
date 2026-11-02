@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { createHash } from 'node:crypto';
 
 // Render the production detail and heart components, not a copied handler.
 // Photos/icons/credits stay inert; this suite checks actions, not presentation.
@@ -80,8 +81,11 @@ async function fixture(locale, { openExternal = async () => { throw Error('No ex
   await load('mobile/src/lib/locale.ts').loadLocaleMessages(locale);
   const catalog = load('mobile/src/data/cityDestinations.ts');
   const highlightDetails = load('mobile/src/data/cityHighlightDetails.ts').cityHighlightDetails;
+  const essentials = load('mobile/src/data/cityEssentials.ts').cityEssentials;
+  const essentialPhoto = load('mobile/src/data/cityEssentialPhotos.ts').cityEssentialPhoto;
+  const essentialDescription = load('mobile/src/data/cityEssentialDescriptions.ts').cityEssentialDescription;
   const { CityDestinationScreen } = load('mobile/src/screens/CityDestinationScreen.tsx');
-  return { catalog, highlightDetails, render(code, saved = false) {
+  return { catalog, highlightDetails, essentials, essentialPhoto, essentialDescription, render(code, saved = false) {
     let destination = catalog.cityDestination(code, locale); const calls = [], snapshots = [];
     assert.ok(destination, `${code}: real catalog entry`);
     let host;
@@ -245,6 +249,62 @@ for (const [locale, words] of Object.entries(labels)) {
   });
 }
 
+test('All 138 added-city venue photos are bundled, credited derivatives with independent place identities', async () => {
+  const f = await fixture('en');
+  const directory = 'mobile/src/assets/city-essentials/';
+  const manifest = JSON.parse(readFileSync(`${directory}venue-photo-credits.json`, 'utf8'));
+  assert.equal(Object.keys(manifest).length, 138);
+  const expected = f.catalog.cityDestinations('en').filter(city => !city.highlights.length);
+  assert.equal(expected.length, 46);
+  for (const city of expected) for (const place of f.essentials(city.code, 'en').places) {
+    const photo = f.essentialPhoto(city.code, place.id);
+    assert.ok(photo);
+    const filename = path.basename(photo.photo);
+    const evidence = manifest[filename];
+    assert.equal(evidence.cityCode, city.code);
+    assert.equal(evidence.placeId, place.id);
+    assert.equal(evidence.placeName, place.name);
+    assert.deepEqual(evidence.credit, JSON.parse(JSON.stringify(photo.photoCredit)), 'Compare every credit field across the isolated VM realm');
+    assert.equal(evidence.identityEvidence.officialGuide.url, place.source.url);
+    const bytes = readFileSync(`${directory}${filename}`);
+    assert.equal(bytes.subarray(0, 4).toString(), 'RIFF');
+    assert.equal(bytes.subarray(8, 12).toString(), 'WEBP');
+    assert.equal(bytes.length, evidence.derivative.bytes);
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), evidence.derivative.sha256);
+    assert.ok(evidence.credit.author);
+    assert.match(evidence.credit.source, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+    assert.match(evidence.credit.licenseUrl, /^https:\/\/(creativecommons\.org|commons\.wikimedia\.org)\//);
+    assert.ok(evidence.derivative.width >= 180 && evidence.derivative.height >= 180);
+    const descriptions = ['tr','en','sq','ro'].map(locale => f.essentialDescription(place.id, locale));
+    assert.ok(descriptions.every(description => typeof description === 'string' && description.length >= 18));
+    assert.equal(new Set(descriptions).size, 4, 'Every card description is actually translated');
+  }
+  assert.match(manifest['tia-bunkart-2.webp'].credit.source, /BunkArt2_Bunker_Clocktower/);
+  assert.match(manifest['ams-van-gogh-museum.webp'].credit.source, /Exterior_of_the_Kurokawavleugel/);
+  assert.match(manifest['lux-bock-casemates.webp'].credit.source, /Bock_casemates/);
+  assert.match(manifest['lis-sao-jorge-castle.webp'].credit.source, /Castelo_de_S%C3%A3o_Jorge|Castelo_de_São_Jorge/);
+  assert.match(manifest['sjj-sarajevo-city-hall.webp'].credit.source, /Sarajevo_City_Hall/);
+  assert.equal(Object.values(manifest).filter(entry => entry.retainedExistingDerivative).length, 2);
+  const totalBytes = Object.values(manifest).reduce((sum, entry) => sum + entry.derivative.bytes, 0);
+  assert.ok(totalBytes < 12 * 1024 * 1024, 'The complete local photo set stays below a bounded 12 MiB');
+});
+
+test('Venue photo and description lookup rejects unknown, prototype and hostile keys without fallback or mutation', async () => {
+  const f = await fixture('en');
+  const hostile = { toString() { throw Error('Never coerce untrusted keys'); } };
+  for (const id of ['__proto__', 'constructor', 'toString', 'missing-place', null, undefined, hostile]) {
+    assert.equal(f.essentialPhoto('SJJ', id), undefined);
+    assert.equal(f.essentialDescription(id, 'en'), undefined);
+  }
+  for (const city of ['__proto__', 'constructor', 'ZZZ', null, undefined, hostile]) assert.equal(f.essentialPhoto(city, 'bascarsija'), undefined);
+  for (const locale of ['__proto__', 'constructor', 'de', null, undefined, hostile]) assert.equal(f.essentialDescription('bascarsija', locale), undefined);
+  const before = f.essentialPhoto('SJJ', 'bascarsija');
+  const originalTitle = before.photoCredit.title;
+  before.photoCredit.title = 'Private caller edit'; before.photo = '/wrong-place.webp';
+  assert.equal(f.essentialPhoto('SJJ', 'bascarsija').photoCredit.title, originalTitle);
+  assert.notEqual(f.essentialPhoto('SJJ', 'bascarsija').photo, before.photo);
+});
+
 test('Rome editorial additions retain four distinct categories, translations and isolated source metadata', async () => {
   for (const locale of Object.keys(labels)) {
     const { highlightDetails } = await fixture(locale);
@@ -262,14 +322,66 @@ test('Rome editorial additions retain four distinct categories, translations and
   }
 });
 
+for (const [locale, words] of Object.entries(labels)) {
+  test(`${locale}: all 50 cities share photographed cards with the correct venue identity, description and map action`, async () => {
+    const f = await fixture(locale);
+    assert.equal(f.catalog.cityDestinations(locale).length, 50);
+    for (const destination of f.catalog.cityDestinations(locale)) {
+      const view = f.render(destination.code);
+      const cards = nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-place-card');
+      const basic = !destination.highlights.length;
+      const places = basic ? f.essentials(destination.code, locale).places : destination.highlights;
+      assert.equal(cards.length, places.length, `${destination.code}: every place uses the same card structure`);
+      assert.equal(nodes(view.tree).some(node => node.props?.className === 'city-essentials-list'), false, 'The text-only alternate layout is gone');
+      const credits = nodes(view.tree).find(node => node.type === 'CityPhotoCredits' && !node.props.compact);
+      for (const [index, card] of cards.entries()) {
+        const place = places[index];
+        const photo = nodes(card).find(node => node.type === 'DestinationPhoto');
+        const expectedPhoto = basic ? f.essentialPhoto(destination.code, place.id) : place;
+        assert.ok(expectedPhoto?.photo, `${destination.code}/${place.id}: a real local venue image is required`);
+        assert.equal(photo.props.src, expectedPhoto.photo);
+        assert.equal(photo.props.label, place.name);
+        assert.ok(existsSync(photo.props.src), `${destination.code}/${place.id}: image bytes are bundled`);
+        assert.equal(nodes(card).filter(node => node.props?.className === 'city-place-open').length, 1);
+        const summary = nodes(card).find(node => node.props?.className === 'city-place-summary');
+        const category = nodes(card).find(node => node.props?.className === 'city-place-category');
+        assert.ok(text(category).length > 1);
+        assert.ok(text(summary).length >= 18, `${destination.code}/${place.id}: a readable short description is shown`);
+        const map = nodes(card).find(node => node.type === 'button' && node.props.className === 'city-place-map');
+        assert.equal(accessibleName(map), words.landmark(place.name));
+        if (basic) {
+          assert.notEqual(photo.props.src, destination.photo, 'A destination panorama is not a venue photograph');
+          assert.equal(text(summary), f.essentialDescription(place.id, locale));
+          const credit = credits.props.destinations.find(item => item.code === place.id);
+          assert.deepEqual(credit.photoCredit, expectedPhoto.photoCredit);
+          assert.ok(credit.photoCredit.author && credit.photoCredit.license && credit.photoCredit.licenseUrl);
+          map.props.onClick();
+          assert.deepEqual(view.calls.splice(0), [{ action: 'SearchPlace', name: f.essentials(destination.code, 'en').places[index].name }]);
+          nodes(card).find(node => node.type === 'button' && node.props.className === 'city-place-open').props.onClick();
+          assert.equal(view.sheet.props.title, place.name);
+          assert.ok(text(view.sheet).includes(text(summary)));
+          const source = nodes(view.sheet).find(node => node.props?.className === 'city-place-source');
+          assert.ok(text(source).includes(place.source.title));
+          nodes(view.sheet).find(node => node.props?.className === 'city-detail-primary').props.onClick();
+          assert.equal(view.sheet, undefined);
+          assert.deepEqual(view.calls.splice(0), [{ action: 'SearchPlace', name: f.essentials(destination.code, 'en').places[index].name }]);
+          assert.equal(view.snapshots.at(-1), false, 'The detail closes before navigation');
+        }
+      }
+      view.dispose();
+    }
+  });
+}
+
 test('Bucharest keeps all three real places, venue-specific photos and their attribution in all languages', async () => {
   for (const locale of Object.keys(labels)) {
     const { render } = await fixture(locale);
     const view = render('OTP');
-    const articles = nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-essential');
-    assert.equal(articles.length, 3, 'A place without a licensed photo must remain discoverable');
+    const articles = nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-place-card');
+    assert.equal(articles.length, 3, 'Every reviewed place remains discoverable in the shared card layout');
     const photos = articles.map(article => nodes(article).find(node => node.type === 'DestinationPhoto'));
-    assert.equal(photos[0], undefined, 'Do not reuse a city panorama for Parliament');
+    assert.match(photos[0].props.src, /otp-palace-of-parliament\.webp$/, 'Parliament now has its own reviewed photo, never the city panorama');
+    assert.notEqual(photos[0].props.src, view.destination.photo);
     assert.match(photos[1].props.src, /otp-romanian-athenaeum\.webp$/);
     assert.match(photos[2].props.src, /otp-dimitrie-gusti-village-museum\.webp$/);
     const credits = nodes(view.tree).find(node => node.type === 'CityPhotoCredits');
@@ -281,7 +393,7 @@ test('Bucharest keeps all three real places, venue-specific photos and their att
       assert.match(credit.photoCredit.licenseUrl, /^https:\/\/creativecommons\.org\/licenses\/by-sa\//);
     }
     for (const [index, article] of articles.entries()) {
-      const name = text(nodes(article).find(node => node.type === 'h3'));
+      const name = photos[index].props.label;
       const search = nodes(article).find(node => node.type === 'button' && /harita|map|hart[ëă]/i.test(accessibleName(node)));
       assert.ok(search, `${locale}: one useful map search for ${name}`);
       search.props.onClick();
@@ -308,13 +420,13 @@ test('Official city sources show localized scoped failure and recover only after
     const f = await fixture(locale, { openExternal: async url => { opened.push(url); if (kind === 'highlight' && !successful) throw Error('Fictional handoff rejection'); return successful; } });
     const view = f.render(kind === 'essential' ? 'OTP' : 'FCO');
     try {
-      if (kind === 'highlight') view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
-      const source = view.buttons.find(node => node.props.className === (kind === 'essential' ? 'city-essential-source' : 'city-place-source'));
+      view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
+      const source = view.buttons.find(node => node.props.className === 'city-place-source');
       source.props.onClick(); await settleSource();
       const alert = sourceAlert(view.tree); assert.ok(alert); assert.match(text(alert), new RegExp(words.warning.replaceAll('.', '\\.')));
       assert.equal(nodes(view.tree).filter(node => node.props?.role === 'alert').length, 1);
       const retry = nodes(alert).find(node => node.type === 'button' && text(node) === words.retry); assert.ok(retry);
-      assert.equal(opened.length, 1); assert.deepEqual(view.calls, []); assert.equal(Boolean(view.sheet), kind === 'highlight');
+      assert.equal(opened.length, 1); assert.deepEqual(view.calls, []); assert.equal(Boolean(view.sheet), true, 'Both kinds retain an operable local detail sheet');
       successful = true; retry.props.onClick(); assert.equal(sourceAlert(view.tree), undefined, 'A new explicit attempt clears its previous warning'); await settleSource();
       assert.equal(sourceAlert(view.tree), undefined); assert.equal(opened.length, 2); assert.equal(opened[0], opened[1], 'Retry opens the same current reviewed source'); assert.deepEqual(view.calls, []);
     } finally { view.dispose(); }
@@ -324,18 +436,20 @@ test('Official city sources show localized scoped failure and recover only after
 test('A late official-source response cannot overwrite a newer source failure in the same city', async () => {
   const pending = [], f = await fixture('en', { openExternal: url => { const task = deferredSource(); pending.push({ url, ...task }); return task.promise; } }), view = f.render('OTP');
   try {
-    const sources = view.buttons.filter(node => node.props.className === 'city-essential-source');
-    sources[0].props.onClick(); sources[1].props.onClick(); pending[1].resolve(false); await settleSource();
-    const articles = () => nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-essential');
-    assert.equal(sourceAlert(articles()[0]), undefined); assert.ok(sourceAlert(articles()[1]));
-    pending[0].resolve(false); await settleSource(); assert.equal(sourceAlert(articles()[0]), undefined); assert.ok(sourceAlert(articles()[1])); assert.equal(pending.length, 2); assert.deepEqual(view.calls, []);
+    const cards = view.buttons.filter(node => node.props.className === 'city-place-open');
+    cards[0].props.onClick(); view.buttons.find(node => node.props.className === 'city-place-source').props.onClick(); view.sheet.props.onClose();
+    cards[1].props.onClick(); view.buttons.find(node => node.props.className === 'city-place-source').props.onClick(); pending[1].resolve(false); await settleSource();
+    assert.ok(sourceAlert(view.sheet)); assert.match(view.sheet.props.title, /Athenaeum/);
+    const currentAlert = text(sourceAlert(view.sheet));
+    pending[0].resolve(false); await settleSource(); assert.equal(text(sourceAlert(view.sheet)), currentAlert); assert.match(view.sheet.props.title, /Athenaeum/); assert.equal(pending.length, 2); assert.deepEqual(view.calls, []);
   } finally { view.dispose(); }
 });
 
 test('A superseded same-source retry cannot restore its warning after the latest explicit success', async () => {
   const pending = [], f = await fixture('en', { openExternal: () => { const task = deferredSource(); pending.push(task); return task.promise; } }), view = f.render('OTP');
   try {
-    const source = view.buttons.find(node => node.props.className === 'city-essential-source'); source.props.onClick(); pending[0].resolve(false); await settleSource();
+    view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
+    const source = view.buttons.find(node => node.props.className === 'city-place-source'); source.props.onClick(); pending[0].resolve(false); await settleSource();
     nodes(sourceAlert(view.tree)).find(node => node.type === 'button').props.onClick(); source.props.onClick();
     pending[2].resolve(true); await settleSource(); pending[1].reject(Error('Fictional late previous retry')); await settleSource();
     assert.equal(sourceAlert(view.tree), undefined); assert.equal(pending.length, 3); assert.deepEqual(view.calls, []);
@@ -345,7 +459,8 @@ test('A superseded same-source retry cannot restore its warning after the latest
 test('Old source failure stays hidden before effects across city A→B→A', async () => {
   const pending = deferredSource(), f = await fixture('en', { openExternal: () => pending.promise }), view = f.render('OTP');
   try {
-    view.buttons.find(node => node.props.className === 'city-essential-source').props.onClick();
+    view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
+    view.buttons.find(node => node.props.className === 'city-place-source').props.onClick();
     view.changeCity('FCO', false); view.changeCity('OTP', false); view.renderWithoutEffects();
     pending.resolve(false); await settleSource(); assert.equal(sourceAlert(view.renderWithoutEffects()), undefined, 'Returning to the same code is a new panel identity, even before effect cleanup'); assert.deepEqual(view.calls, []);
   } finally { view.dispose(); }
@@ -367,6 +482,7 @@ test('Closing and reopening a highlight, including another highlight in between,
 
 test('An unmounted city detail never receives late official-source feedback or retries the handoff', async () => {
   const pending = deferredSource(), opened = [], f = await fixture('en', { openExternal: url => { opened.push(url); return pending.promise; } }), view = f.render('OTP');
-  view.buttons.find(node => node.props.className === 'city-essential-source').props.onClick(); view.dispose(); pending.resolve(false); await settleSource();
+  view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
+  view.buttons.find(node => node.props.className === 'city-place-source').props.onClick(); view.dispose(); pending.resolve(false); await settleSource();
   assert.equal(view.postDisposeUpdates, 0); assert.equal(opened.length, 1); assert.deepEqual(view.calls, []);
 });

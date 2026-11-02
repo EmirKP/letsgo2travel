@@ -224,3 +224,5 @@
 @media(min-width:700px){.editorial-app.shared-shell.view-community .screen.community-social .cs-hero{min-height:168px;padding-inline:25px}.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-copy h1{font-size:40px}}
 
 .cs-search-entry{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;margin:0 0 14px;padding:11px 14px;border:1px solid var(--theme-border,#dce7f4);border-radius:15px;background:var(--theme-soft,#f1f6fc);color:var(--theme-muted,#63718c);text-align:left;font:inherit;font-size:14px}.cs-search-entry svg{color:var(--theme-link,#0066ff)}
+.community-social .community-mode-switch>button{padding-inline:7px;min-height:46px;overflow-wrap:normal}
+.community-social .community-mode-switch>button:focus-visible{outline:2px solid var(--theme-link,#0066ff);outline-offset:2px}

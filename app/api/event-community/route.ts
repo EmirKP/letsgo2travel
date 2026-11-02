@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/authenticated-user';
-import { canonicalEventKey, parseEventCommunityAction, resolveCommunityEvent, serializeEventCommunity } from '@/lib/event-community';
+import { canonicalEventKey, joinedEventChatSummaries, parseEventCommunityAction, resolveCommunityEvent, serializeEventCommunity } from '@/lib/event-community';
 import { COMMUNITY_PRIVATE_HEADERS, COMMUNITY_UUID } from '@/lib/community/safety';
 import { readSocialJson } from '@/lib/community/social';
 import { moderateUserText } from '@/lib/community/moderation';
@@ -15,7 +15,18 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   if (!url.searchParams.has('eventId')) {
     const { data, error } = await auth.supabase.rpc('event_community_list', { p_user: auth.user.id });
-    return error ? unavailable() : reply({ data: Array.isArray(data) ? data : [] });
+    if (error) return unavailable();
+    if (url.searchParams.get('summaries') !== 'true') return reply({ data: Array.isArray(data) ? data : [] });
+    const rawOffset = url.searchParams.get('offset') || '0', query = (url.searchParams.get('q') || '').trim();
+    if (!/^\d{1,3}$/.test(rawOffset) || Number(rawOffset) > 100 || query.length > 120 || /[\u0000-\u001f\u007f]/.test(query)) return reply({ error: 'Geçersiz sohbet araması.' }, 400);
+    const fold = (value: string) => value.normalize('NFKD').toLocaleLowerCase('en').replace(/\p{M}/gu, '').replace(/ı/g, 'i');
+    const offset = Number(rawOffset), needle = fold(query);
+    const chats = (Array.isArray(data) ? data : []).filter(item => {
+      if (!needle) return true;
+      const event = item && typeof item === 'object' && item.event && typeof item.event === 'object' ? item.event : {};
+      return [event.title, event.city].some(value => typeof value === 'string' && fold(value).includes(needle));
+    });
+    return reply({ data: await joinedEventChatSummaries(auth.supabase, auth.user.id, chats.slice(offset, offset + 12)), nextOffset: offset + 12 < chats.length ? offset + 12 : null });
   }
   const key = canonicalEventKey(url.searchParams.get('eventId'));
   if (!key) return reply({ error: 'Geçersiz etkinlik.' }, 400);

@@ -9,7 +9,7 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 function load(path,imports={},globals={}){
  const fixtureModule={exports:{}};
  const code=ts.transpileModule(readFileSync(path,'utf8'),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,URLSearchParams,Buffer,Uint8Array,Map,Set,Date,AbortSignal,AbortController,...globals})(name=>{if(name in imports)return imports[name];if(name.endsWith('/event-occurrence'))return load('lib/event-occurrence.ts');if(name.endsWith('.css'))return{};throw Error(`Missing import ${name}`);},fixtureModule,fixtureModule.exports);
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,URLSearchParams,Buffer,Uint8Array,Map,Set,Date,AbortSignal,AbortController,...globals})(name=>{if(name in imports)return imports[name];if(name.endsWith('/event-occurrence'))return load('lib/event-occurrence.ts');if(name.endsWith('/eventChatInbox'))return load('mobile/src/lib/eventChatInbox.ts',{},globals);if(name.endsWith('.css'))return{};throw Error(`Missing import ${name}`);},fixtureModule,fixtureModule.exports);
  return fixtureModule.exports;
 }
 const safety=load('lib/community/safety.ts');
@@ -178,7 +178,7 @@ function joinedChatHarness({locale='en'}={}){
  host.start(wrapper.type,wrapper.props);
  return{host,pending,listeners,ApiError,signIns:()=>signIns,refresh(){const view=host.render();uiNodes(view).find(node=>node.type==='button'&&uiText(node)==='Refresh').props.onClick();return host.render();}};
 }
-const joinedChat={eventKey:'ticketmaster:joined',event:{title:'My joined concert',startsAt:'2026-11-01',city:'Istanbul'},memberCount:2,muted:false};
+const joinedChat={summaryStatus:'available',lastMessage:null,latestIncoming:null,joinedAt:'2026-10-30T10:00:00Z',eventKey:'ticketmaster:joined',event:{title:'My joined concert',startsAt:'2026-11-01',city:'Istanbul'},memberCount:2,muted:false};
 
 test('joined-chat expired session offers sign-in, does not show an empty membership claim, and retries successfully',async()=>{
  const h=joinedChatHarness();
@@ -232,23 +232,24 @@ test('obsolete or hidden joined-chat errors cannot replace a newer successful re
 const dmAlice={key:`user:${a}`,userId:a,username:'alice',avatarUrl:null};
 const dmBob={key:`user:${b}`,userId:b,username:'bob',avatarUrl:null};
 const dmMessage=(id,author,body,minute=0)=>({id,author,body,createdAt:`2026-11-01T17:${String(minute).padStart(2,'0')}:00Z`});
-function dmHarness({ messages=[dmMessage('own',dmAlice,'My travel plan'),dmMessage('other',dmBob,'Meet at the public entrance',1)], nextBefore=null, write, history=[], historyRead, initialChatOpen=false, onChatClose, onCommunityChanged, locale='en', joined=true }={}){
- const thread={scrollTop:0,clientHeight:300,scrollHeight:1000},input={style:{},scrollHeight:24};
+function dmHarness({ messages=[dmMessage('own',dmAlice,'My travel plan'),dmMessage('other',dmBob,'Meet at the public entrance',1)], nextBefore=null, write, history=[], historyRead, initialChatOpen=false, onChatClose, onCommunityChanged, locale='en', joined=true, readMarkers=new Map(), overlayFixture }={}){
+ const thread={scrollTop:0,clientHeight:300,scrollHeight:1000,closest:selector=>overlayFixture?.blocked(selector)||null,parentElement:overlayFixture?.layer||null},input={style:{},scrollHeight:24};
  let server={eventKey:'ticketmaster:real',event:{id:'ticketmaster:real',title:'Real event',startsAt:'2026-11-01T17:00:00Z',timeZone:null,status:'scheduled'},joined,muted:false,memberCount:2,attendees:[dmAlice,dmBob],messages:copy(messages),nextBefore,meetup:null};
  const host=activityHooks({commit(tree){for(const node of uiNodes(tree)){if(node.props?.className==='event-chat-thread')node.props.ref.current=thread;if(node.type==='textarea'&&node.props.ref)node.props.ref.current=input;}}});
  const timers=new Map(),writes=[],profiles=[],reads=[];let timer=0,sequence=0,readError=null,signIns=0,profileCompletions=0;
+ const testDocument={visibilityState:'visible',body:overlayFixture?.body};
  const jsx=(type,props)=>({type,props}),i18n={copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?(sq||en):en,dateLocale:locale==='tr'?'tr-TR':'en-GB',locale};
  class ApiError extends Error{constructor(status,message='Request failed',code=''){super(message);this.status=status;this.code=code;}}
  const panel=load('mobile/src/components/EventCompanionsPanel.tsx',{'react':host.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Sheet':{Sheet:'Sheet'},'./CommunityAvatar':{CommunityAvatar:'Avatar'},'./Icon':{Icon:'Icon'},'./EventParticipantDirectory':{EventParticipantDirectory:'Directory'},'./CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../lib/i18n':{useI18n:()=>i18n},'../lib/api':{ApiError},'../lib/id':{createId:()=>`10000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`},'../hooks/useCurrentTime':{useCurrentTime:()=>Date.parse('2026-10-24')},'../lib/localeFormatting':{formatAppDate:(date,locale,options)=>new Intl.DateTimeFormat(locale,options).format(date)},'../lib/communityVisibility':visibility,'../lib/eventCommunity':{
   getEventCommunity:async(_event,_token,_signal,cursor)=>{reads.push({cursor,token:_token});if(readError)throw readError;if(cursor&&historyRead)await historyRead();return{data:copy(cursor?{...server,messages:history,nextBefore:null}:server),verification:'current'};},
   actOnEventCommunity:async(_event,_token,action)=>{writes.push(copy(action));if(write)return write(action);if(action.action==='mute')server={...server,muted:action.muted};if(action.action==='message')server={...server,messages:[...server.messages,dmMessage(`new-${sequence}`,dmAlice,action.body,2)]};return{success:true};},
- }},{Event,window:{setInterval:fn=>{timers.set(++timer,fn);return timer;},clearInterval:id=>timers.delete(id),dispatchEvent:event=>{if(event.type==='l2t:event-community-changed')onCommunityChanged?.();return true;}},document:{visibilityState:'visible'}});
+ }},{Event,...(overlayFixture?{MutationObserver:overlayFixture.Observer}:{}),window:{localStorage:{getItem:key=>readMarkers.get(key)||null,setItem:(key,value)=>readMarkers.set(key,value)},setInterval:fn=>{timers.set(++timer,fn);return timer;},clearInterval:id=>timers.delete(id),dispatchEvent:event=>{if(event.type==='l2t:event-community-changed')onCommunityChanged?.();return true;}},document:testDocument});
  const wrapper=panel.EventCompanionsPanel({event:{id:'ticketmaster:real',title:'Real event'},ownerId:a,accessToken:'token',initialChatOpen,onChatClose,onOpenAccount(){signIns++;},onCompleteProfile(){profileCompletions++;},onNotice(){},onOpenProfile:key=>profiles.push(key)});
  host.start(wrapper.type,wrapper.props);
  const render=()=>host.render();
  const button=(name,tree=render())=>uiNodes(tree).find(node=>node.type==='button'&&(node.props['aria-label']===name||uiText(node)===name));
  const header=()=>uiNodes(render()).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet').props.renderHeader(()=>{});
- return{host,thread,input,timers,writes,profiles,reads,render,button,header,ApiError,signIns:()=>signIns,profileCompletions:()=>profileCompletions,setReadError(value){readError=value;},async ready(){await uiTick();render();},open(){button('Event group chat').props.onClick();return render();},info(){button('Chat details',header()).props.onClick();return render();},type(value){uiNodes(render()).find(node=>node.type==='textarea').props.onChange({target:{value}});return render();},submit(){uiNodes(render()).find(node=>node.type==='form'&&node.props.className==='event-chat-compose').props.onSubmit({preventDefault(){}});return render();},async settle(){await uiTick();return render();},async poll(){[...timers.values()][0]?.();return this.settle();},setServer(next){server={...server,...next};},dispose(){host.dispose();}};
+ return{host,thread,input,timers,writes,profiles,reads,render,button,header,ApiError,readMarkers,setVisibility(value){testDocument.visibilityState=value;},signIns:()=>signIns,profileCompletions:()=>profileCompletions,setReadError(value){readError=value;},async ready(){await uiTick();render();},open(){button('Event group chat').props.onClick();return render();},info(){button('Chat details',header()).props.onClick();return render();},type(value){uiNodes(render()).find(node=>node.type==='textarea').props.onChange({target:{value}});return render();},submit(){uiNodes(render()).find(node=>node.type==='form'&&node.props.className==='event-chat-compose').props.onSubmit({preventDefault(){}});return render();},async settle(){await uiTick();return render();},async poll(){[...timers.values()][0]?.();return this.settle();},setServer(next){server={...server,...next};},dispose(){host.dispose();}};
 }
 
 test('an incomplete-profile RSVP offers profile completion and keeps the event available without automatically joining',async()=>{
@@ -639,4 +640,45 @@ test('Expired authorization takes priority over an unresolved send while new-tok
   await h.ready();h.type('Recover after signing in');h.submit();await h.settle();h.setReadError(new h.ApiError(401));let view=await h.poll();assert.match(uiText(view),/Your session has expired/);assert.doesNotMatch(uiText(view),/Message delivery could not be confirmed/);assert.ok(h.button('Sign in',view));
   h.setReadError(null);h.host.render({accessToken:'refreshed-token'});view=await h.settle();assert.doesNotMatch(uiText(view),/Your session has expired/);assert.match(uiText(view),/Message delivery could not be confirmed/);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Recover after signing in');assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.disabled,false);assert.equal(h.writes.length,1);
  }finally{h.dispose();}
+});
+
+
+test('Read receipts advance only for a visible joined conversation at the latest messages, never while browsing older history or hidden',async()=>{
+ const first=dmMessage('20000000-0000-4000-8000-000000000001',dmBob,'First message',1);
+ const second=dmMessage('20000000-0000-4000-8000-000000000002',dmBob,'New incoming message',2);
+ const third=dmMessage('20000000-0000-4000-8000-000000000003',dmBob,'Hidden incoming message',3);
+ const h=dmHarness({messages:[first]});const marker=()=>JSON.parse([...h.readMarkers.values()][0]||'null');
+ try{
+  await h.ready();assert.equal(h.readMarkers.size,0,'Viewing event participants does not read the chat');
+  h.open();assert.equal(marker().id,first.id);
+  let thread=uiNodes(h.render()).find(n=>n.props?.className==='event-chat-thread');h.thread.scrollTop=0;thread.props.onScroll({currentTarget:h.thread});
+  h.setServer({messages:[first,second]});await h.poll();assert.equal(marker().id,first.id,'A silent poll cannot mark an unseen new message read');
+  h.thread.scrollTop=700;thread=uiNodes(h.render()).find(n=>n.props?.className==='event-chat-thread');thread.props.onScroll({currentTarget:h.thread});assert.equal(marker().id,second.id);
+  h.setVisibility('hidden');h.setServer({messages:[first,second,third]});h.host.render();await h.poll();assert.equal(marker().id,second.id);
+  h.setVisibility('visible');await h.poll();assert.equal(marker().id,third.id,'Resuming visible polling displays the real latest message before marking it');
+  assert.doesNotMatch(JSON.stringify([...h.readMarkers.values()]),/message|incoming|bob/);
+ }finally{h.dispose();}
+});
+
+
+test('Covered chat sheets never acknowledge unseen messages, and receipts resume from scoped ancestor visibility changes',async()=>{
+ const body={name:'body'},layer={name:'chat-layer',parentElement:body},observed=[];const activeObservers=new Set();let hiddenAttribute='';
+ const overlayFixture={body,layer,blocked(selector){assert.equal(selector,'[inert], [aria-hidden="true"], [hidden]');return hiddenAttribute?layer:null;},Observer:class{constructor(callback){this.callback=callback;activeObservers.add(this);}observe(element,options){observed.push({element,options});}disconnect(){activeObservers.delete(this);}},setHidden(attribute){hiddenAttribute=attribute;for(const observer of [...activeObservers])observer.callback([{type:'attributes',target:layer,attributeName:attribute||'inert'}]);}};
+ const first=dmMessage('20000000-0000-4000-8000-000000000011',dmBob,'Seen first',1);
+ const unseen=dmMessage('20000000-0000-4000-8000-000000000012',dmBob,'Profile covers this arrival',2);
+ const h=dmHarness({messages:[first],initialChatOpen:true,overlayFixture});const marker=()=>JSON.parse([...h.readMarkers.values()][0]||'null');
+ try{
+  await h.ready();assert.equal(marker().id,first.id);assert.ok(activeObservers.size>0);assert.ok(observed.every(({element,options})=>element!==body&&options.attributes===true&&options.subtree===undefined&&options.attributeFilter.join(',')==='inert,aria-hidden,hidden'));
+  for(const attribute of ['inert','aria-hidden','hidden']){
+   overlayFixture.setHidden(attribute);h.setServer({messages:[first,unseen]});await h.poll();assert.equal(marker().id,first.id,`${attribute} must fence an incoming-message effect`);
+   uiNodes(h.render()).find(n=>n.props?.className==='event-chat-thread').props.onScroll({currentTarget:h.thread});assert.equal(marker().id,first.id,`${attribute} must also fence scroll receipts`);
+  }
+  h.thread.scrollTop=0;uiNodes(h.render()).find(n=>n.props?.className==='event-chat-thread').props.onScroll({currentTarget:h.thread});
+  overlayFixture.setHidden('');assert.equal(marker().id,first.id,'Uncovering while reading earlier history must not acknowledge the latest arrival');
+  overlayFixture.setHidden('inert');h.thread.scrollTop=700;uiNodes(h.render()).find(n=>n.props?.className==='event-chat-thread').props.onScroll({currentTarget:h.thread});assert.equal(marker().id,first.id);
+  overlayFixture.setHidden('');assert.equal(marker().id,unseen.id,'Uncovering the already-rendered latest message is enough; no new poll or user scroll is required');
+  const hiddenLater=dmMessage('20000000-0000-4000-8000-000000000013',dmBob,'Activity-hidden arrival',3);overlayFixture.setHidden('inert');h.setServer({messages:[first,unseen,hiddenLater]});await h.poll();assert.equal(marker().id,unseen.id);
+  const queuedCallbacks=[...activeObservers].map(observer=>observer.callback);h.host.hide();assert.equal(activeObservers.size,0,'Hidden Activity tears down every scoped observer');
+  overlayFixture.setHidden('');for(const callback of queuedCallbacks)callback([]);assert.equal(marker().id,unseen.id,'A queued old observer callback cannot acknowledge after Activity teardown');
+ }finally{h.dispose();assert.equal(activeObservers.size,0);}
 });

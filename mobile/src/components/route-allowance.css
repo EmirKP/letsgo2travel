@@ -1,0 +1,21 @@
+.route-allowance{margin:0 0 14px;border:1px solid var(--theme-border,#dce5ef);border-radius:14px;background:var(--theme-surface,#fff);color:var(--theme-text,#17304d);font-size:12px;line-height:1.5}
+.route-allowance summary,.route-allowance-heading{display:flex;align-items:center;gap:9px;min-height:48px;padding:10px 13px;list-style:none}
+.route-allowance summary{cursor:pointer}
+.route-allowance summary::-webkit-details-marker{display:none}
+.route-allowance summary>svg:first-child,.route-allowance-heading>svg{flex:none;color:var(--theme-primary,#1767d8)}
+.route-allowance strong{font-size:13px;font-weight:700;line-height:1.4;min-width:0}
+.route-allowance summary>span{margin-left:auto;font-size:11px;color:var(--theme-primary,#1767d8);flex:none}
+.route-allowance summary>svg:last-child{flex:none;color:var(--theme-primary,#1767d8)}
+.route-allowance details[open]>summary>svg:last-child{transform:rotate(90deg)}
+.route-allowance summary:focus-visible{outline:3px solid var(--theme-primary,#1767d8);outline-offset:3px;border-radius:12px}
+.route-allowance-detail{padding:0 13px 11px;color:var(--theme-muted,#65748a)}
+.route-allowance-detail p{margin:5px 0 0}
+.route-allowance-detail time{font-weight:650;color:var(--theme-text,#17304d)}
+.route-allowance-detail button{display:inline-flex;align-items:center;min-height:44px;padding:7px 0;margin:3px 14px 0 0;border:0;background:transparent;color:var(--theme-primary,#1767d8);font:inherit;font-weight:700;text-align:left}
+.route-allowance-detail button:disabled{opacity:.55}
+.planner-form .route-allowance{margin-top:16px}
+.jsv-shell[data-keyboard=true] .route-allowance{display:none}
+[data-theme=dark] .route-allowance,html.dark .route-allowance{background:#182536;border-color:#34475e;color:#edf4ff}
+[data-theme=dark] .route-allowance-detail,html.dark .route-allowance-detail{color:#acbcd0}
+[data-theme=dark] .route-allowance-detail time,html.dark .route-allowance-detail time{color:#edf4ff}
+[data-theme=dark] .route-allowance summary>span,[data-theme=dark] .route-allowance summary>svg,[data-theme=dark] .route-allowance-heading>svg,[data-theme=dark] .route-allowance-detail button,html.dark .route-allowance summary>span,html.dark .route-allowance summary>svg,html.dark .route-allowance-heading>svg,html.dark .route-allowance-detail button{color:#85baff}

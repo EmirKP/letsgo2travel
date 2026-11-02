@@ -175,7 +175,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   })), [questionCountries]);
   const questionCountryLabels = useMemo(() => new Map(questionCountries.map(country => [country.alpha2, country.name])), [questionCountries]);
   const [tab, setTab] = useState<CommunityTab>("feed");
-  const [mode, setMode] = useState<"social" | "forum">(() => initialSocialPostId ? "social" : "forum");
+  const [mode, setMode] = useState<"social" | "forum" | "chats">(() => profileChat ? "chats" : initialSocialPostId ? "social" : "forum");
   const [socialRevision, setSocialRevision] = useState(0);
   const [followingKind, setFollowingKind] = useState<"people" | "countries">("people");
   const followingPeople = tab === "following" && followingKind === "people";
@@ -187,6 +187,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [search, setSearch] = useState("");
   const [socialQuery, setSocialQuery] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
+  const [chatSearch, setChatSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [followedCountries, setFollowedCountries] = useState(() => readCommunityFollows(user?.id || null));
   const searchInput = useRef<HTMLInputElement>(null);
@@ -287,7 +288,15 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     setFollowedCountries(next);
   };
 
-  useEffect(() => { if (searchOpen) searchInput.current?.focus(); }, [searchOpen]);
+  const groupScope = mode === "forum" && tab === "groups";
+  const scopedSearch = mode === "chats" ? chatSearch : mode === "social" ? socialQuery : groupScope ? groupSearch : search;
+  const setScopedSearch = mode === "chats" ? setChatSearch : mode === "social" ? setSocialQuery : groupScope ? setGroupSearch : setSearch;
+  const searchLabel = mode === "chats" ? locale === "ro" ? "Caută conversații" : copy("Sohbetlerde ara", "Search chats", "Kërko biseda")
+    : mode === "social" ? copy("Gönderilerde ara", "Search posts", "Kërko postime")
+      : groupScope ? locale === "ro" ? "Caută grupuri de țară" : copy("Ülke gruplarında ara", "Search country groups", "Kërko grupe vendesh")
+        : copy("Soru ve cevaplarda ara", "Search questions and answers", "Kërko pyetje dhe përgjigje");
+  useEffect(() => { if (searchOpen) searchInput.current?.focus(); }, [searchOpen, mode, groupScope]);
+  useEffect(() => { if (profileChat) setMode("chats"); }, [profileChat]);
 
   useEffect(() => {
     if (initialLeagueRequest <= 0 || initialLeagueRequest === handledLeagueRequest.current) return;
@@ -681,7 +690,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   return <div className="screen community-native-screen reference-community community-social">
     <section className="cs-hero" aria-labelledby="community-welcome-title">
       <img className="cs-hero-image" src={communityCover} alt="" width={1600} height={800} fetchPriority="high"/>
-      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) { if (mode === "social") setSocialQuery(""); else setSearch(""); } if (mode === "forum" && tab === "groups") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
+      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) setScopedSearch(""); }}><Icon name="search" size={23}/></button></div>
       <div className="cs-hero-copy"><h1 id="community-welcome-title">{copy("Topluluk", "Community")}</h1><p>{copy("Aynı tutkuyu paylaşan gezginlerle tanış, ilham al, deneyimlerini paylaş.", "Meet travellers who share your passion, find inspiration and share experiences.")}</p></div>
       <p className="cs-handwritten" aria-hidden="true">{copy("Daha Fazla", "More")}<br/>{copy("Hikâye", "Stories")}<br/><span>{copy("Daha Fazla Sen", "More You")}</span></p>
       <div className="cs-stats" aria-label={copy("Son yüklenen topluluk akışı", "Latest loaded community feed")}>
@@ -692,14 +701,13 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </section>
 
     <div className="cs-surface">
-      {!searchOpen && <button type="button" className="cs-search-entry" onClick={() => { setSearchOpen(true); if (mode === "forum" && tab === "groups") setTab("feed"); }}><Icon name="search" size={20}/>{mode === "social" ? copy("Gönderilerde ara", "Search posts", "Kërko postime") : copy("Soru ve cevaplarda ara", "Search questions and answers", "Kërko pyetje dhe përgjigje")}</button>}
+      {!searchOpen && <button type="button" className="cs-search-entry" onClick={() => setSearchOpen(true)}><Icon name="search" size={20}/>{searchLabel}</button>}
       <div id="community-search" className="cs-search-panel" hidden={!searchOpen}>
-        <label htmlFor="community-search-input">{mode === "social" ? copy("Gönderilerde ara", "Search posts", "Kërko postime") : copy("Soru ve cevaplarda ara", "Search questions and answers", "Kërko pyetje dhe përgjigje")}</label><div><Icon name="search" size={20}/><input ref={searchInput} id="community-search-input" type="search" autoComplete="off" maxLength={120} value={mode === "social" ? socialQuery : search} onChange={event => mode === "social" ? setSocialQuery(event.target.value) : setSearch(event.target.value)} placeholder={mode === "social" ? copy("Yer, gezgin veya fotoğraf açıklaması…", "Place, traveller or photo caption…", "Vend, udhëtar ose përshkrim fotografie…") : copy("Ülke, konu veya gezgin…", "Country, topic or traveller…")}/><button type="button" aria-label={copy("Aramayı kapat", "Close search")} onClick={() => { setSearchOpen(false); if (mode === "social") setSocialQuery(""); else setSearch(""); }}><Icon name="close" size={20}/></button></div>
+        <label htmlFor="community-search-input">{searchLabel}</label><div><Icon name="search" size={20}/><input ref={searchInput} id="community-search-input" type="search" autoComplete="off" maxLength={120} value={scopedSearch} onChange={event => setScopedSearch(event.target.value)} placeholder={mode === "chats" ? locale === "ro" ? "Eveniment sau oraș…" : copy("Etkinlik veya şehir…", "Event or city…", "Aktivitet ose qytet…") : groupScope ? copy("Ülke ara", "Search countries", "Kërko vende") : mode === "social" ? copy("Yer, gezgin veya fotoğraf açıklaması…", "Place, traveller or photo caption…", "Vend, udhëtar ose përshkrim fotografie…") : copy("Ülke, konu veya gezgin…", "Country, topic or traveller…", "Vend, temë ose udhëtar…")}/><button type="button" aria-label={copy("Aramayı kapat", "Close search")} onClick={() => { setSearchOpen(false); setScopedSearch(""); }}><Icon name="close" size={20}/></button></div>
       </div>
 
-      <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button></div>
-      <JoinedEventChats initialChat={profileChat} onInitialChatHandled={onProfileChatHandled} onCompleteProfile={onCompleteProfile} ownerId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onNotice={onNotice} onOpenProfile={setProfileKey}/>
-      {mode === "social" ? <SocialHub searchQuery={socialQuery} userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} initialCommentId={initialSocialCommentId} onIntentHandled={onSocialIntentHandled}/> : <>
+      <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button><button type="button" aria-pressed={mode === "chats"} onClick={() => setMode("chats")}>{locale === "ro" ? "Conversații" : copy("Sohbetler", "Chats", "Bisedat")}</button></div>
+      {mode === "chats" ? <JoinedEventChats initialChat={profileChat} onInitialChatHandled={onProfileChatHandled} onCompleteProfile={onCompleteProfile} ownerId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onNotice={onNotice} onOpenProfile={setProfileKey} onDiscoverEvents={() => onNavigate("events")} searchQuery={chatSearch}/> : mode === "social" ? <SocialHub searchQuery={socialQuery} userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} initialCommentId={initialSocialCommentId} onIntentHandled={onSocialIntentHandled}/> : <>
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
@@ -714,7 +722,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
       {tab === "groups" && <section id="community-panel-groups" role="tabpanel" aria-labelledby="community-tab-groups" className="cs-groups" tabIndex={0}>
         <div className="cs-section-heading"><h2>{copy("Ülke Grupları", "Country Groups")}</h2><span>{groups.length}</span></div><p className="cs-section-intro">{copy("Bir ülke seç, gezginlerin sorularına katıl. Takip ettiğin gruplar bu cihazda saklanır.", "Choose a country and join the conversation. Followed groups are saved on this device.")}</p>
-        <label className="cs-group-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Ülke ara", "Search countries")}</span><input type="search" value={groupSearch} onChange={event => setGroupSearch(event.target.value)} placeholder={copy("Ülke ara", "Search countries")}/></label>
         <div className="cs-group-grid">{groups.map(country => <article key={country.alpha2}><button type="button" className="cs-group-open" onClick={() => { setCountryFilter(country.alpha2); setRegion("all"); setSearch(""); setTab("feed"); }}><CountryFlag code={country.alpha2} label={country.name}/><span><strong>{country.name}</strong><small>{copy("Soruları gör", "View questions", "Shiko pyetjet")}</small></span></button><button type="button" className="cs-follow" aria-label={copy(`${country.name} grubunu ${followedCountries.includes(country.alpha2) ? "takipten çıkar" : "takip et"}`, `${followedCountries.includes(country.alpha2) ? "Unfollow" : "Follow"} ${country.name} group`, `${followedCountries.includes(country.alpha2) ? "Mos e ndiq më" : "Ndiq"} grupin ${country.name}`)} aria-pressed={followedCountries.includes(country.alpha2)} onClick={() => toggleFollow(country.alpha2)}><Icon name={followedCountries.includes(country.alpha2) ? "check" : "plus"} size={20}/></button></article>)}</div>
         {!groups.length && <div className="empty-state"><Icon name="search" size={28}/><strong>{copy("Bu aramada ülke bulunamadı", "No countries found")}</strong><button type="button" className="secondary-button" onClick={() => { setGroupSearch(""); setRegion("all"); }}>{copy("Tüm ülkeleri göster", "Show all countries")}</button></div>}
       </section>}

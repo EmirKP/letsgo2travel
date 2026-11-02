@@ -341,15 +341,16 @@ test('Editorial inspiration and community search remain real actions while joine
     assert.deepEqual(postTitles(view), [], 'Editorial content is not inserted into an empty user feed');
     h.click('Close search');
     const selectedTab = activeTab(view);
-    const chats=find(h.render(),'JoinedEventChats');
-    assert.ok(chats,'Community exposes actual joined event memberships');
+    assert.equal(find(h.render(),'JoinedEventChats'),undefined,'Forum is not interrupted by an unrelated inbox');
+    const chats=find(h.click('Chats'),'JoinedEventChats');
+    assert.ok(chats,'The dedicated Chats tab exposes actual joined event memberships');
     assert.equal(chats.props.ownerId,'chat-member');assert.equal(chats.props.accessToken,'CHAT_SESSION');
     chats.props.onOpenAccount();assert.equal(h.accountOpened,1);
     chats.props.onNotice('Chat unavailable');assert.deepEqual(h.notices,['Chat unavailable']);
     chats.props.onOpenProfile('user:chat-member');view=h.render();
     assert.equal(find(view,'CommunityProfileSheet').props.profileKey,'user:chat-member');
     assert.equal(button(view,'Event Radar'),undefined,'An unrelated event-search promotion is not added to the forum');
-    assert.equal(activeTab(view),selectedTab);assert.deepEqual(h.navigation,[]);
+    view=h.click('Forum');assert.equal(activeTab(view),selectedTab);assert.deepEqual(h.navigation,[]);
   } finally { h.dispose(); }
 });
 
@@ -370,14 +371,38 @@ test('Community reflects application locale changes in both directions while kee
   } finally { h.dispose(); }
 });
 
-test('Joined event conversations remain reachable when switching between forum and photo posts',async()=>{
+test('Joined event conversations live only in Chats, preserve exact account and expose direct event discovery',async()=>{
  const h=harness({user:{id:'chat-member'},accessToken:'CHAT_SESSION'});
  try{
   await h.feed([]);
-  for(const mode of ['Posts','Forum','Posts']){
+  for(const mode of ['Posts','Forum','Chats','Posts','Chats']){
    const view=h.click(mode),chats=nodes(view).filter(n=>n.type==='JoinedEventChats');
-   assert.equal(chats.length,1);assert.equal(chats[0].props.ownerId,'chat-member');assert.equal(chats[0].props.accessToken,'CHAT_SESSION');
+   assert.equal(chats.length,mode==='Chats'?1:0);
+   if(chats.length){assert.equal(chats[0].props.ownerId,'chat-member');assert.equal(chats[0].props.accessToken,'CHAT_SESSION');}
   }
+  find(h.render(),'JoinedEventChats').props.onDiscoverEvents();assert.deepEqual(h.navigation,['events']);
+ }finally{h.dispose();}
+});
+
+test('Group, Forum, Posts and Chats searches keep their own scope and closing one never clears another',async()=>{
+ const h=harness();try{
+  await h.feed();let view=h.tab('groups');h.click('Search country groups');
+  view=h.change('input',p=>p.id==='community-search-input','Japonya');
+  assert.equal(activeTab(view),'community-tab-groups');assert.match(text(byClass(view,'cs-group-grid')),/Japonya/);assert.doesNotMatch(text(byClass(view,'cs-group-grid')),/İtalya/);
+  h.click('Posts');h.change('input',p=>p.id==='community-search-input','Museum');
+  h.click('Chats');view=h.change('input',p=>p.id==='community-search-input','Concert');assert.equal(find(view,'JoinedEventChats').props.searchQuery,'Concert');
+  h.click('Close search');view=h.click('Posts');assert.equal(find(view,'SocialHub').props.searchQuery,'Museum');
+  view=h.click('Forum');assert.equal(activeTab(view),'community-tab-groups');h.click('Search country groups');assert.equal(find(h.render(),'input',p=>p.id==='community-search-input').props.value,'Japonya');
+  assert.equal(nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='search').length,1,'The group page has one context-scoped search');
+ }finally{h.dispose();}
+});
+
+test('Profile completion returns into Chats and retains the exact selected conversation; later post intent selects Posts',async()=>{
+ const h=harness({user:{id:'chat-member'},accessToken:'CHAT_SESSION'});let handled=0;
+ try{
+  await h.feed();const chat={eventKey:'ticketmaster:exact-chat',event:{title:'Real concert'}};
+  let view=h.render({profileChat:chat,onProfileChatHandled:()=>handled++});const inbox=find(view,'JoinedEventChats');assert.equal(inbox.props.initialChat,chat);inbox.props.onInitialChatHandled();assert.equal(handled,1);
+  view=h.render({profileChat:null,initialSocialPostId:'real-photo'});assert.ok(find(view,'SocialHub'));assert.equal(find(view,'JoinedEventChats'),undefined);
  }finally{h.dispose();}
 });
 

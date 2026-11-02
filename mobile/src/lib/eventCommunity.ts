@@ -6,7 +6,7 @@ export type EventCommunityMessage = { id: string; body: string; createdAt: strin
 export type EventCommunityCursor = { createdAt: string; id: string };
 export type EventCommunityMeetup = { id: string; startsAt: string; publicPlace: string; updatedAt: string; creator: EventCommunityPerson; isOwn: boolean; joined: boolean; attendeeCount: number; attendees: EventCommunityPerson[] };
 export type EventCommunityState = { eventKey: string; event: EventCommunityEvent; checkedAt: string; version: number; change: null | { previous: EventCommunityEvent; changedAt: string }; joined: boolean; muted: boolean; memberCount: number; attendees: EventCommunityPerson[]; messages: EventCommunityMessage[]; nextBefore: EventCommunityCursor | null; meetup: EventCommunityMeetup | null };
-export type JoinedEventChat = { eventKey: string; event: EventCommunityEvent; muted: boolean; joinedAt: string; memberCount: number };
+export type JoinedEventChat = { eventKey: string; event: EventCommunityEvent; muted: boolean; joinedAt: string; memberCount: number; summaryStatus?: 'available' | 'unavailable'; lastMessage?: { id: string; body: string; createdAt: string; author: { userId: string; username: string } } | null; latestIncoming?: EventCommunityCursor | null };
 export type EventParticipantCursor = { joinedAt: string; userId: string };
 export type EventParticipantPage = { attendees: EventCommunityPerson[]; nextAfter: EventParticipantCursor | null };
 export type EventCommunityAction = { action: 'join' | 'leave' } | { action: 'mute'; muted: boolean } | { action: 'message'; body: string; requestId: string } | { action: 'meetup'; startsAt: string; publicPlace: string } | { action: 'meetup-join' | 'meetup-leave' | 'meetup-delete'; meetupId: string } | { action: 'block'; targetType: 'message' | 'meetup'; targetId: string } | { action: 'report'; targetType: 'message' | 'meetup'; targetId: string; reason: string; note: string };
@@ -17,8 +17,10 @@ export function getEventCommunity(eventId: string, token: string, signal?: Abort
   if (cursor) { query.set('before', cursor.createdAt); query.set('beforeId', cursor.id); }
   return requestJson<{ data: EventCommunityState; verification: 'current' | 'unavailable' }>(`/api/event-community?${query}`, { headers: headers(token), signal, timeoutMs: 15_000 });
 }
-export function listJoinedEventChats(token: string, signal?: AbortSignal) {
-  return requestJson<{ data: JoinedEventChat[] }>('/api/event-community', { headers: headers(token), signal, timeoutMs: 12_000 });
+export function listJoinedEventChats(token: string, signal?: AbortSignal, offset = 0, query = '') {
+  const params = new URLSearchParams({ summaries: 'true', offset: String(offset) });
+  if (query.trim()) params.set('q', query.trim());
+  return requestJson<{ data: JoinedEventChat[]; nextOffset?: number | null }>(`/api/event-community?${params}`, { headers: headers(token), signal, timeoutMs: 15_000 });
 }
 export function listEventParticipants(eventId: string, token: string, query: string, cursor?: EventParticipantCursor | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ eventId, attendees: 'true', q: query });

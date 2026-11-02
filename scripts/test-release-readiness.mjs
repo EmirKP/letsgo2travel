@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const checks = [
+  ["--test", "tests/route-feedback-20261102.mjs", "tests/event-chat-inbox.mjs"],
   ["--test", "tests/short-trip-invites-20261101.mjs", "tests/shared-trip-phone-20261101.mjs", "tests/phone-flight-dates-20261101.mjs", "tests/global-search-first-use-20261101.mjs"],
   ["--test", "tests/airport-search-recovery-20261101.mjs", "tests/airport-lifecycle-20261101.mjs", "tests/airport-lifecycle-web-ui-20261102.mjs"],
   ["--test", "tests/home-city-strip-behavior.mjs", "tests/city-discovery-20261031.mjs", "tests/city-essentials-20261031.mjs", "tests/city-route-intent-20261101.mjs", "tests/city-map-recovery-intent-20261101.mjs", "tests/city-events-intent-20261101.mjs", "tests/city-map-entry-20261101.mjs", "tests/event-midnight-actions-20261101.mjs"],

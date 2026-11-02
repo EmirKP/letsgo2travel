@@ -80,6 +80,37 @@ export function parseEventCommunityAction(input: Row): { action: string; input: 
   return null;
 }
 
+/** Reuse the DB's membership, moderation and two-way block checks. This opt-in
+ * inbox projection never broadens access or fetches arbitrary client keys. */
+export async function joinedEventChatSummaries(db: SupabaseClient, ownerId: string, input: unknown) {
+  const items = (Array.isArray(input) ? input : []).slice(0, 12).map(row);
+  const results: (Row | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++, item = items[index], key = canonicalEventKey(item.eventKey);
+      if (!key) continue;
+      try {
+        const { data, error } = await db.rpc('event_community_read', { p_user: ownerId, p_key: key, p_before: null, p_before_id: null });
+        if (error) { results[index] = { ...item, summaryStatus: 'unavailable', lastMessage: null, latestIncoming: null }; continue; }
+        const state = row(data);
+        // A membership removed between the list and read must not leak a preview.
+        if (state.joined !== true || state.eventKey !== key) continue;
+        const messages = (Array.isArray(state.messages) ? state.messages : []).map(row).filter(message => {
+          const author = row(message.author);
+          return COMMUNITY_UUID.test(String(message.id)) && date(message.createdAt) && safeText(message.body, 1000)
+            && COMMUNITY_UUID.test(String(author.userId)) && safeText(author.username, 80);
+        }).sort((a, b) => Date.parse(String(a.createdAt)) - Date.parse(String(b.createdAt)) || String(a.id).localeCompare(String(b.id)));
+        const last = messages.at(-1), incoming = messages.filter(message => row(message.author).userId !== ownerId).at(-1);
+        results[index] = { ...item, summaryStatus: 'available', lastMessage: last ? { id: last.id, body: last.body, createdAt: date(last.createdAt), author: { userId: row(last.author).userId, username: row(last.author).username } } : null,
+          latestIncoming: incoming ? { id: incoming.id, createdAt: date(incoming.createdAt) } : null };
+      } catch { results[index] = { ...item, summaryStatus: 'unavailable', lastMessage: null, latestIncoming: null }; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker));
+  return results.filter((item): item is Row => item !== null).sort((a, b) => Date.parse(String(row(b.lastMessage).createdAt || b.joinedAt)) - Date.parse(String(row(a.lastMessage).createdAt || a.joinedAt)));
+}
+
 /** Strip all raw avatar paths; signedCommunityAvatars enforces owner ownership. */
 export async function serializeEventCommunity(db: SupabaseClient, input: unknown) {
   const data = row(input);

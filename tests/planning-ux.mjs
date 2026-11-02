@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
-const jsx = (type, props) => ({ type, props });
+const jsx = (type, props) => typeof type === 'function' && type.name === 'RouteAllowance' ? type(props) : ({ type, props });
 const runtime = { jsx, jsxs: jsx, Fragment: 'fragment' };
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const english = { copy: (_tr, en) => en, countryName: (_code, fallback) => fallback, locale: 'en', dateLocale: 'en-GB' };
@@ -24,6 +24,8 @@ function load(path, imports = {}, environment = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, AbortController,setTimeout,clearTimeout, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../components/RouteAllowance') return load('mobile/src/components/RouteAllowance.tsx', { 'react/jsx-runtime': runtime, '../lib/i18n': imports['../lib/i18n'], './Icon': { Icon: 'Icon' } });
+    if (name === '../lib/routeAllowance') return load('mobile/src/lib/routeAllowance.ts');
     if (name === '../components/RouteWeather') return { RouteWeather: 'RouteWeather' };
     if (name === '../components/Sheet') return { Sheet: 'Sheet' };
     if (name === '../components/LazyOverlay') return { LazyOverlay: 'LazyOverlay' };
@@ -525,9 +527,9 @@ test('Alternative planner shows server remaining rights from 3 to 0 in every loc
     let quota={limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'};
     const h=plannerHarness({seeded:false,locale,quota:async()=>quota});
     const settle=async()=>{h.host.render();await tick();return h.host.render();};
-    const header=()=>text(find(find(h.host.render(),'aside',p=>p.className==='planner-allowance'),'strong'));
+    const header=()=>text(find(find(h.host.render(),'aside',p=>p.className?.split(' ').includes('route-allowance')),'strong'));
     const refresh={tr:'Hakkımı kontrol et',en:'Refresh allowance',sq:'Rifresko të drejtën'}[locale];
-    const label=n=>locale==='tr'?`Bugün ${n} yeni AI rota hakkın var`:locale==='en'?`${n} new AI ${n===1?'itinerary':'itineraries'} available today`:n===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${n} itinerare të reja me AI`;
+    const label=n=>locale==='tr'?`Bugün ${n} rota hakkın var`:locale==='en'?`${n} ${n===1?'route':'routes'} available today`:`Sot ke ${n} ${n===1?'itinerar të mbetur':'itinerare të mbetura'}`;
     try{
       await tick();assert.equal(header(),label(3));
       for(const remaining of [2,1,0]){
@@ -551,9 +553,9 @@ test('A failed alternative AI attempt preserves all three rights and the departu
   try{
     await tick();find(h.host.render(),'AirportField').props.onChange({city:'Istanbul',name:'Istanbul Airport'});
     h.failGeneration(Object.assign(Error('capacity'),{code:'plan_request_too_large'}));button(h.host.render(),'Create Route').props.onClick();await tick();h.host.render();await tick();
-    let view=h.host.render();assert.match(text(view),/3 new AI itineraries available today/);assert.equal(find(view,'AirportField').props.value.city,'Istanbul');assert.equal(find(view,'RouteBudgetAnalysis'),undefined);
+    let view=h.host.render();assert.match(text(view),/3 routes available today/);assert.equal(find(view,'AirportField').props.value.city,'Istanbul');assert.equal(find(view,'RouteBudgetAnalysis'),undefined);
     used=1;h.respondGeneration({data:{summary:'Confirmed real result',routes:[route]}});button(view,'Create Route').props.onClick();await tick();h.host.render();await tick();view=h.host.render();
-    assert.match(text(view),/2 new AI itineraries available today/);assert.equal(h.generated.length,2);assert.ok(find(view,'RouteBudgetAnalysis'));
+    assert.match(text(view),/2 routes available today/);assert.equal(h.generated.length,2);assert.ok(find(view,'RouteBudgetAnalysis'));
   }finally{h.host.dispose();}
 });
 

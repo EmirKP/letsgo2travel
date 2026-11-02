@@ -37,6 +37,7 @@ function load(file, imports = {}, globals = {}) {
     Error, Date, Intl, URL, URLSearchParams, AbortController, AbortSignal, crypto: { randomUUID }, ...globals,
   })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name.endsWith('/eventChatInbox')) return load('mobile/src/lib/eventChatInbox.ts', {}, globals);
     if (name.endsWith('.css')) return {};
     throw Error(`Unstubbed fixture import ${name} in ${file}`);
   }, fixture, fixture.exports);

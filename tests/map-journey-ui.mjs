@@ -27,6 +27,8 @@ function load(path, imports = {}, environment = {}) {
     Error, Date, Intl, URL, AbortController, setTimeout, clearTimeout, requestAnimationFrame: fn => fn(), window:{addEventListener(){},removeEventListener(){}}, ...environment,
   })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === './RouteAllowance') return load('mobile/src/components/RouteAllowance.tsx', { 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, '../lib/i18n': imports['../lib/i18n'], './Icon': { Icon: 'Icon' } });
+    if (name === '../lib/routeAllowance') return load('mobile/src/lib/routeAllowance.ts');
     const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
@@ -334,20 +336,20 @@ test('Used allowance disables a new AI plan but existing itineraries still open,
 test('Map allowance follows three successful distinct plans from 3 to 2 to 1 to 0 and a failure keeps the remaining rights',async()=>{
   let used=0,fail=false;
   const app=fixture({quota:async()=>quotaValue({used,remaining:3-used}),generate:async request=>{if(fail)throw Object.assign(Error('busy'),{code:'plan_busy'});used++;return generated(request);}});
-  const header=()=>text(find(find(app.tree,'aside',p=>p.className==='jsv-allowance'),'strong'));
+  const header=()=>text(find(find(app.tree,'aside',p=>p.className?.split(' ').includes('route-allowance')),'strong'));
   try{
-    await tick();app.render();assert.equal(header(),'3 new AI itineraries available today');
+    await tick();app.render();assert.equal(header(),'3 routes available today');
     for(let attempt=1;attempt<=3;attempt++){
       app.submit();app.submit();app.submit();app.input('Anything else you would like?',`Distinct itinerary ${attempt}`,'textarea');
       if(attempt===2){
         fail=true;app.submit();await tick();app.render();await tick();app.render();
-        assert.equal(used,1);assert.equal(header(),'2 new AI itineraries available today');
+        assert.equal(used,1);assert.equal(header(),'2 routes available today');
         assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'Distinct itinerary 2');
         fail=false;
       }
       app.submit();await tick();app.render();assert.ok(app.map);assert.equal(used,attempt);
       app.click('Change my preferences');await tick();app.render();
-      assert.equal(header(),attempt===3?'Today’s AI itinerary allowance is used (0 remaining)':`${3-attempt} new AI ${attempt===2?'itinerary':'itineraries'} available today`);
+      assert.equal(header(),attempt===3?'Today’s AI itinerary allowance is used (0 remaining)':`${3-attempt} ${attempt===2?'route':'routes'} available today`);
     }
     app.submit();app.submit();app.submit();
     assert.equal(button(app.tree,'Create my AI itinerary').props.disabled,true);app.submit();
@@ -359,8 +361,8 @@ test('Map allowance numbers are localized, pending stays distinct, and a legacy 
   for(const locale of ['tr','en','sq']){
     let current=quotaValue();const app=fixture({locale,quota:async()=>current});
     const refresh={tr:'Hakkımı kontrol et',en:'Refresh allowance',sq:'Rifresko të drejtën'}[locale];
-    const header=()=>text(find(find(app.tree,'aside',p=>p.className==='jsv-allowance'),'strong'));
-    const remainingLabel=n=>locale==='tr'?`Bugün ${n} yeni AI rota hakkın var`:locale==='en'?`${n} new AI ${n===1?'itinerary':'itineraries'} available today`:n===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${n} itinerare të reja me AI`;
+    const header=()=>text(find(find(app.tree,'aside',p=>p.className?.split(' ').includes('route-allowance')),'strong'));
+    const remainingLabel=n=>locale==='tr'?`Bugün ${n} rota hakkın var`:locale==='en'?`${n} ${n===1?'route':'routes'} available today`:`Sot ke ${n} ${n===1?'itinerar të mbetur':'itinerare të mbetura'}`;
     try{
       await tick();app.render();assert.equal(header(),remainingLabel(3));
       const reset=find(app.tree,'time').props.dateTime;
@@ -380,7 +382,7 @@ test('Rotated tokens discard stale quota replies and generation results without 
   try{
     app.render({accessToken:'rotated'});assert.equal(calls[0].signal.aborted,true);
     current.resolve(quotaValue({used:3,remaining:0}));await tick();app.render();
-    old.resolve(quotaValue());await tick();app.render();assert.match(text(app.tree),/allowance is used/);assert.doesNotMatch(text(app.tree),/3 new AI itineraries available today/);
+    old.resolve(quotaValue());await tick();app.render();assert.match(text(app.tree),/allowance is used/);assert.doesNotMatch(text(app.tree),/3 routes available today/);
     app.render({ownerId:'another',accessToken:'another'});assert.doesNotMatch(text(app.frames[0]),/allowance is used/);
   }finally{app.dispose();}
 });

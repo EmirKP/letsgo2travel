@@ -4496,5 +4496,15 @@ export const RO_MESSAGES: Record<string, string> = {
   "Read saved routes again": "Reîncarcă rutele salvate",
   "Now closed · historical airport": "Închis acum · aeroport istoric",
   "Language pack status could not be checked. Your text is kept; try again.": "Starea pachetelor de limbă nu a putut fi verificată. Textul este păstrat; încearcă din nou.",
-  "We could not fully check this selection. This does not mean there are no events. Your choices are kept; try again.": "Nu am putut verifica complet această selecție. Asta nu înseamnă că nu există evenimente. Opțiunile tale sunt păstrate; încearcă din nou."
+  "We could not fully check this selection. This does not mean there are no events. Your choices are kept; try again.": "Nu am putut verifica complet această selecție. Asta nu înseamnă că nu există evenimente. Opțiunile tale sunt păstrate; încearcă din nou.",
+  "My chats": "Conversațiile mele",
+  "Message preview unavailable": "Previzualizarea mesajului nu este disponibilă",
+  "No messages yet": "Încă nu există mesaje",
+  "No chats found.": "Nicio conversație găsită.",
+  "New": "Nou",
+  "More chats": "Mai multe conversații",
+  "Search chats": "Caută conversații",
+  "Search country groups": "Caută grupuri de țară",
+  "Event or city…": "Eveniment sau oraș…",
+  "Chats": "Conversații"
 };

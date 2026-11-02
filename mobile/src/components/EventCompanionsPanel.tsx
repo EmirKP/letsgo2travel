@@ -11,6 +11,7 @@ import { communityVisibilityChanged, communityVisibilityRevision, subscribeCommu
 import { useCurrentTime } from '../hooks/useCurrentTime';
 import { formatAppDate } from '../lib/localeFormatting';
 import { actOnEventCommunity, getEventCommunity, listJoinedEventChats, type EventCommunityAction, type EventCommunityPerson, type EventCommunityState, type EventCommunityEvent, type JoinedEventChat } from '../lib/eventCommunity';
+import { eventChatHasUnread, latestVisibleChatMessage, markEventChatRead } from '../lib/eventChatInbox';
 import type { TravelEvent } from '../types';
 import './event-companions.css';
 
@@ -107,6 +108,15 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   const historyScroll = useRef<{ top: number; height: number; firstId?: string } | null>(null);
   const lastScroll = useRef<{ open: boolean; lastId?: string }>({ open: false });
   const lastMessageId = state?.messages.at(-1)?.id;
+  const markVisibleRead = useCallback(() => {
+    const thread = threadRef.current;
+    if (!active.current || !ownerId || !chatOpen || !state?.joined || document.visibilityState !== 'visible' || !thread?.clientHeight || !nearBottom.current) return;
+    // A mounted conversation can be covered by the profile, participant or
+    // safety sheet. Its nonzero layout does not mean its messages are visible.
+    if (thread.closest('[inert], [aria-hidden="true"], [hidden]')) return;
+    const latest = latestVisibleChatMessage(state.messages);
+    if (latest) markEventChatRead(ownerId, state.eventKey, latest);
+  }, [ownerId, chatOpen, state]);
   const setActionFeedback = useCallback((failure: ActionFailure | null) => {
     actionFailureRef.current = failure;
     setActionFailure(failure);
@@ -139,7 +149,23 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
       sentScroll.current = false;
     }
     lastScroll.current = { open: true, lastId: lastMessageId };
-  }, [chatOpen, lastMessageId, state?.messages.length, state?.messages[0]?.id, infoOpen]);
+    markVisibleRead();
+  }, [chatOpen, lastMessageId, state?.messages.length, state?.messages[0]?.id, infoOpen, markVisibleRead]);
+  useEffect(() => {
+    document.addEventListener?.('visibilitychange', markVisibleRead);
+    return () => document.removeEventListener?.('visibilitychange', markVisibleRead);
+  }, [markVisibleRead]);
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!chatOpen || !thread || typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(markVisibleRead);
+    // Watch only this portal's ancestry, never the whole document. Sheet's
+    // existing inert/aria-hidden changes resume receipts when this chat is top.
+    for (let element: HTMLElement | null = thread; element && element !== document.body; element = element.parentElement) {
+      observer.observe(element, { attributes: true, attributeFilter: ['inert', 'aria-hidden', 'hidden'] });
+    }
+    return () => observer.disconnect();
+  }, [chatOpen, markVisibleRead]);
   useEffect(() => {
     const thread = threadRef.current;
     if (!chatOpen || !thread || typeof ResizeObserver === 'undefined') return;
@@ -319,7 +345,7 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
         </div>}
         {state.meetup && !infoOpen && <button type="button" className="event-chat-pin" onClick={() => setInfoOpen(true)}><Icon name="map" size={17}/><span><strong>{state.meetup.publicPlace}</strong><small>{dateLabel(state.meetup.startsAt, state.event.timeZone)}</small></span><Icon name="chevron" size={17}/></button>}
         {errorBox}
-        <div className="event-chat-thread" ref={threadRef} onScroll={event => { const thread = event.currentTarget; nearBottom.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 72; }}>
+        <div className="event-chat-thread" ref={threadRef} onScroll={event => { const thread = event.currentTarget; nearBottom.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 72; markVisibleRead(); }}>
         <div className="event-chat-intro"><span className="event-chat-mark" aria-hidden="true"><Icon name="calendar" size={28}/></span><strong>{event.title}</strong><small>{copy('Etkinlik grup sohbeti', 'Event group chat', 'Biseda e grupit të aktivitetit')}</small></div>
         {state.nextBefore && <button type="button" className="event-chat-earlier" disabled={busy} onClick={() => void older()}>{copy('Önceki mesajlar', 'Earlier messages', 'Mesazhet e mëparshme')}</button>}
         <ol className="event-chat-messages" aria-label={copy('Grup mesajları', 'Group messages', 'Mesazhet e grupit')}>
@@ -352,41 +378,92 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   </section>;
 }
 
-type JoinedEventChatsProps = Omit<SharedProps, 'onCompleteProfile'> & { initialChat?: JoinedEventChat | null; onInitialChatHandled?: () => void; onCompleteProfile?: (chat: JoinedEventChat) => void };
+type JoinedEventChatsProps = Omit<SharedProps, 'onCompleteProfile'> & { initialChat?: JoinedEventChat | null; onInitialChatHandled?: () => void; onCompleteProfile?: (chat: JoinedEventChat) => void; onDiscoverEvents?: () => void; searchQuery?: string };
 
 export function JoinedEventChats({ ownerId, ...props }: JoinedEventChatsProps) {
   return <JoinedEventChatsForAccount key={ownerId || 'guest'} ownerId={ownerId} {...props}/>;
 }
 
 function JoinedEventChatsForAccount(props: JoinedEventChatsProps) {
-  const { copy, dateLocale } = useI18n();
+  const { copy, dateLocale, locale } = useI18n();
   const [items, setItems] = useState<JoinedEventChat[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<'auth' | 'unavailable' | null>(null);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [selected, setSelected] = useState<JoinedEventChat | null>(null);
+  const [query, setQuery] = useState(() => props.searchQuery?.trim() || '');
+  const [, readRevision] = useState(0);
+  useEffect(() => {
+    const next = props.searchQuery?.trim() || '';
+    if (next === query) return;
+    const timer = setTimeout(() => setQuery(next), 250);
+    return () => clearTimeout(timer);
+  }, [props.searchQuery, query]);
   useEffect(() => {
     if (!props.initialChat) return;
     setSelected(props.initialChat);
     props.onInitialChatHandled?.();
   }, [props.initialChat, props.onInitialChatHandled]);
   const latestLoad = useRef(0);
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async (signal?: AbortSignal, offset = 0) => {
     if (!props.ownerId || !props.accessToken) return;
     const serial = ++latestLoad.current;
     setLoading(true); setError(null);
-    try { const result = await listJoinedEventChats(props.accessToken, signal); if (!signal?.aborted && serial === latestLoad.current) setItems(result.data); }
-    catch (failure) { if (!signal?.aborted && serial === latestLoad.current) setError(failure instanceof ApiError && failure.status === 401 ? 'auth' : 'unavailable'); }
-    finally { if (!signal?.aborted && serial === latestLoad.current) setLoading(false); }
-  }, [props.ownerId, props.accessToken]);
-  useEffect(() => { const request = new AbortController(); void load(request.signal); const refresh = () => void load(request.signal); window.addEventListener('l2t:event-community-changed', refresh); window.addEventListener('focus', refresh); return () => { latestLoad.current++; request.abort(); window.removeEventListener('l2t:event-community-changed', refresh); window.removeEventListener('focus', refresh); }; }, [load]);
-  if (!props.ownerId || !props.accessToken) return <section className="event-joined-chats event-chat-guest-entry" aria-label={copy('Etkinlik sohbetlerim', 'My event chats', 'Bisedat e mia të aktiviteteve')}><div className="event-companions-heading"><h3>{copy('Etkinlik sohbetlerim', 'My event chats', 'Bisedat e mia të aktiviteteve')}</h3><button type="button" onClick={props.onOpenAccount}>{copy('Giriş yap', 'Sign in', 'Hyr')}</button></div><p>{copy('Katılacağın etkinliklerdeki gezginlerle sohbet et.', 'Chat with travellers attending your events.', 'Bisedo me udhëtarë që marrin pjesë në aktivitetet e tua.')}</p></section>;
-  return <section className="event-joined-chats" aria-label={copy('Etkinlik sohbetlerim', 'My event chats', 'Bisedat e mia të aktiviteteve')}>
-    <div className="event-companions-heading"><h3>{copy('Etkinlik sohbetlerim', 'My event chats', 'Bisedat e mia të aktiviteteve')}</h3><button type="button" disabled={loading} onClick={() => void load()}>{copy('Yenile', 'Refresh', 'Rifresko')}</button></div>
+    try {
+      const result = await listJoinedEventChats(props.accessToken, signal, offset, query);
+      if (!signal?.aborted && serial === latestLoad.current) {
+        setItems(previous => offset ? [...previous, ...result.data.filter(item => !previous.some(existing => existing.eventKey === item.eventKey))] : result.data);
+        setNextOffset(result.nextOffset ?? null);
+      }
+    } catch (failure) {
+      if (!signal?.aborted && serial === latestLoad.current) {
+        if (failure instanceof ApiError && failure.status === 401) { setItems([]); setSelected(null); setNextOffset(null); setError('auth'); }
+        else setError('unavailable');
+      }
+    } finally { if (!signal?.aborted && serial === latestLoad.current) setLoading(false); }
+  }, [props.ownerId, props.accessToken, query]);
+  useEffect(() => {
+    const request = new AbortController();
+    setItems([]); setNextOffset(null);
+    void load(request.signal);
+    const refresh = () => void load(request.signal);
+    const read = () => readRevision(revision => revision + 1);
+    const unsubscribe = subscribeCommunityVisibility(change => {
+      if (change.ownerId && change.ownerId !== props.ownerId) return;
+      // Remove cached previews immediately while visibility is rechecked.
+      setItems([]); setNextOffset(null); void load(request.signal);
+    });
+    window.addEventListener('l2t:event-community-changed', refresh);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('l2t:event-chat-read', read);
+    return () => { latestLoad.current++; request.abort(); unsubscribe(); window.removeEventListener('l2t:event-community-changed', refresh); window.removeEventListener('focus', refresh); window.removeEventListener('l2t:event-chat-read', read); };
+  }, [load, props.ownerId]);
+  const title = locale === 'ro' ? 'Conversațiile mele' : copy('Sohbetlerim', 'My chats', 'Bisedat e mia');
+  const discover = locale === 'ro' ? 'Descoperă evenimente' : copy('Etkinlikleri keşfet', 'Discover events', 'Zbulo aktivitete');
+  const preview = (item: JoinedEventChat) => item.summaryStatus !== 'available'
+    ? locale === 'ro' ? 'Mesajul nu s-a încărcat' : copy('Mesaj özeti yüklenemedi', 'Message preview unavailable', 'Përmbledhja nuk u ngarkua')
+    : item.lastMessage ? `${item.lastMessage.author.userId === props.ownerId ? locale === 'ro' ? 'Tu' : copy('Sen', 'You', 'Ti') : '@' + item.lastMessage.author.username}: ${item.lastMessage.body}`
+      : locale === 'ro' ? 'Încă nu există mesaje' : copy('Henüz mesaj yok', 'No messages yet', 'Ende nuk ka mesazhe');
+  const time = (item: JoinedEventChat) => {
+    if (!item.lastMessage || !Number.isFinite(Date.parse(item.lastMessage.createdAt))) return '';
+    return formatAppDate(new Date(item.lastMessage.createdAt), dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+  if (!props.ownerId || !props.accessToken) return <section className="event-joined-chats event-chat-guest-entry" aria-label={title}><div className="event-companions-heading"><h3>{title}</h3><button type="button" onClick={props.onOpenAccount}>{copy('Giriş yap', 'Sign in', 'Hyr')}</button></div><p>{copy('Katılacağın etkinliklerdeki gezginlerle sohbet et.', 'Chat with travellers attending your events.', 'Bisedo me udhëtarë që marrin pjesë në aktivitetet e tua.')}</p>{props.onDiscoverEvents && <button type="button" className="secondary-wide" onClick={props.onDiscoverEvents}>{discover}<Icon name="chevron" size={17}/></button>}</section>;
+  return <section className="event-joined-chats event-inbox" aria-label={title}>
+    <div className="event-companions-heading"><h3>{title}</h3><button type="button" disabled={loading} onClick={() => void load()}>{copy('Yenile', 'Refresh', 'Rifresko')}</button></div>
     {loading && !items.length && <p role="status">{copy('Sohbetler yükleniyor…', 'Loading chats…', 'Po ngarkohen bisedat…')}</p>}
     {error === 'auth' && <><p className="info-box" role="status">{copy('Oturumun sona erdi. Sohbetlerini görmek için tekrar giriş yap.', 'Your session has expired. Sign in again to see your chats.', 'Seanca jote ka skaduar. Hyr sërish për të parë bisedat.')}</p><button type="button" className="secondary-wide" onClick={props.onOpenAccount}>{copy('Giriş yap', 'Sign in', 'Hyr')}</button></>}
     {error === 'unavailable' && <p className="info-box" role="status">{items.length ? copy('Sohbet listesi yenilenemedi. Son yüklenen sohbetlerin gösteriliyor.', 'Could not refresh your chat list. Your last loaded chats are shown.', 'Lista e bisedave nuk u rifreskua. Po shfaqen bisedat e ngarkuara më parë.') : copy('Etkinlik sohbetleri şu anda alınamıyor. Tekrar dene.', 'Event chats are unavailable right now. Please retry.', 'Bisedat e aktiviteteve nuk janë të disponueshme tani. Provo sërish.')}</p>}
-    {!loading && !error && !items.length && <p>{copy('“Katılacağım” dediğin etkinliklerin sohbetleri burada görünür.', 'Chats for events you RSVP to appear here.', 'Këtu shfaqen bisedat e aktiviteteve ku ke konfirmuar pjesëmarrjen.')}</p>}
-    {error !== 'auth' && items.length > 0 && <div className="event-joined-chat-list">{items.map(item => <button type="button" key={item.eventKey} onClick={() => setSelected(item)}><span><strong>{item.event.title}</strong><small>{item.event.city} · {joinedChatDate(item.event, dateLocale)} · {item.memberCount} {copy('katılımcı', 'attendees', 'pjesëmarrës')}{item.muted ? ` · ${copy('sessizde', 'muted', 'në heshtje')}` : ''}</small></span><span aria-hidden="true">›</span></button>)}</div>}
+    {!loading && !error && !items.length && <div className="event-inbox-empty"><Icon name="users" size={32}/><p>{query ? locale === 'ro' ? 'Nicio conversație găsită.' : copy('Bu aramada sohbet bulunamadı.', 'No chats found.', 'Nuk u gjetën biseda.') : copy('“Katılacağım” dediğin etkinliklerin sohbetleri burada görünür.', 'Chats for events you RSVP to appear here.', 'Këtu shfaqen bisedat e aktiviteteve ku ke konfirmuar pjesëmarrjen.')}</p>{props.onDiscoverEvents && <button type="button" className="primary-wide" onClick={props.onDiscoverEvents}>{discover}<Icon name="chevron" size={17}/></button>}</div>}
+    {error !== 'auth' && items.length > 0 && <div className="event-joined-chat-list">{items.map(item => {
+      const unread = props.ownerId ? eventChatHasUnread(item, props.ownerId) : false;
+      return <button type="button" key={item.eventKey} className={unread ? 'event-inbox-unread' : undefined} onClick={() => setSelected(item)}>
+        <span className="event-inbox-mark" aria-hidden="true"><Icon name="calendar" size={23}/></span>
+        <span className="event-inbox-copy"><strong>{item.event.title}</strong><span className="event-inbox-preview">{preview(item)}</span><small>{item.event.city} · {joinedChatDate(item.event, dateLocale)} · {item.memberCount} {copy('katılımcı', 'attendees', 'pjesëmarrës')}{item.muted ? ` · ${copy('sessizde', 'muted', 'në heshtje')}` : ''}</small></span>
+        <span className="event-inbox-meta">{item.lastMessage && <time dateTime={item.lastMessage.createdAt}>{time(item)}</time>}{unread && <span className="event-inbox-new">{locale === 'ro' ? 'Nou' : copy('Yeni', 'New', 'E re')}</span>}<Icon name="chevron" size={15}/></span>
+      </button>;
+    })}</div>}
+    {nextOffset !== null && <button type="button" className="secondary-wide event-inbox-more" disabled={loading} onClick={() => void load(undefined, nextOffset)}>{locale === 'ro' ? 'Mai multe conversații' : copy('Daha fazla sohbet', 'More chats', 'Më shumë biseda')}</button>}
     <Sheet open={Boolean(selected)} title={selected?.event.title || copy('Etkinlik sohbeti', 'Event chat', 'Biseda e aktivitetit')} onClose={() => setSelected(null)}>{selected && <EventCompanionsPanel {...props} onCompleteProfile={props.onCompleteProfile ? () => props.onCompleteProfile?.(selected) : undefined} initialChatOpen onChatClose={() => setSelected(null)} event={{ id: selected.eventKey, title: selected.event.title }}/>}</Sheet>
   </section>;
 }
