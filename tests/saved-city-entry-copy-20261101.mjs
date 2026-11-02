@@ -15,6 +15,13 @@ function locate(source, predicate) {
   visit(source); assert.ok(found, 'Production render expression exists'); return found;
 }
 const variable = name => locate(plans, node => ts.isVariableDeclaration(node) && node.name.getText(plans) === name).initializer.getText(plans);
+const tripsBody = locate(plans, node => ts.isFunctionDeclaration(node) && node.name?.text === 'TripsScreen').body;
+const knownRoutesIndex = tripsBody.statements.findIndex(node => ts.isVariableStatement(node)
+  && node.declarationList.declarations.some(declaration => declaration.name.getText(plans) === 'knownRoutes'));
+assert.ok(knownRoutesIndex >= 0, 'Production known-route projection declaration exists');
+const knownRoutesProjection = tripsBody.statements.slice(knownRoutesIndex, knownRoutesIndex + 2);
+assert.ok(ts.isIfStatement(knownRoutesProjection[1]), 'Production queue projection remains part of the fixture boundary');
+const knownRoutesExpression = `(() => { ${knownRoutesProjection.map(node => node.getText(plans)).join('\n')} return knownRoutes; })()`;
 const card = locate(plans, node => ts.isJsxElement(node) && node.openingElement.attributes.properties.some(prop => ts.isJsxAttribute(prop) && prop.name.text === 'className' && prop.initializer?.text === 'plans-category'));
 const savedMap = locate(plans, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText(plans) === 'TravelMap');
 const jsx = (type, props) => ({ type, props });
@@ -58,11 +65,12 @@ function fixture(language, { ownerId = 'owner-a', personalOwnerItems = [cityPin]
   const personalPins = loadedModule.exports.readPersonalMapPins(ownerId);
   const savedPlaces = { items: [], error: null, pending: false, ...cloud };
   const copy = (tr, en, sq) => localeHelpers.translateCopy(language, tr, en, sq);
-  const context = { copy, ownerId, routes: [], cloudRoutes: [], savedEvents: [], favorites: [],
+  const context = { copy, ownerId, routes: [], routeQueue: {}, cloudRoutes: [], savedEvents: [], favorites: [],
     savedPlaces, personalPins, cloudLoading: false, cloudError: '', localReadError: {},
     Icon: 'Icon', TravelToolArtwork: 'TravelToolArtwork', TravelMap: 'TravelMap',
     chooseSection: section => actions.push(section),
   };
+  context.knownRoutes = evaluate(knownRoutesExpression, context);
   context.item = evaluate(variable('categories'), context).find(item => item.id === 'places');
   context.pendingCount = evaluate(variable('pendingCount'), context);
   context.unavailableCount = evaluate(variable('unavailableCount'), context);

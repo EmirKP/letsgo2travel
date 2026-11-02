@@ -4,13 +4,22 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve, relative } from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props) => ({ type, props });
 const runtime = { jsx, jsxs: jsx, Fragment: 'fragment' };
 const tick = () => new Promise(resolve => setImmediate(resolve));
-const english = { copy: (_tr, en) => en, locale: 'en', dateLocale: 'en-GB' };
+const english = { copy: (_tr, en) => en, countryName: (_code, fallback) => fallback, locale: 'en', dateLocale: 'en-GB' };
 let reducedMotion = false;
 function load(path, imports = {}, environment = {}) {
+  // Older UI fixtures supply collection responses, not a device store. Adapt
+  // that boundary to the new snapshot API; storage-specific cases below load
+  // the complete real accessor and strict outbox against read-only fake stores.
+  if (path === 'mobile/src/screens/PlansScreen.tsx' && imports['../lib/storage'] && !imports['../lib/storage'].readSavedLibrarySnapshot) {
+    const api = imports['../lib/storage'];
+    const result = read => { try { return { items: read(), unavailable: false }; } catch { return { items: [], unavailable: true }; } };
+    imports = { ...imports, '../lib/storage': { ...api, readSavedLibrarySnapshot: owner => ({ routes: result(() => api.getSavedRoutePlans(owner)), favorites: result(() => api.getFavoriteDestinations(owner)) }) } };
+  }
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, AbortController,setTimeout,clearTimeout, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
@@ -42,6 +51,7 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../lib/savedRouteDisplay') return load('mobile/src/lib/savedRouteDisplay.ts');
     if (name === './cityDestinationExtras') return load('mobile/src/data/cityDestinationExtras.ts', { './budgetCityPhotos': load('mobile/src/data/budgetCityPhotos.ts') });
     if (name === '../lib/bundledImageSource') return load('mobile/src/lib/bundledImageSource.ts');
+    if (name === './budgetCityLabels' || name === '../data/budgetCityLabels') return load('mobile/src/data/budgetCityLabels.ts');
     if (name === '../data/cityDestinations') return cityData;
     if (name === '../assets/budget/cities/photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/budget/cities/photo-credits.json', 'utf8')) };
     if (name === '../assets/city-destinations/rome-photo-credits.json') return { default: JSON.parse(readFileSync('mobile/src/assets/city-destinations/rome-photo-credits.json', 'utf8')) };
@@ -460,8 +470,8 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = true, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' }, placeName = '',keepMapOpen=false,quota:quotaOption,recovery=false,strict=false,handoff=null } = {}) {
-  const host = hooks(strict), saves = [], navigations = [], notices = [], generated = [], signIns=[];
+function plannerHarness({ seeded = true, account = true, syncFails = false, storageFails = false, storageApi, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' }, placeName = '',keepMapOpen=false,quota:quotaOption,recovery=false,strict=false,handoff=null } = {}) {
+  const host = hooks(strict), saves = [], navigations = [], notices = [], generated = [], signIns=[], syncCalls=[];
   let previousDraft=null,pendingHandoff=handoff;
   let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
@@ -476,14 +486,14 @@ function plannerHarness({ seeded = true, account = true, syncFails = false, stor
     '../lib/plannerSignInDraft':{preparePlannerSignInDraft:value=>{pendingHandoff=value;return true;},takePlannerSignInDraft:()=>{const value=pendingHandoff;pendingHandoff=null;return value;},readPlannerRecoveryDraft:()=>previousDraft,savePlannerRecoveryDraft:(_owner,value)=>{previousDraft=JSON.parse(JSON.stringify(value));}},
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
     '../lib/onboardingPreferences': load('mobile/src/lib/onboardingPreferences.ts', {}, {window:{localStorage:{getItem:()=>JSON.stringify({interests:welcomeInterests})}}}),
-    '../lib/routeSync': { syncRoutePlan: async () => { if (syncFails) throw Error('offline'); } },
+    '../lib/routeSync': { syncRoutePlan: async (...args) => { syncCalls.push(args); if (syncFails) throw Error('offline'); } },
     '../lib/routeOutbox': { readRouteOutbox: () => syncFails && saves.length ? { [saves[0].id]: { kind: 'save', pending: true } } : {} },
-    '../lib/storage': { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
+    '../lib/storage': storageApi || { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
   }, {window: fixtureWindow});
   host.start(RouteAssistantScreen, { onOpenAccount:()=>signIns.push(true), onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '', placeName });
   if(!seeded&&!keepMapOpen){find(host.render(),'Sheet')?.props.onClose();host.render();}
-  return { host, saves, navigations, notices, generated, fixtureWindow, signIns, getHandoff:()=>pendingHandoff, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
+  return { host, saves, navigations, notices, generated, fixtureWindow, signIns, syncCalls, getHandoff:()=>pendingHandoff, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
 
@@ -988,7 +998,7 @@ test('Saved library Places opens the unified saved map and its real library reta
   savedApi.updateTravelPlaceNote(museum.id, 'Go after lunch');
   try {
     const { TravelSavedPlaces } = load('mobile/src/components/TravelSavedPlaces.tsx', {
-      ...common(placesHost), '../../../lib/travel-assistant/places': placeData, '../lib/native': {}, '../lib/travelAssistant': {}, '../lib/savedPlaces': savedApi, './Icon': { Icon: 'Icon' },
+      ...common(placesHost), '../../../lib/travel-assistant/places': placeData, '../lib/searchText': search, '../lib/native': {}, '../lib/travelAssistant': {}, '../lib/savedPlaces': savedApi, './Icon': { Icon: 'Icon' },
     });
     const { TravelMapLibrary } = load('mobile/src/components/TravelMapLibrary.tsx', {
       ...common(libraryHost), './TravelSavedPlaces': { TravelSavedPlaces }, './Icon': { Icon: 'Icon' },
@@ -1125,6 +1135,8 @@ function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,d
   const host=hooks(),intents=[],saved=[],openedNews=[],openedExternal=[];let locale=initialLocale,active=activeTrip;
   const benchmarks=load('lib/country-intelligence/city-benchmarks.ts'),personal=load('lib/country-intelligence/personal-budget.ts'),budget=load('lib/country-intelligence/trip-budget.ts');
   const photos=loadBudgetCityPhotos();
+  const cityLabels=load('mobile/src/data/budgetCityLabels.ts').BUDGET_CITY_LABELS;
+  const cityNames=row=>[row.city.tr,row.city.en,...Object.values(cityLabels[row.id]||{})];
   const destinationSearch=load('mobile/src/lib/budgetDestinationSearch.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'./localeFormatting':localeFormatting,'./searchText':search});
   const activityInput=load('mobile/src/lib/budgetActivityInput.ts');
   const intentModule=load('mobile/src/lib/budgetCockpitIntent.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/trip-budget':budget,'../../../lib/country-intelligence/personal-budget':personal});
@@ -1164,9 +1176,9 @@ function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,d
     changeExtra(name,value){h.extraField(name).props.onChange({target:{value}});return host.render();},
     summary(name){const action=h.findButton(name),id=action?.props['aria-describedby'];assert.ok(id,`Accessible summary for ${name}`);return text(costNodes(host.render()).find(node=>node.props.id===id));},
     rows(){return costNodes(host.render()).filter(node=>node.type==='button'&&text(node).includes(h.labels.details));},
-    rowName(row){return text(costNodes(row).find(node=>node.type==='strong'&&benchmarks.CITY_BENCHMARKS.some(item=>[item.city.tr,item.city.en].includes(text(node)))));},
-    range(row){return text(costNodes(row).find(node=>node.type==='strong'&&!benchmarks.CITY_BENCHMARKS.some(item=>[item.city.tr,item.city.en].includes(text(node)))));},
-    rowSource(row){const name=h.rowName(row);return benchmarks.CITY_BENCHMARKS.find(item=>[item.city.tr,item.city.en].includes(name));},
+    rowName(row){return text(costNodes(row).find(node=>node.type==='strong'&&benchmarks.CITY_BENCHMARKS.some(item=>cityNames(item).includes(text(node)))));},
+    range(row){return text(costNodes(row).find(node=>node.type==='strong'&&!benchmarks.CITY_BENCHMARKS.some(item=>cityNames(item).includes(text(node)))));},
+    rowSource(row){const name=h.rowName(row);return benchmarks.CITY_BENCHMARKS.find(item=>cityNames(item).includes(name));},
     query(value){costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search').props.onChange({target:{value}});return host.render();},
     queryValue(){return costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search').props.value;},
     searchInput(){return costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search');},
@@ -1233,7 +1245,7 @@ test('Costs country suggestions filter all researched cities and city suggestion
     try{
       const france=localeFormatting.appRegionName('FR',locale);h.focusSearch();h.query('France');assert.ok(h.searchOption(france),'Country aliases work independently of UI language');h.chooseSearchOption(france);
       assert.equal(h.queryValue(),france);const expected=h.benchmarks.CITY_BENCHMARKS.filter(row=>row.code==='FR').map(row=>row.id).sort();assert.deepEqual(h.rows().map(row=>h.rowSource(row).id).sort(),Array.from(expected));
-      h.focusSearch();h.query('Roma');const rome=locale==='tr'?'Roma':'Rome';assert.ok(h.searchOption(rome));h.chooseSearchOption(rome);assert.equal(h.rows().length,1);assert.equal(h.rowSource(h.rows()[0]).id,'IT-rome');assert.equal(h.searchInput().props['aria-expanded'],false);
+      h.focusSearch();h.query('Roma');const rome=locale==='tr'?'Roma':locale==='sq'?'Romë':'Rome';assert.ok(h.searchOption(rome));h.chooseSearchOption(rome);assert.equal(h.queryValue(),rome);assert.equal(h.rows().length,1);assert.equal(h.rowSource(h.rows()[0]).id,'IT-rome');assert.equal(h.searchInput().props['aria-expanded'],false);
       h.query('sir');const serbia=localeFormatting.appRegionName('RS',locale);assert.ok(h.searchOption(serbia));h.chooseSearchOption(serbia);assert.equal(h.rowSource(h.rows()[0]).id,'RS-belgrade','Changing a selected city clears its exact-place filter');
       h.focusSearch();h.query('Definitely-no-city-84721');assert.equal(h.searchOptions().length,0);assert.equal(h.rows().length,0);assert.equal(h.nodes().some(node=>node.type==='DestinationPhoto'),false);assert.ok(h.nodes().some(node=>node.props.role==='status'),'Unavailable destination feedback is announced next to search');
       h.query('');assert.equal(h.searchInput().props['aria-expanded'],false);assert.equal(h.searchOptions().length,0);assert.ok(h.rows().length>1);assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
@@ -1679,7 +1691,7 @@ for(const locale of ['tr','en','sq'])test(`Every Costs result uses its own city 
   const h=costHarness({locale});
   try{
     for(const source of h.benchmarks.CITY_BENCHMARKS){
-      const label=source.city[locale==='tr'?'tr':'en'];
+      const label=load('mobile/src/data/budgetCityLabels.ts').BUDGET_CITY_LABELS[source.id]?.[locale]||source.city[locale==='tr'?'tr':'en'];
       h.query(label);
       const row=h.rows().find(candidate=>h.rowSource(candidate).id===source.id);
       assert.ok(row,`${source.id} can be found by its city name`);
@@ -1749,7 +1761,7 @@ test('Progressive Costs search distinguishes unsupported cities and quick picks 
 
 for(const locale of ['tr','en','sq'])test(`Progressive Costs trip entry shortcuts and typed country searches retain the current trip choices in ${locale}`,()=>{
   const h=costHarness({locale,preferences:{days:'4',adults:'3',rooms:'2',style:'comfort',season:'low'}});
-  const picks=locale==='tr'?[['Paris','FR-paris','PAR'],['Roma','IT-rome','FCO'],['Tiran','AL-tirana','TIA']]:locale==='sq'?[['Paris','FR-paris','PAR'],['Roma','IT-rome','FCO'],['Tirana','AL-tirana','TIA']]:[['Paris','FR-paris','PAR'],['Rome','IT-rome','FCO'],['Tirana','AL-tirana','TIA']];
+  const picks=locale==='tr'?[['Paris','FR-paris','PAR'],['Roma','IT-rome','FCO'],['Tiran','AL-tirana','TIA']]:locale==='sq'?[['Parisi','FR-paris','PAR'],['Romë','IT-rome','FCO'],['Tiranë','AL-tirana','TIA']]:[['Paris','FR-paris','PAR'],['Rome','IT-rome','FCO'],['Tirana','AL-tirana','TIA']];
   try{
     const duration=h.summary(h.labels.dates),party=h.summary(h.labels.party);
     for(const [label,id,photoCode]of picks){
@@ -1766,7 +1778,7 @@ for(const locale of ['tr','en','sq'])test(`Progressive Costs trip entry shortcut
     assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
     h.query('');h.tap('Paris');assert.equal(h.rowSource(h.rows()[0]).id,'FR-paris');
     h.setActive({tripId:'entry-rome',title:'Rome holiday',city:'Rome',countryCode:'IT',startDate:'2027-07-01',endDate:'2027-07-04',adults:2,children:1});assert.equal(h.rowSource(h.rows()[0]).id,'FR-paris','An available trip cannot replace a deliberately selected shortcut before import');assert.equal(h.saved.length,0);
-    h.tap(h.labels.useTrip);assert.equal(h.queryValue(),locale==='tr'?'Roma':'Rome');assert.ok(h.rows().some(row=>h.rowSource(row).id==='IT-rome'),'Explicit trip import clears the previous exact shortcut');assert.ok(h.rows().every(row=>h.rowSource(row).code!=='FR'));
+    h.tap(h.labels.useTrip);assert.equal(h.queryValue(),locale==='tr'?'Roma':locale==='sq'?'Romë':'Rome');assert.ok(h.rows().some(row=>h.rowSource(row).id==='IT-rome'),'Explicit trip import clears the previous exact shortcut');assert.ok(h.rows().every(row=>h.rowSource(row).code!=='FR'));
     h.tap(h.labels.dates);assert.equal(h.field(h.labels.departure).props.value,'2027-07-01');assert.equal(h.field(h.labels.return).props.value,'2027-07-04');h.close();h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'2');assert.equal(h.field(h.labels.children).props.value,'1');assert.equal(h.field(h.labels.rooms).props.value,'2');h.close();
     assert.equal(h.saved.length,1);assert.equal(h.saved[0].owner,'owner-a');assert.equal(h.saved[0].value.style,'comfort');assert.equal(h.saved[0].value.season,'low');assert.equal(h.intents.length,0);
   }finally{h.dispose();}
@@ -1832,7 +1844,7 @@ test('Skipping passport setup still allows planning and saves unknown entry cond
 
 function plansUXHarness({ saved = [], events = [], maps = { status: 'ready', count: 0 }, routesFail = false, eventsFail = false, list = async () => [], cockpitList = async () => [], cachedTrips = new Map(), initial = {}, locale = 'en' } = {}) {
   const host = hooks(), signIns = [], requests = [], cockpitRequests = [], scopes = [], navigations = [];
-  const i18n = { locale, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en };
+  const i18n = { locale, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', countryName: (_code, fallback) => fallback, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en };
   const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
     ...common(host), '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     '../lib/i18n': { useI18n: () => i18n },
@@ -1849,6 +1861,307 @@ function plansUXHarness({ saved = [], events = [], maps = { status: 'ready', cou
   host.start(TripsScreen, { user: null, accessToken: '', onNavigate: view => navigations.push(view), onNotice() {}, onOpenAccount: () => signIns.push(true), onOpenDestination() {}, ...initial });
   return { host, requests, cockpitRequests, cachedTrips, signIns, scopes, navigations };
 }
+
+function savedLibraryStorageFixture() {
+  const data = new Map(), reads = [], writes = [], refused = new Set(), events = new EventTarget();
+  const storage = {
+    length: 0, key: () => null,
+    getItem(key) { reads.push(key); if (refused.has(key)) throw Error('Read refused'); return data.get(key) ?? null; },
+    setItem(key, value) { writes.push(['set', key]); data.set(key, value); },
+    removeItem(key) { writes.push(['remove', key]); data.delete(key); },
+  };
+  class StorageChange extends Event { constructor(name, options = {}) { super(name); this.detail = options.detail; } }
+  Object.assign(events, { localStorage: storage, setTimeout });
+  const environment = { window: events, CustomEvent: StorageChange };
+  const outbox = load('mobile/src/lib/routeOutbox.ts', {}, environment);
+  const api = load('mobile/src/lib/storage.ts', { './id': { createId: () => 'fresh-generation' }, './accountCollections': {}, './routeOutbox': outbox, './liveActivityGeneration': {}, './guestData': {} }, environment);
+  const key = (kind, owner) => `l2t.mobile.${kind === 'routes' ? 'saved-routes' : 'favorite-destinations'}.v1.${owner ? `user-${owner}` : 'guest'}`;
+  return { data, reads, writes, refused, events, storage, outbox, api, key };
+}
+
+function savedLibraryUIFixture({ locale = 'en', owner = 'owner-a', initial = {}, seed = true, cloud = [] } = {}) {
+  const store = savedLibraryStorageFixture(), host = hooks(), notices = [], handled = [], language = realLocaleModule('../lib/locale');
+  const iso = load('mobile/src/data/countryIso.ts', { './countries': { ISO_3166: JSON.parse(readFileSync('mobile/src/data/iso3166.json', 'utf8')) } });
+  const i18n = { locale, dateLocale: language.DATE_LOCALES[locale], copy: (tr, en, sq) => language.translateCopy(locale, tr, en, sq), countryName: (code, fallback) => localeFormatting.appRegionName(iso.alpha2FromAlpha3(code), locale, fallback) };
+  const saved = { id: 'library-route', createdAt: '2026-11-01T12:00:00Z', input: { days: '3 days' }, plan: { summary: 'Library museum walk', routes: [{ ...route, name: 'İstanbul' }] } };
+  if (seed) { store.data.set(store.key('routes', owner), JSON.stringify([saved])); store.data.set(store.key('favorites', owner), JSON.stringify([{ alpha3: 'DEU', name: 'Almanya', createdAt: saved.createdAt }])); }
+  const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
+    ...common(host), '../lib/i18n': { useI18n: () => i18n }, '../lib/locale': language, '../lib/localeFormatting': localeFormatting,
+    '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/Icon': { Icon: 'Icon' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' },
+    '../components/TripCollaborationHub': {}, '../components/PersonalTravelCards': {}, '../components/RouteBudgetAnalysis': {}, '../components/RouteTranslation': { RouteTranslation: 'RouteTranslation' }, '../../../lib/event-time': {},
+    '../lib/savedPlaces': { readSavedPlaces: () => ({ items: [], error: null }), subscribeSavedPlaces: () => () => {} },
+    '../data/countryIso': iso, '../data/artwork': { destinationArtwork: () => '' }, '../data/discovery': { DISCOVERY_DESTINATIONS: [] },
+    '../lib/storage': { ...store.api, getSavedTravelEvents: () => [] }, '../lib/routeOutbox': store.outbox,
+    '../lib/supabaseData': { listUserTrips: async () => cloud, getSupabaseDataErrorMessage: (_error, fallback) => fallback }, '../lib/native': {}, '../lib/routeSync': {}, '../lib/eventReminders': {}, '../lib/searchText': search,
+  }, { window: store.events });
+  const props = { user: owner ? { id: owner } : null, ownerId: owner, accessToken: owner ? 'TEST_ONLY' : '', onNavigate() {}, onNotice: value => notices.push(value), onOpenAccount() {}, onOpenDestination() {}, onInitialRouteHandled: () => handled.push(true), initialSection: 'routes', ...initial };
+  return { ...store, host, saved, notices, handled, language, i18n, start() { return host.start(TripsScreen, props); }, confirmation(tree) { const child = nodes(tree).find(node => typeof node.type === 'function' && node.type.name === 'DeleteConfirmation'); return child.type(child.props); } };
+}
+
+test('The read-only library snapshot distinguishes absent stores from invalid/refused stores independently without device writes', () => {
+  const h = savedLibraryStorageFixture();
+  for (const owner of [null, 'owner-a']) {
+    assert.deepEqual(JSON.parse(JSON.stringify(h.api.readSavedLibrarySnapshot(owner))), { routes: { items: [], unavailable: false }, favorites: { items: [], unavailable: false } });
+    for (const kind of ['routes', 'favorites']) for (const raw of ['{broken', '{}', 'null']) {
+      h.data.set(h.key(kind, owner), raw);
+      const snapshot = h.api.readSavedLibrarySnapshot(owner);
+      assert.equal(snapshot[kind].unavailable, true); assert.equal(snapshot[kind === 'routes' ? 'favorites' : 'routes'].unavailable, false);
+      assert.equal(h.data.get(h.key(kind, owner)), raw); h.data.delete(h.key(kind, owner));
+    }
+    h.refused.add(h.key('routes', owner)); assert.equal(h.api.readSavedLibrarySnapshot(owner).routes.unavailable, true); h.refused.clear();
+    h.refused.add(h.key('favorites', owner)); assert.equal(h.api.readSavedLibrarySnapshot(owner).favorites.unavailable, true); h.refused.clear();
+  }
+  assert.deepEqual(h.writes, []);
+});
+
+test('The library snapshot keeps guest fallback read-only and never revives legacy rows behind scoped empty or unreadable stores', () => {
+  const h = savedLibraryStorageFixture(), legacy = [{ alpha3: 'DEU', name: 'Almanya' }], base = 'l2t.mobile.favorite-destinations.v1';
+  h.data.set(base, JSON.stringify(legacy));
+  assert.deepEqual(JSON.parse(JSON.stringify(h.api.readSavedLibrarySnapshot().favorites.items)), legacy); assert.equal(h.data.has(h.key('favorites')), false);
+  h.data.set(h.key('favorites'), '[]'); h.reads.length = 0;
+  assert.equal(h.api.readSavedLibrarySnapshot().favorites.items.length, 0); assert.equal(h.reads.includes(base), false);
+  h.data.set(h.key('favorites'), '{broken'); h.reads.length = 0;
+  assert.equal(h.api.readSavedLibrarySnapshot().favorites.unavailable, true); assert.equal(h.reads.includes(base), false);
+  h.refused.add(h.key('favorites')); h.reads.length = 0;
+  assert.equal(h.api.readSavedLibrarySnapshot().favorites.unavailable, true); assert.equal(h.reads.includes(base), false);
+  h.refused.clear(); h.reads.length = 0;
+  assert.equal(h.api.readSavedLibrarySnapshot('owner-b').favorites.items.length, 0);
+  assert.ok(h.reads.every(key => key.endsWith('.user-owner-b') || key === 'l2t.mobile.route-outbox.v1.owner-b'));
+  h.reads.length = 0; const invalid = h.api.readSavedLibrarySnapshot('owner!b');
+  assert.equal(invalid.routes.unavailable, true); assert.equal(invalid.favorites.unavailable, true); assert.deepEqual(h.reads, []);
+  assert.deepEqual(h.writes, []);
+});
+
+test('The library snapshot keeps pending saves, tombstones and strict outbox failure independent from favourites', () => {
+  const h = savedLibraryStorageFixture(), kept = { id: 'kept', createdAt: '2026-11-01', plan: { routes: [{ name: 'Rome' }] } }, removed = { ...kept, id: 'removed' }, pending = { ...kept, id: 'pending', createdAt: '2026-11-02' };
+  h.data.set(h.key('routes', 'owner-a'), JSON.stringify([kept, removed]));
+  const queued = JSON.stringify({ removed: { kind: 'delete', revision: 'r1', pending: true }, pending: { kind: 'save', revision: 'r2', pending: true, route: pending } });
+  h.data.set('l2t.mobile.route-outbox.v1.owner-a', queued);
+  assert.deepEqual(Array.from(h.api.readSavedLibrarySnapshot('owner-a').routes.items, item => item.id), ['pending', 'kept']);
+  assert.equal(h.data.get('l2t.mobile.route-outbox.v1.owner-a'), queued);
+  h.data.set('l2t.mobile.route-outbox.v1.owner-a', '{broken');
+  const failed = h.api.readSavedLibrarySnapshot('owner-a'); assert.equal(failed.routes.unavailable, true); assert.equal(failed.favorites.unavailable, false); assert.deepEqual(h.writes, []);
+});
+
+test('Plans first paint and explicit reread distinguish unreadable route/country stores from true empty without writes', async () => {
+  for (const section of ['routes', 'countries']) {
+    const h = savedLibraryUIFixture({ initial: { initialSection: section } }), key = h.key(section === 'routes' ? 'routes' : 'favorites', 'owner-a');
+    try {
+      const original = h.data.get(key); h.refused.add(key);
+      let tree = h.start(); assert.match(text(tree), /On-device records could not be checked/);
+      assert.equal(nodes(tree).some(node => typeof node.type === 'function' && node.type.name === 'Empty'), false);
+      button(tree, 'Read again').props.onClick(); tree = h.host.render(); assert.match(text(tree), /On-device records could not be checked/);
+      h.refused.clear(); button(tree, 'Read again').props.onClick(); tree = h.host.render();
+      assert.doesNotMatch(text(tree), /On-device records could not be checked/); assert.equal(h.data.get(key), original); assert.deepEqual(h.writes, []);
+      assert.ok(section === 'routes' ? button(tree, 'Open plan') : find(tree, 'button', props => props.className === 'saved-country-row'));
+      await tick(); tree = h.host.render();
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('Plans keeps cached rows, query and pending confirmation on reread failure while suppressing false search-empty and unavailable counts', async () => {
+  for (const section of ['routes', 'countries']) {
+    const h = savedLibraryUIFixture({ initial: { initialSection: section } }), kind = section === 'routes' ? 'routes' : 'favorites';
+    try {
+      let tree = h.start(); await tick(); tree = h.host.render();
+      const searchBox = find(tree, 'input', props => props.type === 'search'); searchBox.props.onChange({ target: { value: 'not-matched' } });
+      h.refused.add(h.key(kind, 'owner-a')); h.events.dispatchEvent(new Event('focus')); tree = h.host.render();
+      assert.match(text(tree), /On-device records could not be checked/); assert.equal(find(tree, 'input', props => props.type === 'search').props.value, 'not-matched');
+      assert.equal(find(tree, 'div', props => props.className === 'daily-search-empty'), undefined);
+      button(tree, 'Read again').props.onClick(); tree = h.host.render(); assert.equal(find(tree, 'input', props => props.type === 'search').props.value, 'not-matched');
+      button(tree, 'All saved').props.onClick(); tree = h.host.render();
+      const category = find(tree, 'button', props => props['data-section'] === section); assert.ok(find(category, 'span', props => props['aria-label'] === "The list couldn't be read"));
+      h.refused.clear(); button(tree, 'Read again').props.onClick(); tree = h.host.render();
+      assert.doesNotMatch(text(tree), /On-device records could not be checked/); assert.deepEqual(h.writes, []);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('An unreadable initial saved-route request never reports deleted and is consumed once without a write', () => {
+  const h = savedLibraryUIFixture({ initial: { initialRouteId: 'library-route' } });
+  try {
+    h.refused.add(h.key('routes', 'owner-a')); let tree = h.start();
+    assert.match(text(tree), /On-device records could not be checked/); assert.equal(h.notices.length, 0); assert.equal(h.handled.length, 1);
+    h.refused.clear(); button(tree, 'Read again').props.onClick(); tree = h.host.render(); assert.ok(button(tree, 'Open plan')); assert.equal(h.handled.length, 1); assert.deepEqual(h.writes, []);
+  } finally { h.host.dispose(); }
+});
+
+test('Saved country labels follow all four locales while original names and ISO remain searchable without record mutation', async () => {
+  const language = realLocaleModule('../lib/locale');
+  for (const locale of ['tr', 'en', 'sq', 'ro']) {
+    await language.loadLocaleMessages(locale);
+    const h = savedLibraryUIFixture({ locale, initial: { initialSection: 'countries' } });
+    try {
+      const original = h.data.get(h.key('favorites', 'owner-a')); let tree = h.start();
+      const expected = h.i18n.countryName('DEU', 'Almanya'); assert.equal(text(find(tree, 'button', props => props.className === 'saved-country-row')).startsWith(expected), true);
+      for (const query of [expected, 'Almanya', 'deu']) {
+        find(tree, 'input', props => props.type === 'search').props.onChange({ target: { value: query } }); tree = h.host.render();
+        const row = find(tree, 'button', props => props.className === 'saved-country-row'); assert.ok(row); row.props.onClick(); tree = h.host.render();
+        const sheet = find(tree, 'Sheet', props => props.open && props.title === expected); assert.ok(sheet); assert.equal(find(sheet, 'CountryFlag').props.label, expected); sheet.props.onClose(); tree = h.host.render();
+        assert.equal(find(tree, 'input', props => props.type === 'search').props.value, query);
+      }
+      assert.equal(h.data.get(h.key('favorites', 'owner-a')), original); assert.deepEqual(h.writes, []);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A pending cached-route deletion rechecks readability and keeps its confirmation with a read-only recovery before any write', () => {
+  const h = savedLibraryUIFixture({ owner: null });
+  try {
+    const key = h.key('routes'), second = { ...h.saved, id: 'other-route', plan: { ...h.saved.plan, routes: [{ ...route, name: 'Rome' }] } };
+    h.data.set(key, JSON.stringify([h.saved, second]));
+    let tree = h.start(); find(tree, 'button', p => p['aria-label'] === 'Delete route').props.onClick(); tree = h.host.render();
+    const capturedConfirm = button(h.confirmation(tree), 'Delete').props.onClick, original = h.data.get(key);
+    h.refused.add(key); capturedConfirm(); tree = h.host.render();
+    assert.equal(h.data.get(key), original); assert.deepEqual(h.writes, []);
+    const confirmation = h.confirmation(tree); assert.match(text(confirmation), /On-device records could not be checked/);
+    assert.equal(button(confirmation, 'Delete').props.disabled, true); assert.ok(button(confirmation, 'Cancel')); assert.ok(button(confirmation, 'Read again'));
+    assert.equal(find(tree, 'button', p => p['aria-label'] === 'Delete route').props.disabled, true);
+    button(confirmation, 'Read again').props.onClick(); tree = h.host.render(); assert.equal(button(h.confirmation(tree), 'Delete').props.disabled, true); assert.deepEqual(h.writes, []);
+    h.refused.clear(); button(h.confirmation(tree), 'Read again').props.onClick(); tree = h.host.render();
+    assert.equal(button(h.confirmation(tree), 'Delete').props.disabled, false); assert.equal(h.data.get(key), original);
+    button(h.confirmation(tree), 'Delete').props.onClick(); tree = h.host.render();
+    assert.deepEqual(JSON.parse(h.data.get(key)).map(item => item.id), ['other-route']); assert.ok(button(tree, 'Undo'));
+  } finally { h.host.dispose(); }
+});
+
+test('Unreadable route Undo keeps its token and other stored rows until a healthy explicit reread; unrelated favourite refusal does not block it', () => {
+  const h = savedLibraryUIFixture({ owner: null });
+  try {
+    const key = h.key('routes'), second = { ...h.saved, id: 'other-route' };
+    h.data.set(key, JSON.stringify([h.saved, second]));
+    let tree = h.start(); find(tree, 'button', p => p['aria-label'] === 'Delete route').props.onClick(); tree = h.host.render();
+    h.refused.add(h.key('favorites'));
+    button(h.confirmation(tree), 'Delete').props.onClick(); tree = h.host.render();
+    assert.deepEqual(JSON.parse(h.data.get(key)).map(item => item.id), ['other-route']);
+    const before = h.data.get(key), writes = h.writes.length, notices = h.notices.length, capturedUndo = button(tree, 'Undo').props.onClick;
+    h.refused.add(key); capturedUndo(); tree = h.host.render();
+    assert.equal(h.data.get(key), before); assert.equal(h.writes.length, writes); assert.equal(button(tree, 'Undo').props.disabled, true);
+    assert.doesNotMatch(h.notices.slice(notices).join(' '), /Route restored/);
+    h.refused.delete(key); button(tree, 'Read again').props.onClick(); tree = h.host.render();
+    assert.equal(button(tree, 'Undo').props.disabled, false); button(tree, 'Undo').props.onClick(); tree = h.host.render();
+    assert.deepEqual(JSON.parse(h.data.get(key)).map(item => item.id), ['library-route', 'other-route']); assert.equal(button(tree, 'Undo'), undefined);
+  } finally { h.host.dispose(); }
+});
+
+test('A refused or malformed base route store preserves independently verified outbox saves and exact pending-route deep links', () => {
+  for (const fault of ['refused', 'malformed']) {
+    const h = savedLibraryUIFixture({ seed: false, initial: { initialRouteId: 'library-route' } });
+    try {
+      const base = h.key('routes', 'owner-a'), queue = 'l2t.mobile.route-outbox.v1.owner-a';
+      h.data.set(queue, JSON.stringify({ [h.saved.id]: { kind: 'save', route: h.saved, revision: 'verified-1', pending: true } }));
+      h.data.set(base, fault === 'malformed' ? '{broken' : '[]'); if (fault === 'refused') h.refused.add(base);
+      const snapshot = h.api.readSavedLibrarySnapshot('owner-a'); assert.equal(snapshot.routes.unavailable, true); assert.equal(snapshot.routes.items[0].id, h.saved.id);
+      let tree = h.start(); assert.match(text(tree), /On-device records could not be checked/); assert.ok(button(tree, 'Open plan'));
+      const detail = nodes(tree).find(node => typeof node.type === 'function' && node.type.name === 'PlanDetail'); assert.equal(detail.props.selected.id, h.saved.id);
+      assert.equal(h.handled.length, 1); assert.equal(h.notices.length, 0); assert.deepEqual(h.writes, []);
+      assert.equal(find(tree, 'button', props => props['aria-label'] === 'Delete route').props.disabled, true);
+      detail.props.onClose(); tree = h.host.render(); assert.ok(button(tree, 'Open plan')); assert.deepEqual(h.writes, []);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A healthy independent cloud plan remains openable when only the base route store fails, while an untrusted queue still hides it', async () => {
+  for (const fault of ['refused', 'malformed', 'queue-corrupt']) {
+    const cloud = [], h = savedLibraryUIFixture({ seed: false, cloud });
+    try {
+      const base = h.key('routes', 'owner-a'), queue = 'l2t.mobile.route-outbox.v1.owner-a';
+      cloud.push({ id: 23, clientKey: 'cloud-known', mobileKind: 'route_plan', title: 'Independent cloud museum plan', destination: 'Rome', createdAt: h.saved.createdAt, tripData: { plan: h.saved.plan, input: h.saved.input } });
+      h.data.set(base, fault === 'malformed' ? '{broken' : '[]'); h.data.set(queue, fault === 'queue-corrupt' ? '{broken' : '{}'); if (fault === 'refused') h.refused.add(base);
+      let tree = h.start(); await tick(); tree = h.host.render(); assert.match(text(tree), /On-device records could not be checked/);
+      if (fault === 'queue-corrupt') assert.equal(button(tree, 'Open plan'), undefined);
+      else {
+        assert.match(text(tree), /Independent cloud museum plan/); button(tree, 'Open plan').props.onClick(); tree = h.host.render();
+        const detail = nodes(tree).find(node => typeof node.type === 'function' && node.type.name === 'PlanDetail'); assert.equal(detail.props.selected.id, 'cloud-known');
+      }
+      assert.equal(nodes(tree).some(node => typeof node.type === 'function' && node.type.name === 'Empty'), false); assert.deepEqual(h.writes, []);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A later verified queue projects pending saves and tombstones over cached unreadable base rows without duplicate cloud aliases or query loss', async () => {
+  const cloud = [], h = savedLibraryUIFixture({ cloud });
+  try {
+    cloud.push({ id: 24, clientKey: h.saved.id, mobileKind: 'route_plan', title: 'Tombstoned cloud alias', createdAt: h.saved.createdAt });
+    let tree = h.start(); await tick(); tree = h.host.render();
+    find(tree, 'input', props => props.type === 'search').props.onChange({ target: { value: 'museum' } });
+    const pending = { ...h.saved, id: 'pending-new', createdAt: '2026-11-02T00:00:00Z', plan: { ...h.saved.plan, routes: [{ ...route, name: 'Verified pending museum' }] } };
+    h.data.set('l2t.mobile.route-outbox.v1.owner-a', JSON.stringify({ [h.saved.id]: { kind: 'delete', revision: 'delete-verified', pending: true }, [pending.id]: { kind: 'save', route: pending, revision: 'save-verified', pending: true } }));
+    h.refused.add(h.key('routes', 'owner-a')); h.events.dispatchEvent(new Event('focus')); tree = h.host.render();
+    assert.match(text(tree), /On-device records could not be checked/); assert.match(text(tree), /Verified pending museum/); assert.doesNotMatch(text(tree), /Tombstoned cloud alias|İstanbul/);
+    assert.equal(find(tree, 'input', props => props.type === 'search').props.value, 'museum'); assert.equal(nodes(tree).filter(node => node.type === 'article' && node.props.className === 'saved-card').length, 1);
+    button(tree, 'Open plan').props.onClick(); tree = h.host.render();
+    const detail = nodes(tree).find(node => typeof node.type === 'function' && node.type.name === 'PlanDetail'); assert.equal(detail.props.selected.id, pending.id); assert.deepEqual(h.writes, []);
+  } finally { h.host.dispose(); }
+});
+
+test('The actual route writer rejects unreadable base or strict queue before any write and retains unrelated plans for guest and account', () => {
+  const saved = id => ({ id, createdAt: '2026-11-01', plan: { summary: id, routes: [{ ...route, name: id }] } });
+  for (const owner of [null, 'owner-a']) for (const fault of ['refused', '{broken', '{}', 'null', 'queue']) {
+    if (!owner && fault === 'queue') continue;
+    const h = savedLibraryStorageFixture(), key = h.key('routes', owner), before = JSON.stringify([saved('old-A'), saved('old-B')]);
+    h.data.set(key, before);
+    if (fault === 'refused') h.refused.add(key);
+    else if (fault === 'queue') h.data.set(`l2t.mobile.route-outbox.v1.${owner}`, '{broken');
+    else h.data.set(key, fault);
+    const original = h.data.get(key), originalQueue = h.data.get(`l2t.mobile.route-outbox.v1.${owner}`);
+    assert.throws(() => h.api.saveRoutePlan(saved('new-C'), owner));
+    assert.deepEqual(h.writes, []); assert.equal(h.data.get(key), original); assert.equal(h.data.get(`l2t.mobile.route-outbox.v1.${owner}`), originalQueue);
+    if (fault !== 'queue') { h.refused.clear(); h.data.set(key, before); }
+    else h.data.set(`l2t.mobile.route-outbox.v1.${owner}`, '{}');
+    const result = h.api.saveRoutePlan(saved('new-C'), owner);
+    assert.deepEqual(Array.from(result, item => item.id), ['new-C', 'old-A', 'old-B']);
+  }
+});
+
+test('Route Save binds one checked base read, preserves scoped empty and healthy legacy guest migration, and ignores favourite read faults', () => {
+  const saved = id => ({ id, createdAt: '2026-11-01', plan: { summary: id, routes: [{ ...route, name: id }] } });
+  for (const owner of [null, 'owner-a']) {
+    const h = savedLibraryStorageFixture(), key = h.key('routes', owner), originalRead = h.storage.getItem; let baseReads = 0;
+    h.data.set(key, JSON.stringify([saved('old-A'), saved('old-B')])); h.refused.add(h.key('favorites', owner));
+    h.storage.getItem = name => { if (name === key && ++baseReads > 1) throw Error('A second base read must not construct the replacement'); return originalRead(name); };
+    assert.deepEqual(Array.from(h.api.saveRoutePlan(saved('new-C'), owner), item => item.id), ['new-C', 'old-A', 'old-B']); assert.equal(baseReads, 1);
+  }
+  const base = 'l2t.mobile.saved-routes.v1', legacy = JSON.stringify([saved('legacy-A')]);
+  const fallback = savedLibraryStorageFixture(); fallback.data.set(base, legacy);
+  assert.deepEqual(Array.from(fallback.api.saveRoutePlan(saved('new-C')), item => item.id), ['new-C', 'legacy-A']); assert.equal(fallback.data.has(base), false);
+  const scoped = savedLibraryStorageFixture(); scoped.data.set(base, legacy); scoped.data.set(scoped.key('routes'), '[]');
+  assert.deepEqual(Array.from(scoped.api.saveRoutePlan(saved('new-C')), item => item.id), ['new-C']); assert.equal(scoped.data.get(base), legacy);
+  for (const owner of [null, 'owner-a']) { const fresh = savedLibraryStorageFixture(); assert.equal(fresh.api.saveRoutePlan(saved('first'), owner)[0].id, 'first'); }
+});
+
+test('A checked route Save preserves pending plans and tombstones and creates a distinct generation only for a deliberately re-saved deleted ID', () => {
+  const h = savedLibraryStorageFixture(), old = { id: 'inspiration.FCO:old', createdAt: '2026-10-01', plan: { summary: 'Old', routes: [route] } }, pending = { ...old, id: 'pending-other', createdAt: '2026-11-01' };
+  h.data.set(h.key('routes', 'owner-a'), JSON.stringify([old]));
+  h.data.set('l2t.mobile.route-outbox.v1.owner-a', JSON.stringify({ [old.id]: { kind: 'delete', revision: 'old-delete', pending: true }, [pending.id]: { kind: 'save', revision: 'other-save', pending: true, route: pending } }));
+  const original = JSON.stringify(old), next = h.api.saveRoutePlan(old, 'owner-a'), box = h.outbox.readRouteOutbox('owner-a');
+  assert.equal(next[0].id, 'inspiration.FCO:fresh-generation'); assert.notEqual(next[0], old); assert.equal(JSON.stringify(old), original);
+  assert.equal(box[old.id].kind, 'delete'); assert.equal(box[old.id].revision, 'old-delete'); assert.equal(box[pending.id].revision, 'other-save'); assert.equal(box[next[0].id].kind, 'save');
+  assert.deepEqual(Array.from(next, item => item.id), [next[0].id, pending.id]);
+});
+
+test('The actual planner Save retains its produced plan and previous records on a fresh writer read refusal, then explicit retry safely saves', async () => {
+  for (const account of [false, true]) {
+    const store = savedLibraryStorageFixture(), owner = account ? 'fixture-owner' : null, key = store.key('routes', owner);
+    const previous = ['old-A', 'old-B'].map(id => ({ id, createdAt: '2026-10-01', plan: { summary: `${id} previous`, routes: [{ ...route, name: id }] } }));
+    const original = JSON.stringify(previous); store.data.set(key, original);
+    const h = plannerHarness({ seeded: false, account, storageApi: store.api });
+    try {
+      if (account) {
+        find(h.host.render(), 'AirportField').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
+        button(h.host.render(), 'Create Route').props.onClick(); await tick(); assert.equal(h.generated.length, 1);
+      } else {
+        const grid = find(h.host.render(), 'div', props => props.className === 'planner-photo-grid'); find(grid, 'button').props.onClick(); h.host.render(); assert.equal(h.generated.length, 0);
+      }
+      const tree = h.host.render(), outline = JSON.stringify(find(tree, 'RouteBudgetAnalysis').props), save = nodes(tree).find(node => node.type === 'button' && /Save (?:this plan|2 suggestions)/.test(text(node)));
+      assert.ok(save); store.refused.add(key); save.props.onClick(); await tick();
+      assert.equal(store.data.get(key), original); assert.deepEqual(store.writes, []); assert.deepEqual(h.syncCalls, []); assert.match(h.notices.at(-1), /could not be saved/);
+      assert.equal(JSON.stringify(find(h.host.render(), 'RouteBudgetAnalysis').props), outline); assert.doesNotMatch(h.notices.join(' '), /Route saved/);
+      store.refused.clear(); nodes(h.host.render()).find(node => node.type === 'button' && /Save (?:this plan|2 suggestions)/.test(text(node))).props.onClick(); await tick();
+      const after = JSON.parse(store.data.get(key)); assert.equal(after.length, 3); assert.ok(after.some(item => item.id === 'old-A')); assert.ok(after.some(item => item.id === 'old-B')); assert.equal(h.syncCalls.length, account ? 1 : 0);
+    } finally { h.host.dispose(); }
+  }
+});
 
 test('Saved map detail shows an identical summary once while keeping map actions, duration and every scheduled day', () => {
   const map = load('mobile/src/lib/mapJourney.ts', { '../../../lib/travel-assistant/places': load('lib/travel-assistant/places.ts'), './id': { createId: () => 'fixture-map-id' } });
@@ -1896,7 +2209,7 @@ test('Plans lists routes and events once while offline maps retain their actual 
     await tick(); const view = h.host.render(), card = find(view, 'TravelReadinessCard');
     assert.deepEqual(JSON.parse(JSON.stringify(card.props.maps)), { count: 2, loading: false, unavailable: false });
     assert.equal(card.props.routes, undefined); assert.equal(card.props.events, undefined);
-    assert.deepEqual(h.scopes, [['routes', 'selected-owner'], ['events', 'selected-owner']]);
+    assert.deepEqual(h.scopes, [['routes', 'selected-owner'], ['routes', 'selected-owner'], ['events', 'selected-owner']], 'Initial availability read precedes the existing refresh; rendered collection entries remain unique');
     const categories = nodes(view).filter(node => node.type === 'button' && node.props['data-section']);
     assert.equal(categories.filter(node => node.props['data-section'] === 'routes').length, 1);
     assert.equal(categories.filter(node => node.props['data-section'] === 'events').length, 1);

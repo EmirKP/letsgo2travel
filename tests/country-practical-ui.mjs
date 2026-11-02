@@ -677,3 +677,54 @@ test('Highlight source failures can retry, while country changes and unmount fen
   assert.equal(find(h.tree(), 'div', props => props.role === 'alert'), undefined); assert.match(text(h.tree()), /British source/);
   h.click(h.label('example.test')); h.unmount(); const afterUnmount = h.stateUpdates(); requests.shift()(false); await tick(); assert.equal(h.stateUpdates(), afterUnmount);
 });
+
+test('Official guide retry clears the old failure immediately and successful opening keeps it cleared', async () => {
+  let succeed = false, finish;
+  const h = harness({ assistant: true, country: 'GB', openExternal: () => succeed ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(false) });
+  try {
+    h.click(h.label('Official travel advice for this country')); await tick(); h.render();
+    assert.match(text(byClass(h.tree(), 'ta-warning')), /could not open/);
+    succeed = true; h.click(h.label('Official travel advice for this country'));
+    assert.equal(byClass(h.tree(), 'ta-warning'), undefined, 'Retry must clear its stale warning while opening');
+    finish(true); await tick(); h.render();
+    assert.equal(byClass(h.tree(), 'ta-warning'), undefined);
+  } finally { h.unmount(); }
+});
+
+test('Official guide page callbacks cannot place an old failure on another country, tool or unmounted guide', async () => {
+  for (const transition of ['country', 'tool', 'unmount']) {
+    let finish;
+    const h = harness({ assistant: true, country: 'GB', openExternal: () => new Promise(resolve => { finish = resolve; }) });
+    h.click(h.label('Official travel advice for this country'));
+    if (transition === 'country') { find(h.tree(), 'CountryPicker').props.onChange('TR'); h.render(); }
+    if (transition === 'tool') { h.click(h.label('All tools')); }
+    if (transition === 'unmount') h.unmount();
+    const updates = h.stateUpdates(); finish(false); await tick();
+    assert.equal(h.stateUpdates(), updates, `A stale ${transition} response cannot update state`);
+    if (transition !== 'unmount') { h.render(); assert.equal(byClass(h.tree(), 'ta-warning'), undefined); h.unmount(); }
+  }
+});
+
+test('Only the latest official guide opening may report a failure when native results settle out of order', async () => {
+  const pending = [];
+  const h = harness({ assistant: true, country: 'GB', openExternal: () => new Promise(resolve => pending.push(resolve)) });
+  try {
+    h.click(h.label('Official travel advice for this country')); h.click(h.label('Official travel advice for this country'));
+    pending[1](true); await tick(); h.render(); pending[0](false); await tick(); h.render();
+    assert.equal(byClass(h.tree(), 'ta-warning'), undefined, 'An old failed attempt must not overwrite a newer success');
+    h.click(h.label('Official travel advice for this country')); h.click(h.label('Official travel advice for this country'));
+    pending[3](false); await tick(); h.render(); pending[2](true); await tick(); h.render();
+    assert.match(text(byClass(h.tree(), 'ta-warning')), /could not open/, 'A current failure must remain actionable after an older success');
+  } finally { h.unmount(); }
+});
+
+test('An official guide native-wrapper rejection is contained and can recover on a later successful retry', async () => {
+  let fail = true;
+  const h = harness({ assistant: true, country: 'GB', openExternal: async () => { if (fail) throw Error('Native wrapper rejected'); return true; } });
+  try {
+    h.click(h.label('Official travel advice for this country')); await tick(); h.render();
+    assert.match(text(byClass(h.tree(), 'ta-warning')), /could not open/);
+    fail = false; h.click(h.label('Official travel advice for this country')); await tick(); h.render();
+    assert.equal(byClass(h.tree(), 'ta-warning'), undefined);
+  } finally { h.unmount(); }
+});

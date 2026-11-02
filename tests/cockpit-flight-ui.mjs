@@ -163,7 +163,7 @@ test('Malformed and mismatched flight responses never render selectable routes',
   }
 });
 
-function cockpitHarness(initialTrips = [], missingAirportZone = "", initialContexts = []) {
+function cockpitHarness(initialTrips = [], missingAirportZone = "", initialContexts = [], listService) {
   const host = hookHost(), creates = [], updates = [], deletes = [], notices = [], reminders = [], loadArgs = [], timers = [], refreshes = [];
   const contexts=new Map(initialContexts),contextWrites=[],contextClears=[];
   const contextModel=load('mobile/src/lib/activeTripContext.ts',{react:{},'./dates':dates,'../data/countryIso':countryIso});
@@ -188,7 +188,7 @@ function cockpitHarness(initialTrips = [], missingAirportZone = "", initialConte
     '../lib/airports': { searchAirports: async query => [flight().origin, flight().destination].filter(a => a.iata === query) }, '../../../lib/flight-progress': progress, '../lib/flightSelection': flightSelection, '../../../lib/airport-time-zones': { ...airportZones, airportTimeZone: (iata, fallback) => iata === missingAirportZone ? fallback : airportZones.airportTimeZone(iata, fallback) }, '../../../lib/zoned-time': zones, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
     '../lib/liveActivity': { PROVIDER_ACTIVITY_MIN_RETENTION_MS: 13 * 3600000, syncFlightReminders: async trips => { reminders.push(trips); }, endAllFlightActivities: async () => {} },
     '../lib/id': { createId: () => `test-item-${++id}` }, '../lib/i18n': { useI18n: () => i18n.en }, '../lib/native': { openExternal: async () => true },
-    '../lib/supabaseData': { refreshCockpitFlight: (user, tripId, token, signal) => { const wait = deferred(); refreshes.push({ user, tripId, token, signal, ...wait }); return wait.promise; }, listCockpitTrips: async (...args) => { loadArgs.push(args); return initialTrips; }, areFlightFieldsSupported: () => true, getSupabaseDataErrorMessage: (_, fallback) => fallback,
+    '../lib/supabaseData': { refreshCockpitFlight: (user, tripId, token, signal) => { const wait = deferred(); refreshes.push({ user, tripId, token, signal, ...wait }); return wait.promise; }, listCockpitTrips: async (...args) => { loadArgs.push(args); return listService ? listService(...args) : initialTrips; }, areFlightFieldsSupported: () => true, getSupabaseDataErrorMessage: (_, fallback) => fallback,
       deleteCockpitTrip: (user, tripId, token, version) => { const wait = deferred(); deletes.push({ user, tripId, token, version, ...wait }); return wait.promise; },
       updateCockpitTrip: (user, tripId, payload, token, version) => { const wait = deferred(); updates.push({ user, tripId, payload, token, version, ...wait }); return wait.promise; },
       updateCockpitChecklist: (user, trip, checklistItems, token) => { const wait = deferred(); updates.push({ user, tripId: trip.id, payload: { checklistItems }, token, version: trip.updatedAt, ...wait }); return wait.promise; },
@@ -215,6 +215,129 @@ test('Flightless trip progress uses destination and date steps and restores flig
 });
 const tripForm = tree => find(tree, 'form', props => props.id === 'cockpit-trip-form');
 const dateField = (tree, label) => find(tree, 'DateTimeField', props => props.label === label);
+
+test('An unavailable personal trip list stays unavailable through opening, editing and closing an unrelated creation draft', async () => {
+  const reads = [], h = cockpitHarness([], '', [], () => { const wait = deferred(); reads.push(wait); return wait.promise; });
+  const empty = () => find(h.host.render(), 'div', props => props.className === 'empty-state cockpit-native-empty');
+  try {
+    assert.equal(empty(), undefined);
+    reads[0].reject(Error('Fictional offline failure')); await tick();
+    assert.match(text(h.host.render()), /Your trips could not be loaded/); assert.equal(empty(), undefined);
+    button(h.host.render(), 'Add trip').props.onClick();
+    let view = h.host.render(); button(view, 'No flight').props.onClick();
+    view = h.host.render(); find(view, 'CountryPicker').props.onChange('TUR');
+    dateField(h.host.render(), 'Start').props.onChange('2026-10-05');
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-08');
+    assert.match(text(h.host.render()), /Your trips could not be loaded/); assert.equal(empty(), undefined);
+    button(h.host.render(), 'Close').props.onClick();
+    assert.match(text(h.host.render()), /Your trips could not be loaded/); assert.equal(empty(), undefined); assert.equal(reads.length, 1);
+    button(h.host.render(), 'Add trip').props.onClick();
+    view = h.host.render(); assert.equal(find(view, 'CountryPicker').props.value, 'TUR'); assert.equal(dateField(view, 'Start').props.value, '2026-10-05');
+    const retry = button(view, 'Try again'); assert.ok(retry, 'An open draft keeps the independent list retry available');
+    retry.props.onClick(); view = h.host.render(); assert.equal(reads.length, 2); assert.equal(empty(), undefined);
+    assert.equal(find(view, 'CountryPicker').props.value, 'TUR'); assert.equal(dateField(view, 'When does your trip end?').props.value, '2026-10-08');
+    reads[1].resolve([]); await tick();
+    assert.doesNotMatch(text(h.host.render()), /Your trips could not be loaded/); assert.ok(empty());
+    assert.equal(find(h.host.render(), 'CountryPicker').props.value, 'TUR');
+    assert.equal(h.creates.length + h.updates.length + h.deletes.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('List retry preserves usable trips, selected identity and an independent checklist draft', async () => {
+  const reads = [], base = managedTrip(), h = cockpitHarness([], '', [], () => { const wait = deferred(); reads.push(wait); return wait.promise; });
+  try {
+    reads[0].resolve([base]); await tick();
+    const editor = () => find(h.host.render(), 'input', props => props['aria-label'] === 'New checklist item');
+    editor().props.onChange({ target: { value: 'Keep my packing note' } });
+    find(h.host.render(), 'button', props => props['aria-label'] === 'Refresh list').props.onClick(); h.host.render();
+    reads[1].reject(Error('Fictional offline failure')); await tick();
+    assert.match(text(h.host.render()), /Your trips could not be loaded/); assert.equal(editor().props.value, 'Keep my packing note');
+    assert.equal(find(h.host.render(), 'CockpitJourneySection').props.selectedTrip.id, base.id);
+    button(h.host.render(), 'Edit trip').props.onClick();
+    assert.equal(find(h.host.render(), 'CockpitTripEditor').props.trip.id, base.id); assert.match(text(h.host.render()), /Your trips could not be loaded/);
+    find(h.host.render(), 'CockpitTripEditor').props.onClose();
+    button(h.host.render(), 'Try again').props.onClick(); h.host.render(); reads[2].resolve([base]); await tick();
+    assert.doesNotMatch(text(h.host.render()), /Your trips could not be loaded/); assert.equal(editor().props.value, 'Keep my packing note');
+    assert.equal(h.creates.length + h.updates.length + h.deletes.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Personal list recovery fences late failures and successes after token renewal and owner change', async () => {
+  const reads = [], h = cockpitHarness([], '', [], (...args) => { const wait = deferred(); reads.push({ ...wait, args }); return wait.promise; });
+  try {
+    const oldToken = reads[0]; h.host.render({ accessToken: 'UNIT_TEST_REFRESHED' });
+    oldToken.reject(Error('Old token failure')); await tick();
+    assert.doesNotMatch(text(h.host.render()), /Your trips could not be loaded/);
+    reads[1].reject(Error('Current token failure')); await tick(); assert.match(text(h.host.render()), /Your trips could not be loaded/);
+    button(h.host.render(), 'Try again').props.onClick(); h.host.render(); const oldOwner = reads[2];
+    h.host.render({ user: { id: 'test-user-b' }, accessToken: 'UNIT_TEST_OWNER_B' });
+    assert.doesNotMatch(text(h.host.render()), /Your trips could not be loaded/);
+    oldOwner.resolve([managedTrip()]); await tick();
+    assert.equal(find(h.host.render(), 'CockpitJourneySection').props.selectedTrip, null);
+    reads[3].resolve([]); await tick();
+    assert.ok(find(h.host.render(), 'div', props => props.className === 'empty-state cockpit-native-empty'));
+    assert.equal(h.creates.length + h.updates.length + h.deletes.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Retrying an unavailable list does not clear an independent creation validation error or its draft', async () => {
+  const reads = [], h = cockpitHarness([], '', [], () => { const wait = deferred(); reads.push(wait); return wait.promise; });
+  try {
+    reads[0].reject(Error('Fictional offline failure')); await tick();
+    button(h.host.render(), 'Add trip').props.onClick(); button(h.host.render(), 'No flight').props.onClick();
+    await tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
+    assert.match(text(h.host.render()), /Choose your destination country from the list/);
+    assert.match(text(h.host.render()), /Your trips could not be loaded/);
+    button(h.host.render(), 'Try again').props.onClick(); h.host.render(); reads[1].resolve([]); await tick();
+    assert.doesNotMatch(text(h.host.render()), /Your trips could not be loaded/);
+    assert.match(text(h.host.render()), /Choose your destination country from the list/);
+    assert.ok(tripForm(h.host.render())); assert.equal(h.creates.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('An unavailable list can retain a newly saved personal trip without allowing a list retry during creation', async () => {
+  const reads = [], h = cockpitHarness([], '', [], () => { const wait = deferred(); reads.push(wait); return wait.promise; });
+  try {
+    reads[0].reject(Error('Fictional offline failure')); await tick();
+    button(h.host.render(), 'Add trip').props.onClick(); button(h.host.render(), 'No flight').props.onClick();
+    find(h.host.render(), 'CountryPicker').props.onChange('TUR');
+    dateField(h.host.render(), 'Start').props.onChange('2026-10-05');
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-08');
+    const saving = tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
+    assert.equal(h.creates.length, 1); assert.equal(button(h.host.render(), 'Try again').props.disabled, true); assert.equal(reads.length, 1);
+    h.creates[0].resolve({ ...h.creates[0].payload, id: 'fictional-created-trip', userId: 'test-user-a', status: 'upcoming' }); await saving;
+    assert.equal(tripForm(h.host.render()), undefined); assert.match(text(h.host.render()), /Your trip was saved/);
+    assert.equal(find(h.host.render(), 'CockpitJourneySection').props.selectedTrip.id, 'fictional-created-trip');
+    assert.match(text(h.host.render()), /Your trips could not be loaded/); assert.equal(button(h.host.render(), 'Try again').props.disabled, false);
+    assert.equal(h.updates.length + h.deletes.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Personal save Open in Plans opens the existing overview without hijacking the separate shared entry', () => {
+  const source = readFileSync('mobile/src/App.tsx', 'utf8');
+  const parsed = ts.createSourceFile('mobile/src/App.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let callback;
+  const visit = node => {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(parsed) === 'CockpitScreen') {
+      const attribute = node.attributes.properties.find(property => ts.isJsxAttribute(property) && property.name.getText(parsed) === 'onOpenPlans');
+      callback = attribute.initializer.expression.getText(parsed);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed); assert.ok(callback);
+  const actions = [], testModule = { exports: {} };
+  const code = ts.transpileModule(`module.exports=${callback};`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(module){${code}})`, {
+    setSavedSection: value => actions.push(['section', value]),
+    setSavedSectionRequest: next => actions.push(['request', next(8)]),
+    navigate: view => actions.push(['navigate', view]),
+    setScrollPositions: next => actions.push(['scroll', next({ home: 120, trips: 350 })]),
+  })(testModule);
+  testModule.exports();
+  assert.deepEqual(JSON.parse(JSON.stringify(actions)), [['section', 'all'], ['request', 9], ['navigate', 'trips'], ['scroll', { home: 120, trips: 0 }]]);
+  const plansSource = readFileSync('mobile/src/screens/PlansScreen.tsx', 'utf8');
+  assert.match(plansSource, /setSharedEntry\(undefined\); chooseSection\("shared"\)/, 'The explicit Shared plans entry remains separate');
+});
 
 test('Route country import treats IATA separately and accepts only matching destination metadata or exact country names', () => {
   const route = (destinationCode, country = 'Unknown', input = null) => ({ kind: 'saved-route', ownerId: 'test-user-a', route: { name: 'A beautiful coast', cityOrRegion: 'Bodrum', destinationCode, country }, input });

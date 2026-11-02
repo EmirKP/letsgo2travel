@@ -32,6 +32,7 @@ export function GlobalSearchSheet({ open, onClose, ownerId, accessToken, initial
   const { copy, locale } = useI18n();
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  const resultArea = useRef<HTMLDivElement>(null);
   const allFilter = useRef<HTMLButtonElement>(null);
   const owner = ownerId || null;
   const [query, setQuery] = useState(initialQuery);
@@ -119,11 +120,23 @@ export function GlobalSearchSheet({ open, onClose, ownerId, accessToken, initial
     else onOpenSavedRoute(result.routeId);
   };
   return <Sheet open={open} title={copy("Uygulamada ara", "Search the app", "Kërko në aplikacion")} onClose={onClose} size="large">
-    <div className="global-search">
+    <div className="global-search" ref={resultArea} tabIndex={-1}>
       <label htmlFor={id}>{copy("Ülke, şehir, araç veya kayıtlı seyahat", "Country, city, tool or saved trip", "Shtet, qytet, mjet ose udhëtim i ruajtur")}</label>
-      <div className="global-search-field"><Icon name="search" size={21}/><input data-autofocus ref={input} id={id} type="search" maxLength={120} autoComplete="off" enterKeyHint="search" value={query} onChange={event => { setQuery(event.target.value); setMissing(false); }} placeholder={copy("Paris, vize, çeviri…", "Paris, visa, translation…", "Paris, vizë, përkthim…")}/>{query && <button type="button" onClick={() => { setQuery(""); setMissing(false); input.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search", "Pastro kërkimin")}><Icon name="close" size={18}/></button>}</div>
+      <div className="global-search-field"><Icon name="search" size={21}/><input data-autofocus ref={input} id={id} type="search" maxLength={120} autoComplete="off" enterKeyHint="search" value={query} onChange={event => { setQuery(event.target.value); setMissing(false); }} onKeyDown={event => {
+        if (event.key !== "Enter" || event.nativeEvent.isComposing || !query.trim()) return;
+        event.preventDefault();
+        // The phone's Search key reveals the matches without guessing which
+        // destination/category the user wants or leaving the keyboard over them.
+        event.currentTarget.blur();
+        const area = resultArea.current;
+        const target = area?.querySelector<HTMLButtonElement>("section li button")
+          || area?.querySelector<HTMLButtonElement>(".global-search-widen")
+          || area?.querySelector<HTMLButtonElement>(".global-search-plan-place")
+          || area?.querySelector<HTMLButtonElement>(".global-search-trip-error button");
+        (target || area)?.focus();
+      }} placeholder={copy("Paris, vize, çeviri…", "Paris, visa, translation…", "Paris, vizë, përkthim…")}/>{query && <button type="button" onClick={() => { setQuery(""); setMissing(false); input.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search", "Pastro kërkimin")}><Icon name="close" size={18}/></button>}</div>
       <div className="global-search-filters" role="group" aria-label={copy("Arama kapsamı", "Search scope", "Fusha e kërkimit")}><button ref={allFilter} type="button" aria-pressed={!filter} onClick={() => setFilter(undefined)}>{copy("Tümü", "All", "Të gjitha")}</button>{groups.map(group => <button key={group.kind} type="button" aria-pressed={filter === group.kind} onClick={() => setFilter(group.kind)}>{group.label}</button>)}</div>
-      <p className="global-search-note" role="status">{otherCategoryMatches ? copy("Bu kategoride sonuç yok. Diğer kategorilerde sonuçlar var.", "No results in this category. There are results in other categories.", "Nuk ka rezultate në këtë kategori. Ka rezultate në kategori të tjera.") : !query.trim() ? copy("Ülkeler, şehirler, araçlar, cihazındaki rotalar ve hesabındaki seyahatlerde ara.", "Search countries, cities, tools, routes on this device and trips in your account.", "Kërko shtete, qytete, mjete, itinerare në këtë pajisje dhe udhëtime në llogarinë tënde.") : results.length ? copy(`${results.length} sonuç gösteriliyor.`, `Showing ${results.length} results.`, `Po shfaqen ${results.length} rezultate.`) : tripsLoading || tripsFailed || savedFailed ? copy("Diğer kategorilerde sonuç bulunamadı.", "No results in the other categories.", "Nuk ka rezultate në kategoritë e tjera.") : copy("Sonuç bulunamadı. Başka bir kelime veya kategori dene.", "No results. Try another word or category.", "Nuk u gjetën rezultate. Provo një fjalë ose kategori tjetër.")}</p>
+      {!tripScopeUnavailable && <p className="global-search-note" role="status">{otherCategoryMatches ? copy("Bu kategoride sonuç yok. Diğer kategorilerde sonuçlar var.", "No results in this category. There are results in other categories.", "Nuk ka rezultate në këtë kategori. Ka rezultate në kategori të tjera.") : !query.trim() ? copy("Ülkeler, şehirler, araçlar, cihazındaki rotalar ve hesabındaki seyahatlerde ara.", "Search countries, cities, tools, routes on this device and trips in your account.", "Kërko shtete, qytete, mjete, itinerare në këtë pajisje dhe udhëtime në llogarinë tënde.") : results.length ? copy(`${results.length} sonuç gösteriliyor.`, `Showing ${results.length} results.`, `Po shfaqen ${results.length} rezultate.`) : tripsLoading || tripsFailed || savedFailed ? copy("Diğer kategorilerde sonuç bulunamadı.", "No results in the other categories.", "Nuk ka rezultate në kategoritë e tjera.") : copy("Sonuç bulunamadı. Başka bir kelime veya kategori dene.", "No results. Try another word or category.", "Nuk u gjetën rezultate. Provo një fjalë ose kategori tjetër.")}</p>}
       {otherCategoryMatches && <button type="button" className="global-search-widen" onClick={() => { setFilter(undefined); setMissing(false); allFilter.current?.focus(); }}>{copy("Tüm kategorilerde ara", "Search all categories", "Kërko në të gjitha kategoritë")}</button>}
       {tripsLoading && <p className="global-search-note" role="status">{copy("Kayıtlı seyahatlerin yükleniyor…", "Loading your saved trips…", "Po ngarkohen udhëtimet e tua të ruajtura…")}</p>}
       {savedFailed && <div className="global-search-trip-error" role="status"><p>{copy("Kayıtlı rotaların okunamadı. Diğer sonuçlarda arayabilirsin.", "Your saved routes could not be read. Other results are available.", "Itineraret e ruajtura nuk u lexuan. Rezultatet e tjera janë të disponueshme.")}</p><button type="button" onClick={readSaved}>{copy("Kayıtlı rotaları yeniden oku", "Read saved routes again", "Lexo përsëri itineraret e ruajtura")}</button></div>}

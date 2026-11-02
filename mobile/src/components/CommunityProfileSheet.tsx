@@ -82,6 +82,7 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
 }
 
 type SectionState = Pick<CommunityProfilePage, "items" | "nextOffset">;
+type ProfileMutationError = string | { validation: "full-name" | "username" | "missing-identity" };
 
 function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, identityFullName = "", identityNeedsCompletion = false, onSaveIdentity, editRequest = 0, onEditRequestHandled, onEditingChange, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked, inline = false, externalRevision = 0 }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void; inline?: boolean; externalRevision?: number }) {
   const { copy, dateLocale, locale } = useI18n();
@@ -96,7 +97,11 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [failure, setFailure] = useState<{ section: CommunityProfileSection; more: boolean; unavailable: boolean; missing?: boolean } | null>(null);
-  const [mutationError, setMutationError] = useState("");
+  const [mutationError, setMutationError] = useState<ProfileMutationError>("");
+  const mutationErrorText = typeof mutationError === "string" ? mutationError
+    : mutationError.validation === "full-name" ? copy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters.", "Emri i plotë duhet të ketë nga 2 deri në 100 karaktere.")
+    : mutationError.validation === "username" ? copy("Kullanıcı adı 3–20 karakter olmalı; küçük harf, rakam ve alt çizgi kullan.", "Username must be 3–20 characters; use lowercase letters, numbers and underscores.", "Emri i përdoruesit duhet të ketë 3–20 karaktere; përdor shkronja të vogla, numra dhe nënviza.")
+    : copy('Adını ve kullanıcı adını kontrol et. Kullanıcı adı 3–20 küçük harf, rakam veya alt çizgi içermeli.', 'Check your name and username. Use 3–20 lowercase letters, numbers or underscores for your username.', 'Kontrollo emrin dhe emrin e përdoruesit. Përdor 3–20 shkronja të vogla, numra ose nënviza.');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [recovering, setRecovering] = useState(false);
@@ -208,11 +213,11 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     const normalizedName = fullName.replace(/\s+/g, " ").trim();
     const normalizedUsername = username.trim().toLowerCase();
     if (onSaveIdentity && (normalizedName.length < 2 || normalizedName.length > 100)) {
-      setMutationError(copy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters.", "Emri i plotë duhet të ketë nga 2 deri në 100 karaktere."));
+      setMutationError({ validation: "full-name" });
       return;
     }
     if (onSaveIdentity && !/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
-      setMutationError(copy("Kullanıcı adı 3–20 karakter olmalı; küçük harf, rakam ve alt çizgi kullan.", "Username must be 3–20 characters; use lowercase letters, numbers and underscores.", "Emri i përdoruesit duhet të ketë 3–20 karaktere; përdor shkronja të vogla, numra dhe nënviza."));
+      setMutationError({ validation: "username" });
       return;
     }
     pending.current = true;
@@ -253,7 +258,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     if (!missingOwnProfile || !onSaveIdentity || pending.current) return;
     const name = fullName.replace(/\s+/g, ' ').trim(), handle = username.trim().toLowerCase();
     if (name.length < 2 || name.length > 100 || !/^[a-z0-9_]{3,20}$/.test(handle)) {
-      setMutationError(copy('Adını ve kullanıcı adını kontrol et. Kullanıcı adı 3–20 küçük harf, rakam veya alt çizgi içermeli.', 'Check your name and username. Use 3–20 lowercase letters, numbers or underscores for your username.', 'Kontrollo emrin dhe emrin e përdoruesit. Përdor 3–20 shkronja të vogla, numra ose nënviza.'));
+      setMutationError({ validation: "missing-identity" });
       return;
     }
     pending.current = true; setBusy(true); setMutationError('');
@@ -301,6 +306,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     switchSection(tabs[next]);
     document.getElementById(`${id}-${tabs[next]}`)?.focus();
   };
+  const failureNotice = failure?.section === section && !missingOwnProfile && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>;
 
   return <>
     {missingOwnProfile && <form className="community-profile-editor community-profile-recovery" onSubmit={event => { event.preventDefault(); void completeMissingProfile(); }}>
@@ -310,7 +316,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       <label htmlFor={`${id}-recovery-username`}>{copy('Kullanıcı adı', 'Username', 'Emri i përdoruesit')}</label>
       <input id={`${id}-recovery-username`} type="text" name="recovery-username" autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={3} maxLength={20} required aria-describedby={`${id}-recovery-hint`} value={username} disabled={busy} onChange={event => setUsername(event.target.value.toLowerCase())}/>
       <p id={`${id}-recovery-hint`} className="community-profile-editor-hint">{locale === 'ro' ? '3–20 de litere mici, cifre sau _' : copy('3–20 küçük harf, rakam veya _', '3–20 lowercase letters, numbers or _', '3–20 shkronja të vogla, numra ose _')}</p>
-      {mutationError && <p className="profile-recovery-error" role="alert">{mutationError}</p>}
+      {mutationError && <p className="profile-recovery-error" role="alert">{mutationErrorText}</p>}
       <div className="profile-recovery-actions"><button className="primary-wide" type="submit" disabled={busy}>{busy ? copy('Kaydediliyor…', 'Saving…', 'Po ruhet…') : copy('Profili tamamla', 'Complete profile', 'Plotëso profilin')}</button>
       <button type="button" disabled={busy} onClick={() => { setRecovering(false); handledEditRequest.current = editRequest; onEditRequestHandled?.(); setMutationError(''); onEditingChange?.(false); }}>{copy('Vazgeç', 'Cancel', 'Anulo')}</button></div>
     </form>}
@@ -355,12 +361,12 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         <div className="community-profile-editor-actions"><button type="submit" disabled={busy}>{busy ? copy("Kaydediliyor…", "Saving…", "Po ruhet…") : copy("Kaydet", "Save", "Ruaj")}</button><button type="button" disabled={busy} onClick={() => { setEditing(false); setMutationError(""); }}>{copy("Vazgeç", "Cancel", "Anulo")}</button></div>
       </form>}
       {saved && <p className="community-profile-notice" role="status">{copy("Profilin güncellendi.", "Your profile was updated.", "Profili yt u përditësua.")}</p>}
-      {mutationError && <p className="community-profile-error" role="alert">{mutationError}</p>}
+      {mutationError && <p className="community-profile-error" role="alert">{mutationErrorText}</p>}
       <div className="community-profile-tabs community-profile-social-tabs" role="tablist" aria-label={copy("Profil içeriği", "Profile content", "Përmbajtja e profilit")}>
         {tabs.map((tab, index) => <button id={`${id}-${tab}`} key={tab} type="button" role="tab" aria-selected={activeSection === tab} aria-controls={`${id}-content`} tabIndex={activeSection === tab || (index === 0 && !tabs.some(value => value === activeSection)) ? 0 : -1} onKeyDown={event => moveTab(event, index)} onClick={() => switchSection(tab)}>{tab === "gallery" ? copy("Gönderiler", "Posts", "Postimet") : tab === "posts" ? copy("Forum", "Forum", "Forumi") : copy("Cevaplar", "Answers", "Përgjigjet")}{tab !== "gallery" && <span>{tab === "posts" ? profile.postCount : profile.answerCount}</span>}</button>)}
       </div>
     </>}
-    {gallery && profile ? <section id={`${id}-content`} className="community-profile-content" role="tabpanel" aria-labelledby={`${id}-gallery`}><SocialGallery authorRef={profileKey} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={onBlocked} revision={socialRevision + revision + externalRevision}/></section> : <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
+    {gallery && profile ? <section id={`${id}-content`} className="community-profile-content" role="tabpanel" aria-labelledby={`${id}-gallery`}>{!failure?.more && failureNotice}<SocialGallery authorRef={profileKey} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={onBlocked} revision={socialRevision + revision + externalRevision}/></section> : <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
       {profile && (section === "followers" || section === "following") && <h3>{title}</h3>}
       {loading && !page && <div className="community-profile-empty" role="status"><Icon name="user" size={28} /><p>{copy("Profil yükleniyor…", "Loading profile…", "Po ngarkohet profili…")}</p></div>}
       {!loading && !failure && page?.items.length === 0 && (section === "posts" ? <div className="community-profile-empty community-profile-empty-posts">
@@ -392,7 +398,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
                   : copy("İncelemede · Şimdilik yalnızca sen görebilirsin.", "In review · Only you can see this for now.", "Në shqyrtim · Për momentin vetëm ti mund ta shohësh.")}</p>
             : <button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>}
         </article>)}</div>
-      {failure?.section === section && !missingOwnProfile && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
+      {failureNotice}
       {page?.nextOffset != null && !failure?.more && <button className="community-profile-more" type="button" disabled={loading || loadingMore} onClick={() => void loadMore()}>{loadingMore ? copy("Yükleniyor…", "Loading…", "Po ngarkohet…") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
     </section>}
     {compose && ownProfile && userId && accessToken && <SocialComposer ownerId={userId} accessToken={accessToken} onClose={() => setCompose(false)} onPublished={() => { setCompose(false); setGallery(true); setSocialRevision(value => value + 1); }}/>}

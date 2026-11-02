@@ -331,7 +331,18 @@ test('The existing Places library count includes city bookmarks once and capacit
   const h = pinsHarness(), rome = catalog.cityDestination('FCO', 'en'), paris = catalog.cityDestination('CDG', 'en');
   h.api.toggleCityMapPin(rome, 'owner-a'); h.api.savePersonalMapPin(rome.center, 'Another pin', 'owner-a');
   const plans = ast('mobile/src/screens/PlansScreen.tsx');
-  const count = () => evaluate(variable(plans, 'categories').getText(plans), { copy: (_tr, en) => en, routes: [], cloudRoutes: [], savedEvents: [], favorites: [], savedPlaces: { items: [{ id: 'provider-a' }, { id: 'provider-b' }] }, personalPins: h.api.readPersonalMapPins('owner-a') });
+  const tripsBody = locate(plans, node => ts.isFunctionDeclaration(node) && node.name?.text === 'TripsScreen').body;
+  const knownRoutesIndex = tripsBody.statements.findIndex(node => ts.isVariableStatement(node)
+    && node.declarationList.declarations.some(declaration => declaration.name.getText(plans) === 'knownRoutes'));
+  assert.ok(knownRoutesIndex >= 0, 'Production known-route projection declaration exists');
+  const knownRoutesProjection = tripsBody.statements.slice(knownRoutesIndex, knownRoutesIndex + 2);
+  assert.ok(ts.isIfStatement(knownRoutesProjection[1]), 'Production queue projection remains part of the fixture boundary');
+  const knownRoutesExpression = `(() => { ${knownRoutesProjection.map(node => node.getText(plans)).join('\n')} return knownRoutes; })()`;
+  const count = () => {
+    const context = { copy: (_tr, en) => en, ownerId: 'owner-a', routes: [], routeQueue: {}, cloudRoutes: [], savedEvents: [], favorites: [], savedPlaces: { items: [{ id: 'provider-a' }, { id: 'provider-b' }] }, personalPins: h.api.readPersonalMapPins('owner-a') };
+    context.knownRoutes = evaluate(knownRoutesExpression, context);
+    return evaluate(variable(plans, 'categories').getText(plans), context);
+  };
   assert.equal(count().find(item => item.id === 'places').count, 4); assert.equal(count().find(item => item.id === 'routes').count, 0);
   h.api.toggleCityMapPin(rome, 'owner-a'); assert.equal(count().find(item => item.id === 'places').count, 3);
   h.api.toggleCityMapPin(rome, 'owner-a'); for (let i = 2; i < h.api.MAX_PERSONAL_MAP_PINS; i++) h.api.savePersonalMapPin(rome.center, `Pin ${i}`, 'owner-a');

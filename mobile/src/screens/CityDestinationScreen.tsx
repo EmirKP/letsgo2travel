@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { DestinationPhoto } from '../components/DestinationPhoto';
 import { CityHeartButton } from '../components/CityHeartButton';
@@ -42,6 +42,8 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
   const { copy, locale } = useI18n();
   const label = (tr: string, en: string, sq: string, ro: string) => locale === 'ro' ? ro : copy(tr, en, sq);
   const [panel, setPanel] = useState<{ city: string; detail: Detail | null }>(() => ({ city: destination.code, detail: null }));
+  const [sourceFailure, setSourceFailure] = useState<{ city: string; source: string; locale: string; panel: typeof panel } | null>(null);
+  const sourceRequest = useRef(0);
   const currentCity = panel.city === destination.code;
   // A new city must discard the old panel, including a quick return to it.
   if (!currentCity) setPanel({ city: destination.code, detail: null });
@@ -62,6 +64,23 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
   const selectedRoute = activeDetail?.kind === 'route' ? route : null;
   const openPlace = (id: string) => setPanel({ city: destination.code, detail: { kind: 'place', id } });
   const closeDetail = () => setPanel({ city: destination.code, detail: null });
+  useEffect(() => {
+    setSourceFailure(null);
+    return () => { sourceRequest.current++; };
+  }, [destination.code, panel, locale]);
+  const openSource = async (url: string, source: string) => {
+    const request = ++sourceRequest.current;
+    setSourceFailure(null);
+    let opened = false;
+    try { opened = await openExternal(url); } catch { /* Failed native handoffs remain explicitly retryable. */ }
+    if (request === sourceRequest.current && !opened) setSourceFailure({ city: destination.code, source, locale, panel });
+  };
+  const sourceNotice = (source: string, url: string) => currentCity && sourceFailure?.city === destination.code
+    && sourceFailure.panel === panel && sourceFailure.locale === locale && sourceFailure.source === source
+    ? <div className="info-box" role="alert"><Icon name="info" size={19}/><div>
+      <p>{copy('Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', 'The official page could not open. Check your connection.', 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.')}</p>
+      <button className="city-detail-secondary" type="button" onClick={() => void openSource(url, source)}>{copy('Tekrar dene', 'Try again', 'Provo sërish')}</button>
+    </div></div> : null;
 
   return <section className="screen city-destination" aria-labelledby="city-destination-title">
     <div className="city-destination-hero">
@@ -126,8 +145,9 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
           <div className="city-essential-copy"><small>{place.category}</small><h3>{place.name}</h3>
             <div className="city-essential-actions">
               {onSearchPlace && <button type="button" onClick={() => onSearchPlace(mapPlaces?.find(point => point.id === place.id)?.name || place.name)} aria-label={label(`${place.name} için haritada ara`, `Search the map for ${place.name}`, `Kërko ${place.name} në hartë`, `Caută ${place.name} pe hartă`)}><Icon name="map" size={16}/>{label('Haritada ara', 'Search map', 'Kërko në hartë', 'Caută pe hartă')}</button>}
-              <button type="button" className="city-essential-source" onClick={() => void openExternal(place.source.url)} aria-label={label(`${place.name} resmî rehberini aç`, `Open the official guide for ${place.name}`, `Hap udhëzuesin zyrtar për ${place.name}`, `Deschide ghidul oficial pentru ${place.name}`)}>{label('Resmî rehber', 'Official guide', 'Udhëzuesi zyrtar', 'Ghid oficial')}<Icon name="external" size={13}/></button>
+              <button type="button" className="city-essential-source" onClick={() => void openSource(place.source.url, `essential:${place.id}`)} aria-label={label(`${place.name} resmî rehberini aç`, `Open the official guide for ${place.name}`, `Hap udhëzuesin zyrtar për ${place.name}`, `Deschide ghidul oficial pentru ${place.name}`)}>{label('Resmî rehber', 'Official guide', 'Udhëzuesi zyrtar', 'Ghid oficial')}<Icon name="external" size={13}/></button>
             </div>
+            {sourceNotice(`essential:${place.id}`, place.source.url)}
           </div>
           {image && <span className="city-essential-photo"><DestinationPhoto src={image.photo} countryCode={destination.countryCode} label={place.name}/></span>}
         </article>;
@@ -157,7 +177,8 @@ export function CityDestinationScreen({ destination, saved, onToggleSaved, onPla
           <div className="city-place-tip"><Icon name="compass" size={21}/><div><h3>{label('Ziyaret notu', 'Visit note', 'Shënim për vizitën', 'Notă de vizitare')}</h3><p>{placeDetails.tip}</p></div></div>
         </>}
         <button type="button" className="city-detail-primary" onClick={() => { closeDetail(); onMap(selectedPlace); }}><Icon name="map" size={19}/>{label('Haritada gör', 'See on map', 'Shih në hartë', 'Vezi pe hartă')}</button>
-        {placeDetails && <button type="button" className="city-place-source" onClick={() => void openExternal(placeDetails.source.url)}><span><small>{label('Resmî kaynak', 'Official source', 'Burimi zyrtar', 'Sursa oficială')}</small><strong>{placeDetails.source.title}</strong></span><Icon name="external" size={17}/></button>}
+        {placeDetails && <><button type="button" className="city-place-source" onClick={() => void openSource(placeDetails.source.url, `highlight:${selectedPlace.id}`)}><span><small>{label('Resmî kaynak', 'Official source', 'Burimi zyrtar', 'Sursa oficială')}</small><strong>{placeDetails.source.title}</strong></span><Icon name="external" size={17}/></button>
+          {sourceNotice(`highlight:${selectedPlace.id}`, placeDetails.source.url)}</>}
         <CityPhotoCredits compact destinations={[{ code: selectedPlace.id, name: selectedPlace.name, photoCredit: selectedPlace.photoCredit }]}/>
       </div>}
       {selectedRoute && <div className="city-route-detail">

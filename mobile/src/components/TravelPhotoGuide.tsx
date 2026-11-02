@@ -24,7 +24,7 @@ export function TravelPhotoGuide({
   const [consent, setConsent] = useState(false);
   const [result, setResult] = useState<PhotoGuide | null>(null);
   const [error, setError] = useState("");
-  const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [authFailureToken, setAuthFailureToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [clearedDuringAnalysis, setClearedDuringAnalysis] = useState(false);
   const generation = useRef(0);
@@ -32,7 +32,11 @@ export function TravelPhotoGuide({
   const mounted = useRef(true);
   const currentToken = useRef(accessToken);
   const signedIn = Boolean(accessToken);
-  useEffect(() => { currentToken.current = accessToken; setNeedsSignIn(false); }, [accessToken]);
+  const needsSignIn = Boolean(authFailureToken && authFailureToken === accessToken);
+  const recoveredAuthFailure = Boolean(authFailureToken && accessToken && authFailureToken !== accessToken);
+  const recoveryMessage = copy('Oturumun yenilendi. Fotoğrafın korunuyor; analizi tekrar başlatabilirsin.', 'Your session was refreshed. Your photo is kept; you can start the analysis again.', 'Sesioni u rifreskua. Fotoja ruhet; mund ta nisësh analizën sërish.');
+  const visibleError = recoveredAuthFailure ? recoveryMessage : error;
+  useEffect(() => { currentToken.current = accessToken; }, [accessToken]);
   useEffect(() => {
     mounted.current = true;
     const recheck = () => setCheckVersion((value) => value + 1);
@@ -49,7 +53,7 @@ export function TravelPhotoGuide({
     setResult(null);
     setError("");
     setConsent(false);
-    setNeedsSignIn(false);
+    setAuthFailureToken(null);
     setClearedDuringAnalysis(false);
   }, [locale, ownerId, signedIn]);
   useEffect(() => {
@@ -78,6 +82,7 @@ export function TravelPhotoGuide({
     const id = ++generation.current;
     setBusy(true);
     setError("");
+    setAuthFailureToken(null);
     setResult(null);
     setPhoto("");
     setConsent(false);
@@ -107,6 +112,7 @@ export function TravelPhotoGuide({
     const id = ++generation.current;
     setBusy(true);
     setError("");
+    setAuthFailureToken(null);
     setResult(null);
     setClearedDuringAnalysis(false);
     try {
@@ -123,13 +129,13 @@ export function TravelPhotoGuide({
     } catch (e) {
       if (id === generation.current) {
         const refreshed = e instanceof ApiError && e.status === 401 && accessToken !== currentToken.current;
-        setNeedsSignIn(e instanceof ApiError && e.status === 401 && !refreshed);
+        setAuthFailureToken(e instanceof ApiError && e.status === 401 ? accessToken : null);
         if (e instanceof ApiError && e.status === 503) {
           setAvailable(false);
           setAvailabilityReason("service");
         }
         setError(
-          refreshed ? copy('Oturumun yenilendi. Fotoğrafın korunuyor; analizi tekrar başlatabilirsin.', 'Your session was refreshed. Your photo is kept; you can start the analysis again.', 'Sesioni u rifreskua. Fotoja ruhet; mund ta nisësh analizën sërish.') : e instanceof ApiError && e.status === 429
+          refreshed ? recoveryMessage : e instanceof ApiError && e.status === 429
             ? copy(
                 "Günlük analiz sınırına ulaşıldı. Sınır Türkiye saatiyle 03.00’te yenilenir.",
                 "The daily analysis limit has been reached. It resets at 00:00 UTC.",
@@ -258,6 +264,7 @@ export function TravelPhotoGuide({
                   setResult(null);
                   setConsent(false);
                   setError("");
+                  setAuthFailureToken(null);
                   setClearedDuringAnalysis(busy);
                 }}
               >
@@ -272,9 +279,9 @@ export function TravelPhotoGuide({
         "Fotoğraf ve yanıt bu ekrandan temizlendi. Başlamış analiz sunucuda tamamlanabilir ve günlük haktan sayılabilir.",
         "The photo and answer were cleared from this screen. An analysis already started may finish on the server and count toward the daily limit.",
       )}</p>}
-      {error && (
+      {visibleError && (
         <p role="alert" className="ta-warning">
-          {error}
+          {visibleError}
         </p>
       )}
       {needsSignIn && <button type="button" className="primary-wide" onClick={onSignIn}>{copy("Yeniden giriş yap", "Sign in again", "Hyr përsëri")}</button>}

@@ -240,6 +240,76 @@ function journeyHub({ trips = [], ...initial } = {}) {
  return { h, d, calls, tripReads, snapshotWrites, tree, travelSelection: load('mobile/src/lib/travelSelection.ts') };
 }
 
+function journalRecoveryHub(localeCopy=(_tr,en)=>en) {
+ const h=hooks(),d=device(),notices=[],writes=[];let writeDenied=false,sequence=0;
+ const originalSet=d.window.localStorage.setItem;d.window.localStorage.setItem=(key,value)=>{if(writeDenied)throw Error('quota');writes.push({key,value});originalSet(key,value);};
+ const load=loader({...d.globals,localStorage:d.window.localStorage},{
+  ...shared('en'),react:{...h.react,lazy:()=> 'LazyComponent',Suspense:'Suspense'},
+  '../lib/i18n':{useI18n:()=>({copy:localeCopy,locale:'en',dateLocale:'en-GB',countryName:(_code,name)=>name})},
+  './DateTimeField':{DateTimeField:'DateTimeField'},'./CountryFlag':{CountryFlag:'CountryFlag'},
+  '../lib/activeTripContext':{useActiveTripContext:()=>null},'../lib/id':{createId:()=>`fictional-${++sequence}`},
+  '../lib/journeyTools':{readSafetyTrips:()=>[],saveSafetyTrips(){throw Error('Read retry must not save trips');},travelRecap:()=>({trips:[],days:0})},
+  '../lib/storage':{getVisitedCountries:()=>[]},'../lib/supabaseData':{listCockpitTrips(){throw Error('Supplied trip options must prevent an API request');}},'../lib/native':{shareContent(){throw Error('No native sharing in a storage recovery test');}},
+ });
+ const journal=load('mobile/src/lib/travelJournal.ts'),{JourneyToolsHub}=load('mobile/src/components/JourneyToolsHub.tsx');
+ const props={ownerId:'fixture-owner',user:null,accessToken:'',tripOptions:[],initialTool:'journal',toolRequestId:1,onNotice:notice=>notices.push(notice),onNavigate(){},onOpenAccount(){}};
+ return{h,d,journal,notices,writes,denyWrite:value=>{writeDenied=value;},start:()=>h.start(JourneyToolsHub,props)};
+}
+const journalSheet=view=>find(view,'Sheet',p=>p.title==='Travel journal');
+const readAgainIn=view=>find(view,'button',p=>text(p.children)==='Read again');
+const preservedMemory={id:'preserved-memory',title:'Preserved memory',note:'Existing note',place:'',countryCode:'',entryDate:'2026-01-01',mood:'✨'};
+
+test('Journal read recovery stays in the current sheet, preserves raw data and distinguishes unreadable from empty',()=>{
+ const x=journalRecoveryHub();try{
+  const raw=JSON.stringify({entries:[preservedMemory],deleted:[]});x.d.values.set('l2t.mobile.travel-journal.v2:fixture-owner',raw);x.d.deny(true);let view=x.start();
+  assert.match(text(journalSheet(view)),/Journal storage could not be read/);assert.doesNotMatch(text(journalSheet(view)),/No memories yet/);assert.ok(readAgainIn(journalSheet(view)));
+  readAgainIn(journalSheet(view)).props.onClick();view=x.h.render();assert.match(text(journalSheet(view)),/Journal storage could not be read/);assert.equal(x.writes.length,0);
+  journalSheet(view).props.onClose();view=x.h.render();view=x.h.render({toolRequestId:2});assert.equal(journalSheet(view).props.open,true);assert.doesNotMatch(text(journalSheet(view)),/No memories yet/);
+  x.d.deny(false);readAgainIn(journalSheet(view)).props.onClick();view=x.h.render();assert.match(text(journalSheet(view)),/Preserved memory/);assert.doesNotMatch(text(journalSheet(view)),/Journal storage could not be read/);assert.equal(readAgainIn(journalSheet(view)),undefined);assert.equal(x.writes.length,0);assert.equal(x.d.values.get('l2t.mobile.travel-journal.v2:fixture-owner'),raw);
+ }finally{x.h.dispose();}
+});
+
+test('Journal read retries and change events retain confirmed rows, unsaved draft and unrelated write feedback',()=>{
+ const x=journalRecoveryHub();try{
+  x.d.values.set('l2t.mobile.travel-journal.v2:fixture-owner',JSON.stringify({entries:[preservedMemory],deleted:[]}));let view=x.start();
+  find(journalSheet(view),'input',p=>p.maxLength===120).props.onChange({target:{value:'Unsaved memory'}});find(journalSheet(view),'textarea',p=>p.maxLength===1200).props.onChange({target:{value:'Unsaved note'}});view=x.h.render();
+  x.denyWrite(true);find(journalSheet(view),'form').props.onSubmit({preventDefault(){}});view=x.h.render();const actionNotice=x.notices.at(-1);assert.match(actionNotice,/Could not save/);assert.match(text(journalSheet(view)),/Preserved memory/);
+  x.d.deny(true);x.d.window.dispatchEvent({type:'l2t:journal-change'});view=x.h.render();assert.match(text(journalSheet(view)),/Journal storage could not be read/);assert.match(text(journalSheet(view)),/Preserved memory/);assert.equal(find(journalSheet(view),'input',p=>p.maxLength===120).props.value,'Unsaved memory');
+  readAgainIn(journalSheet(view)).props.onClick();view=x.h.render();assert.equal(x.notices.at(-1),actionNotice);assert.match(text(journalSheet(view)),/Preserved memory/);
+  x.d.deny(false);readAgainIn(journalSheet(view)).props.onClick();view=x.h.render();assert.doesNotMatch(text(journalSheet(view)),/Journal storage could not be read/);assert.equal(x.notices.at(-1),actionNotice);assert.equal(find(journalSheet(view),'textarea',p=>p.maxLength===1200).props.value,'Unsaved note');assert.equal(x.writes.length,0);
+  x.denyWrite(false);find(journalSheet(view),'form').props.onSubmit({preventDefault(){}});view=x.h.render();assert.equal(x.journal.readJournal('fixture-owner').entries.length,2);assert.equal(x.writes.length,1);assert.match(text(journalSheet(view)),/Preserved memory/);
+ }finally{x.h.dispose();}
+});
+
+test('Unreadable journal recap avoids a false first-memory or zero count and sharing recovers after a read-only retry',()=>{
+ const x=journalRecoveryHub();try{
+  x.d.values.set('l2t.mobile.travel-journal.v2:fixture-owner',JSON.stringify({entries:[preservedMemory],deleted:[]}));x.d.deny(true);let view=x.start();const summary=tree=>find(tree,'Sheet',p=>/travel recap/.test(p.title));
+  assert.match(text(summary(view)),/Journal storage could not be read/);assert.doesNotMatch(text(summary(view)),/Ready for your first memory|0 JOURNAL MEMORIES/);assert.equal(find(summary(view),'button',p=>text(p.children).includes('Share my recap')).props.disabled,true);
+  x.d.deny(false);readAgainIn(summary(view)).props.onClick();view=x.h.render();assert.doesNotMatch(text(summary(view)),/Journal storage could not be read/);assert.equal(find(summary(view),'button',p=>text(p.children).includes('Share my recap')).props.disabled,false);assert.equal(x.writes.length,0);
+ }finally{x.h.dispose();}
+});
+
+test('A successfully read empty journal keeps its normal empty message without a recovery warning',()=>{
+ const x=journalRecoveryHub();try{
+  const view=x.start();assert.match(text(journalSheet(view)),/No memories yet/);assert.equal(readAgainIn(journalSheet(view)),undefined);assert.doesNotMatch(text(journalSheet(view)),/Journal storage could not be read/);assert.equal(x.writes.length,0);
+ }finally{x.h.dispose();}
+});
+
+test('Persistent journal read recovery uses the existing normal copy keys in all four languages',async()=>{
+ const {realLocaleModule}=await import('./fixtures/real-locale-modules.mjs');const locale=realLocaleModule('../lib/locale');await Promise.all(['sq','ro'].map(code=>locale.loadLocaleMessages(code)));
+ for(const [code,label,message]of [
+  ['tr','Yeniden oku','Günlük okunamadı; mevcut kayıtlar değiştirilmedi.'],
+  ['en','Read again','Journal storage could not be read; existing data was preserved.'],
+  ['sq','Lexo përsëri','Ditari nuk u lexua nga ruajtja; të dhënat ekzistuese u ruajtën.'],
+  ['ro','Citește din nou','Jurnalul nu a putut fi citit din stocare; datele existente au fost păstrate.'],
+ ]){
+  const x=journalRecoveryHub((...args)=>locale.translateCopy(code,...args));try{
+   x.d.deny(true);let view=x.start();const sheet=nodes(view).find(node=>node.type==='Sheet'&&node.props.open);assert.match(text(sheet),new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));const retry=find(sheet,'button',p=>text(p.children)===label);assert.ok(retry,`${code}: translated read recovery`);
+   x.d.deny(false);retry.props.onClick();view=x.h.render();assert.equal(nodes(view).some(node=>node.type==='button'&&text(node)===label),false);assert.equal(x.writes.length,0);
+  }finally{x.h.dispose();}
+ }
+});
+
 test('Journey safety opens emergency help directly for the selected trip and retains the phrase shortcut', () => {
  const cachedTrips = [
   { id: 'uk-trip', destinationCountry: 'United Kingdom', destinationCode: 'GB', destinationCity: 'London', status: 'active', startDate: '2026-10-01', endDate: '2026-10-31' },

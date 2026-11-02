@@ -16,11 +16,12 @@ const accessibleName = node => node.props['aria-label'] || text(node);
 
 function hooks(component, initialProps) {
   const slots = []; let cursor = 0, dirty = false, pending = [], props = initialProps;
+  let disposed = false, postDisposeUpdates = 0;
   const changed = (before, after) => !before || !after || before.length !== after.length || after.some((value, index) => !Object.is(value, before[index]));
   const memo = (fn, deps) => { const index = cursor++; if (!slots[index] || changed(slots[index].deps, deps)) slots[index] = { value: fn(), deps }; return slots[index].value; };
   return {
     react: {
-      useState(initial) { const index = cursor++; if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[index].value, value => { slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; dirty = true; }]; },
+      useState(initial) { const index = cursor++; if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[index].value, value => { if (disposed) postDisposeUpdates++; slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; dirty = true; }]; },
       useRef(initial) { const index = cursor++; if (!slots[index]) slots[index] = { current: initial }; return slots[index]; },
       useMemo: memo, useCallback: (fn, deps) => memo(() => fn, deps), useId: () => ':city-detail-test:',
       useEffect(fn, deps) { const index = cursor++, before = slots[index]; if (!before || changed(before.deps, deps)) { slots[index] = { ...before, deps }; pending.push(() => { before?.cleanup?.(); slots[index].cleanup = fn(); }); } },
@@ -37,11 +38,12 @@ function hooks(component, initialProps) {
       }
       throw Error('City detail render did not settle');
     },
-    dispose() { slots.forEach(slot => slot?.cleanup?.()); },
+    get postDisposeUpdates() { return postDisposeUpdates; },
+    dispose() { slots.forEach(slot => slot?.cleanup?.()); disposed = true; },
   };
 }
 
-async function fixture(locale) {
+async function fixture(locale, { openExternal = async () => { throw Error('No external navigation in city-detail tests'); } } = {}) {
   const cache = new Map();
   let active;
   const inert = new Map(['Icon', 'DestinationPhoto', 'CityPhotoCredits', 'CountryFlag'].map(name => [name, { [name]: name }]));
@@ -64,9 +66,9 @@ async function fixture(locale) {
     }, { filename: full })(id => {
       if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
       if (id === 'react') return Object.fromEntries(['useState', 'useRef', 'useMemo', 'useCallback', 'useId', 'useEffect'].map(name => [name, (...args) => active.react[name](...args)]));
-      if (id === '../lib/i18n') return { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) };
+      if (id === '../lib/i18n') return { useI18n: () => ({ locale, copy: (tr, en, sq) => load('mobile/src/lib/locale.ts').translateCopy(locale, tr, en, sq) }) };
       if (id === '../components/Sheet') return { Sheet: props => props.open ? ({ type: 'Sheet', props }) : null };
-      if (id === '../lib/native') return { openExternal: async () => { throw Error('No external navigation in city-detail tests'); } };
+      if (id === '../lib/native') return { openExternal };
       if (!id.startsWith('.')) throw Error(`Unexpected city-detail dependency: ${id}`);
       const base = path.resolve(path.dirname(full), id);
       const target = [base, `${base}.ts`, `${base}.tsx`].find(existsSync);
@@ -92,6 +94,8 @@ async function fixture(locale) {
       get sheet() { return nodes(render()).find(node => node.type === 'Sheet'); },
       changeCity(nextCode, flush = true) { destination = catalog.cityDestination(nextCode, locale); assert.ok(destination); return render({ destination }, flush); },
       replaceDestination(next) { destination = next; return render({ destination }); },
+      renderWithoutEffects: () => render(undefined, false),
+      get postDisposeUpdates() { return host.postDisposeUpdates; },
       dispose: () => host.dispose(),
     };
   } };
@@ -286,4 +290,83 @@ test('Bucharest keeps all three real places, venue-specific photos and their att
     assert.ok(view.calls.every(call => call.action === 'SearchPlace'), 'Reading and searching do not save a record or start a paid route');
     view.dispose();
   }
+});
+
+const deferredSource = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
+const settleSource = () => new Promise(resolve => setImmediate(resolve));
+const sourceAlert = tree => nodes(tree).find(node => node.props?.role === 'alert');
+const sourceFeedback = {
+  tr: { warning: 'Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', retry: 'Tekrar dene' },
+  en: { warning: 'The official page could not open. Check your connection.', retry: 'Try again' },
+  sq: { warning: 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.', retry: 'Provo sërish' },
+  ro: { warning: 'Pagina oficială nu a putut fi deschisă. Verifică conexiunea.', retry: 'Încearcă din nou' },
+};
+
+test('Official city sources show localized scoped failure and recover only after an explicit retry', async () => {
+  for (const [locale, words] of Object.entries(sourceFeedback)) for (const kind of ['essential', 'highlight']) {
+    const opened = []; let successful = false;
+    const f = await fixture(locale, { openExternal: async url => { opened.push(url); if (kind === 'highlight' && !successful) throw Error('Fictional handoff rejection'); return successful; } });
+    const view = f.render(kind === 'essential' ? 'OTP' : 'FCO');
+    try {
+      if (kind === 'highlight') view.buttons.find(node => node.props.className === 'city-place-open').props.onClick();
+      const source = view.buttons.find(node => node.props.className === (kind === 'essential' ? 'city-essential-source' : 'city-place-source'));
+      source.props.onClick(); await settleSource();
+      const alert = sourceAlert(view.tree); assert.ok(alert); assert.match(text(alert), new RegExp(words.warning.replaceAll('.', '\\.')));
+      assert.equal(nodes(view.tree).filter(node => node.props?.role === 'alert').length, 1);
+      const retry = nodes(alert).find(node => node.type === 'button' && text(node) === words.retry); assert.ok(retry);
+      assert.equal(opened.length, 1); assert.deepEqual(view.calls, []); assert.equal(Boolean(view.sheet), kind === 'highlight');
+      successful = true; retry.props.onClick(); assert.equal(sourceAlert(view.tree), undefined, 'A new explicit attempt clears its previous warning'); await settleSource();
+      assert.equal(sourceAlert(view.tree), undefined); assert.equal(opened.length, 2); assert.equal(opened[0], opened[1], 'Retry opens the same current reviewed source'); assert.deepEqual(view.calls, []);
+    } finally { view.dispose(); }
+  }
+});
+
+test('A late official-source response cannot overwrite a newer source failure in the same city', async () => {
+  const pending = [], f = await fixture('en', { openExternal: url => { const task = deferredSource(); pending.push({ url, ...task }); return task.promise; } }), view = f.render('OTP');
+  try {
+    const sources = view.buttons.filter(node => node.props.className === 'city-essential-source');
+    sources[0].props.onClick(); sources[1].props.onClick(); pending[1].resolve(false); await settleSource();
+    const articles = () => nodes(view.tree).filter(node => node.type === 'article' && node.props.className === 'city-essential');
+    assert.equal(sourceAlert(articles()[0]), undefined); assert.ok(sourceAlert(articles()[1]));
+    pending[0].resolve(false); await settleSource(); assert.equal(sourceAlert(articles()[0]), undefined); assert.ok(sourceAlert(articles()[1])); assert.equal(pending.length, 2); assert.deepEqual(view.calls, []);
+  } finally { view.dispose(); }
+});
+
+test('A superseded same-source retry cannot restore its warning after the latest explicit success', async () => {
+  const pending = [], f = await fixture('en', { openExternal: () => { const task = deferredSource(); pending.push(task); return task.promise; } }), view = f.render('OTP');
+  try {
+    const source = view.buttons.find(node => node.props.className === 'city-essential-source'); source.props.onClick(); pending[0].resolve(false); await settleSource();
+    nodes(sourceAlert(view.tree)).find(node => node.type === 'button').props.onClick(); source.props.onClick();
+    pending[2].resolve(true); await settleSource(); pending[1].reject(Error('Fictional late previous retry')); await settleSource();
+    assert.equal(sourceAlert(view.tree), undefined); assert.equal(pending.length, 3); assert.deepEqual(view.calls, []);
+  } finally { view.dispose(); }
+});
+
+test('Old source failure stays hidden before effects across city A→B→A', async () => {
+  const pending = deferredSource(), f = await fixture('en', { openExternal: () => pending.promise }), view = f.render('OTP');
+  try {
+    view.buttons.find(node => node.props.className === 'city-essential-source').props.onClick();
+    view.changeCity('FCO', false); view.changeCity('OTP', false); view.renderWithoutEffects();
+    pending.resolve(false); await settleSource(); assert.equal(sourceAlert(view.renderWithoutEffects()), undefined, 'Returning to the same code is a new panel identity, even before effect cleanup'); assert.deepEqual(view.calls, []);
+  } finally { view.dispose(); }
+});
+
+test('Closing and reopening a highlight, including another highlight in between, fences old failure before effects', async () => {
+  for (const visitAnother of [false, true]) {
+    const pending = deferredSource(), f = await fixture('en', { openExternal: () => pending.promise }), view = f.render('FCO');
+    try {
+      const places = view.buttons.filter(node => node.props.className === 'city-place-open'); places[0].props.onClick();
+      const close = view.sheet.props.onClose; view.buttons.find(node => node.props.className === 'city-place-source').props.onClick();
+      close(); view.renderWithoutEffects();
+      if (visitAnother) { places[1].props.onClick(); view.renderWithoutEffects(); }
+      places[0].props.onClick(); view.renderWithoutEffects(); pending.resolve(false); await settleSource();
+      const tree = view.renderWithoutEffects(); assert.ok(nodes(tree).find(node => node.type === 'Sheet')); assert.equal(sourceAlert(tree), undefined); assert.deepEqual(view.calls, []);
+    } finally { view.dispose(); }
+  }
+});
+
+test('An unmounted city detail never receives late official-source feedback or retries the handoff', async () => {
+  const pending = deferredSource(), opened = [], f = await fixture('en', { openExternal: url => { opened.push(url); return pending.promise; } }), view = f.render('OTP');
+  view.buttons.find(node => node.props.className === 'city-essential-source').props.onClick(); view.dispose(); pending.resolve(false); await settleSource();
+  assert.equal(view.postDisposeUpdates, 0); assert.equal(opened.length, 1); assert.deepEqual(view.calls, []);
 });

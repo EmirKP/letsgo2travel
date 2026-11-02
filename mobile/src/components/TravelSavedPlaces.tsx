@@ -1,5 +1,6 @@
 import { translateTuple } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
+import { normalizeSearchText } from "../lib/searchText";
 import { lazy, Suspense, useEffect, useId, useState } from 'react';
 import { CATEGORY_LABELS, NEEDS, TOURING, DISCOVERY } from '../../../lib/travel-assistant/places';
 import { useI18n } from '../lib/i18n';
@@ -29,7 +30,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId, hideMap 
   useEffect(() => { setRemoved(null); }, [ownerId]);
   useEffect(() => { setState(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setState(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
   const label = (item: SavedPlace) => item.place.name || translateTuple(locale, CATEGORY_LABELS[item.place.category]);
-  const fold = (value: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
+  const fold = normalizeSearchText;
   const term = fold(query.trim());
   const dayItems = state.dayIds.flatMap(id => {
     const item = state.items.find(item => item.place.id === id);

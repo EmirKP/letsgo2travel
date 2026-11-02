@@ -38,7 +38,7 @@ function host() {
   };
   return {react,render(fn){for(let pass=0;pass<20;pass++){cursor=0;effects=[];dirty=false;const tree=fn();effects.forEach(effect=>effect());if(!dirty)return tree;}throw Error('Unstable unified map');},dispose(){slots.forEach(slot=>slot?.cleanup?.());}};
 }
-function fixture(initialOwner=null,initialProps={},locale='en') {
+function fixture(initialOwner=null,initialProps={},locale='en',context={}) {
   const storage=new Map(),window=new EventTarget();let ids=0,currentHost=host(),ownerId=initialOwner,tree,props={destinationCountry:'TR',...initialProps};
   const localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
   window.localStorage=localStorage;
@@ -48,20 +48,20 @@ function fixture(initialOwner=null,initialProps={},locale='en') {
   const collections=load('mobile/src/lib/accountCollections.ts',{'./id':id},globals);
   const saved=load('mobile/src/lib/savedPlaces.ts',{'./accountCollections':collections,'../../../lib/travel-assistant/places':placesModel},globals);
   const pins=load('mobile/src/lib/personalMapPins.ts',{'./id':id},globals);
-  const calls={find:[],areas:[],routes:[],providerSaves:[],providerDays:[],privateDays:[],gps:0,watches:[],clearedWatches:[]};
+  const calls={find:[],areas:[],routes:[],providerSaves:[],providerDays:[],privateDays:[],bounds:[],gps:0,watches:[],clearedWatches:[]};
   const asyncCall=(list,fields)=>{const waiting=deferred();list.push({...fields,...waiting});return waiting.promise;};
   const copy=(tr,en,sq)=>localeHelpers.translateCopy(locale,tr,en,sq);
   const deviceNavigator={onLine:true,geolocation:{watchPosition(success,failure,options){const id=++calls.gps;calls.watches.push({id,success,failure,options});return id;},clearWatch(id){calls.clearedWatches.push(id);}}};
   const react=Object.fromEntries(['useState','useMemo','useCallback','useEffect','useRef','lazy'].map(name=>[name,(...args)=>currentHost.react[name](...args)]));react.Suspense='Suspense';
   const component=load('mobile/src/components/TravelMap.tsx',{
     react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../../lib/travel-assistant/places':placesModel,
-    '../lib/i18n':{useI18n:()=>({copy,locale})},'../lib/travelAreas':{TRAVEL_CENTRES:[{name:'Istanbul',country:'TR',latitude:41.01,longitude:28.98}]},
-    '../lib/deviceArea':{countryMapBounds:async()=>null},
+    '../lib/i18n':{useI18n:()=>({copy,locale})},'../lib/travelAreas':{TRAVEL_CENTRES:context.centres||[{name:'Istanbul',country:'TR',latitude:41.01,longitude:28.98}]},
+    '../lib/deviceArea':{countryMapBounds:country=>{calls.bounds.push(country);return context.countryBounds?context.countryBounds(country):Promise.resolve(null);}},
     '../lib/native':{openExternal:async()=>true},
     '../lib/savedPlaces':{...saved,saveTravelPlace:(place,owner)=>{calls.providerSaves.push({place,owner});return saved.saveTravelPlace(place,owner);},setTravelDayStop:(id,inDay,owner)=>{calls.providerDays.push({id,inDay,owner});return saved.setTravelDayStop(id,inDay,owner);}},
     '../lib/personalMapPins':{...pins,updatePersonalMapPin:(id,patch,owner)=>{calls.privateDays.push({id,patch,owner});return pins.updatePersonalMapPin(id,patch,owner);}},
     '../lib/travelMapClient':{findMapPlaces:(center,category,query,signal)=>asyncCall(calls.find,{center,category,query,signal}),searchMapAreas:(query,center,locale,signal)=>asyncCall(calls.areas,{query,center,locale,signal}),getMapDirections:(origin,destination,mode,locale,signal)=>asyncCall(calls.routes,{origin,destination,mode,locale,signal})},
-    '../lib/activeTripContext':{useActiveTripContext:()=>null},'../lib/mapJourneyClient':{knownJourneyArea:()=>null},
+    '../lib/activeTripContext':{useActiveTripContext:()=>context.activeTrip||null},'../lib/mapJourneyClient':{knownJourneyArea:context.knownArea||(()=>null)},
     './Sheet':{Sheet:'Sheet'},'./Icon':{Icon:'Icon'},'./TravelMapLibrary':{TravelMapLibrary:'TravelMapLibrary'},'./TravelMapDownloads':{TravelMapDownloads:'TravelMapDownloads'},'./TravelMapEmbassies':{TravelMapEmbassies:'TravelMapEmbassies'},
   },{...globals,navigator:deviceNavigator,requestAnimationFrame:fn=>fn()});
   const app={
@@ -424,6 +424,87 @@ test('Every outside GPS fix keeps the download-boundary notice until the positio
   const fix=(latitude,longitude)=>{app.calls.watches.at(-1).success({coords:{latitude,longitude}});app.render();};
   fix(49,3);assert.match(text(app.tree),/outside this download/);fix(49,3);assert.match(text(app.tree),/outside this download/);
   fix(48.86,2.35);assert.doesNotMatch(text(app.tree),/outside this download/);fix(49,3);assert.match(text(app.tree),/outside this download/);app.dispose();
+});
+
+function countryMapContext(overrides={}) {
+  const {TRAVEL_CENTRES}=load('mobile/src/lib/travelAreas.ts',{});
+  return {centres:TRAVEL_CENTRES,activeTrip:{tripId:'fictional-paris-trip',city:'Paris',countryCode:'FR'},knownArea:query=>TRAVEL_CENTRES.find(city=>city.name===query)||null,...overrides};
+}
+
+async function actualCountryBounds(country) {
+  const context=countryMapContext();
+  const {countryMapBounds}=load('mobile/src/lib/deviceArea.ts',{
+    'd3-geo':require('d3-geo'),'./travelAssistant':{locateForTravel:()=>{throw Error('Country framing must not request GPS');}},
+    '../../../lib/travel-assistant/places':placesModel,'./travelAreas':{TRAVEL_CENTRES:context.centres},
+    '../data/locationCountries.json':{default:JSON.parse(readFileSync('mobile/src/data/locationCountries.json','utf8'))},
+  });
+  return countryMapBounds(country);
+}
+
+test('An explicit map country wins over a conflicting active-trip city while matching and absent country choices retain that city',()=>{
+  for(const [destinationCountry,tripCountry,cityName,expectedName] of [['DE','FR','Paris','Berlin'],['FR','FR','Paris','Paris'],['','FR','Paris','Paris'],['DE','DE','Berlin','Berlin'],['DE','DE','Paris','Berlin']]){
+    const context=countryMapContext({activeTrip:{tripId:'fictional-trip',city:cityName,countryCode:tripCountry}});
+    const expected=context.centres.find(city=>city.name===expectedName);
+    const app=fixture('fictional-owner',{destinationCountry},'en',context);
+    assert.deepEqual(plain(app.map.props.center),{latitude:expected.latitude,longitude:expected.longitude},`${cityName}/${tripCountry} cannot replace selected ${destinationCountry||'trip country'}`);
+    assert.equal(app.calls.bounds.length,0);assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);app.dispose();
+  }
+});
+
+test('A selected country without a bundled city uses its real country bounds instead of a conflicting trip city',async()=>{
+  const bounds=await actualCountryBounds('CA');assert.ok(bounds);
+  const waiting=deferred(),context=countryMapContext({countryBounds:()=>waiting.promise});
+  const app=fixture('fictional-owner',{destinationCountry:'CA'},'en',context);
+  assert.deepEqual(app.calls.bounds,['CA']);
+  assert.notDeepEqual(plain(app.map.props.center),{latitude:48.86,longitude:2.35},'A previous Paris trip cannot become the Canadian initial area');
+  waiting.resolve(bounds);await app.flush();
+  assert.deepEqual(plain(app.map.props.center),{latitude:(bounds[0][0]+bounds[1][0])/2,longitude:(bounds[0][1]+bounds[1][1])/2});
+  assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);app.dispose();
+});
+
+test('Late selected-country bounds cannot overwrite a city that the user explicitly searched for',async()=>{
+  const waiting=deferred(),app=fixture('fictional-owner',{destinationCountry:'CA'},'en',countryMapContext({countryBounds:()=>waiting.promise}));
+  app.search('Lisbon');app.calls.areas[0].resolve([area(881,'Lisbon')]);await app.flush();
+  app.click('LisbonLisbon, country');assert.deepEqual(plain(app.map.props.center),{latitude:38.72,longitude:-9.14});
+  waiting.resolve(await actualCountryBounds('CA'));await app.flush();
+  assert.deepEqual(plain(app.map.props.center),{latitude:38.72,longitude:-9.14});assert.equal(app.calls.gps,0);app.dispose();
+});
+
+test('Late selected-country bounds cannot replace a deliberately opened current or legacy downloaded region',async()=>{
+  for(const legacy of [false,true]){
+    const waiting=deferred(),app=fixture('fictional-owner',{destinationCountry:'CA'},'en',countryMapContext({countryBounds:()=>waiting.promise}));
+    nodes(app.tree).find(node=>node.type==='button'&&node.key==='offline').props.onClick();app.render();
+    const downloads=nodes(app.tree).find(node=>node.type==='TravelMapDownloads');
+    const pack={id:'paris-fixture',name:'Paris offline',center:{latitude:48.86,longitude:2.35},bounds:{south:48.84,north:48.88,west:2.32,east:2.38},places:[]};
+    (legacy?downloads.props.onOpenLegacy:downloads.props.onOpenPack)(pack);app.render();
+    waiting.resolve(await actualCountryBounds('CA'));await app.flush();
+    assert.deepEqual(plain(app.map.props.center),pack.center,'Explicit downloaded-region framing takes priority over a late country estimate');
+    assert.equal(app.calls.gps,0);app.dispose();
+  }
+});
+
+test('Late selected-country bounds cannot move away from an explicitly selected provider place or personal saved pin',async()=>{
+  for(const personal of [false,true]){
+    const waiting=deferred(),app=fixture('fictional-owner',{destinationCountry:'CA'},'en',countryMapContext({countryBounds:()=>waiting.promise}));
+    nodes(app.tree).find(node=>node.type==='button'&&node.key==='saved').props.onClick();app.render();
+    const place=poi(770,'Isolated Paris saved point',{latitude:48.86,longitude:2.35,...(personal?{id:'personal/isolated-paris-pin',sourceUrl:null}:{})});
+    nodes(app.tree).find(node=>node.type==='TravelMapLibrary').props.onSelectPlace(place);app.render();
+    waiting.resolve(await actualCountryBounds('CA'));await app.flush();
+    assert.deepEqual(plain(app.map.props.center),{latitude:place.latitude,longitude:place.longitude});assert.equal(app.map.props.selectedId,place.id);
+    assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);app.dispose();
+  }
+});
+
+test('Late selected-country bounds cannot recenter away from explicit online directions opened directly from Saved',async()=>{
+  const waiting=deferred(),app=fixture('fictional-owner',{destinationCountry:'CA'},'en',countryMapContext({countryBounds:()=>waiting.promise}));
+  nodes(app.tree).find(node=>node.type==='button'&&node.key==='saved').props.onClick();app.render();
+  const place=poi(771,'Isolated saved destination');
+  nodes(app.tree).find(node=>node.type==='TravelMapLibrary').props.onDirections(place);app.render();
+  assert.equal(app.calls.routes.length,1);const before=plain(app.map.props.center);
+  app.calls.routes[0].resolve(route());await app.flush();assert.ok(app.map.props.route);
+  waiting.resolve(await actualCountryBounds('CA'));await app.flush();
+  assert.deepEqual(plain(app.map.props.center),before,'A delayed country estimate cannot move the established directions view');
+  assert.equal(app.map.props.selectedId,place.id);assert.ok(app.map.props.route);assert.equal(app.calls.gps,0);app.dispose();
 });
 
 test('An out-of-pack saved place offers a live-map decision without forcing the old download to a different city',()=>{

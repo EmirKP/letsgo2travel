@@ -25,8 +25,7 @@ import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, listCockpit
 import { onAccountResume } from "../lib/accountResume";
 import {
   deleteRoutePlan,
-  getFavoriteDestinations,
-  getSavedRoutePlans,
+  readSavedLibrarySnapshot,
   getSavedTravelEvents,
   removeSavedTravelEvent,
   saveRoutePlan,
@@ -118,9 +117,10 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
-  const { copy, dateLocale, locale } = useI18n();
-  const [routes, setRoutes] = useState<SavedRoutePlan[]>([]);
-  const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
+  const { copy, countryName, dateLocale, locale } = useI18n();
+  const [initialLibrary] = useState(() => readSavedLibrarySnapshot(ownerId));
+  const [routes, setRoutes] = useState<SavedRoutePlan[]>(initialLibrary.routes.items);
+  const [favorites, setFavorites] = useState(initialLibrary.favorites.items);
   const [libraryTab, setLibraryTab] = useState<LibrarySection>(inviteCode ? "shared" : initialTool ? "travel" : initialSection || "all");
   const [query, setQuery] = useState("");
   const [sharedEntry, setSharedEntry] = useState<"create" | "join" | undefined>();
@@ -174,7 +174,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   }, [inviteCode, initialTool, toolRequestId]);
   const [savedEvents, setSavedEvents] = useState<TravelEvent[]>([]);
   const [offlineStatus, setOfflineStatus] = useState<ReturnType<typeof readOfflineMapStatus> | null>(null);
-  const [localReadError, setLocalReadError] = useState({ routes: false, events: false });
+  const [localReadError, setLocalReadError] = useState({ routes: initialLibrary.routes.unavailable, favorites: initialLibrary.favorites.unavailable, events: false });
   const [cloudItems, setCloudItems] = useState<UserTripData[]>([]);
   const [cloudLoading, setCloudLoading] = useState(Boolean(user && accessToken));
   const [busyCloud, setBusyCloud] = useState("");
@@ -202,7 +202,9 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   useEffect(() => {
     if (!initialRouteId) return;
     try {
-      const saved = getSavedRoutePlans(ownerId).find(route => route.id === initialRouteId);
+      const snapshot = readSavedLibrarySnapshot(ownerId);
+      const saved = snapshot.routes.items.find(route => route.id === initialRouteId);
+      if (!saved && snapshot.routes.unavailable) throw new Error("Saved routes cannot be read");
       if (saved) {
         setSelectedPlan({ id: saved.id, title: saved.plan.routes[0]?.name || copy('Kayıtlı rota', 'Saved route', 'Itinerar i ruajtur'), createdAt: saved.createdAt, input: saved.input, plan: saved.plan });
         setLibraryTab('routes');
@@ -217,12 +219,13 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const [unavailableCountry, setUnavailableCountry] = useState<{ name: string; alpha3: string } | null>(null);
 
   const refreshLocal = useCallback(() => {
-    let routeError = false, eventError = false;
-    try { setRouteQueue(ownerId ? readRouteOutbox(ownerId) : {}); setRoutes(getSavedRoutePlans(ownerId)); }
+    const snapshot = readSavedLibrarySnapshot(ownerId);
+    let routeError = snapshot.routes.unavailable, eventError = false;
+    try { setRouteQueue(ownerId ? readRouteOutbox(ownerId) : {}); if (!routeError) setRoutes(snapshot.routes.items); }
     catch { routeError = true; setRouteQueue(null); }
-    setFavorites(getFavoriteDestinations(ownerId));
+    if (!snapshot.favorites.unavailable) setFavorites(snapshot.favorites.items);
     try { setSavedEvents(getSavedTravelEvents(ownerId)); } catch { eventError = true; }
-    setLocalReadError({ routes: routeError, events: eventError });
+    setLocalReadError({ routes: routeError, favorites: snapshot.favorites.unavailable, events: eventError });
   }, [ownerId]);
 
   useEffect(() => {
@@ -247,7 +250,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   useEffect(() => {
     refreshLocal();
     const update = () => refreshLocal();
-    const unreadable = () => setLocalReadError({ routes: true, events: true });
+    const unreadable = () => setLocalReadError({ routes: true, favorites: true, events: true });
     window.addEventListener("l2t:storage-change", update);
     window.addEventListener("storage", update);
     window.addEventListener("focus", update);
@@ -280,6 +283,15 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
     if (user && accessToken && !busyCloud) setCloudRetry(value => value + 1);
   }), [user, accessToken, busyCloud]);
 
+  const requireReadableRoutes = () => {
+    if (!readSavedLibrarySnapshot(ownerId).routes.unavailable) return true;
+    setLocalReadError(current => ({ ...current, routes: true }));
+    try { setRouteQueue(ownerId ? readRouteOutbox(ownerId) : {}); }
+    catch { setRouteQueue(null); }
+    onNotice(copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri."));
+    return false;
+  };
+
   const removeSavedRoute = async (saved: { id: string }, remoteId?: number | string) => {
     try {
       if (remoteId === undefined) setRoutes(deleteRoutePlan(saved.id, ownerId));
@@ -309,6 +321,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const confirmDelete = () => {
     const pending = pendingDelete;
     if (!pending) return;
+    if ((pending.kind === "route" || pending.kind === "cloud" && pending.item.clientKey) && !requireReadableRoutes()) return;
     setPendingDelete(null);
     if (pending.kind === "cloud") void removeCloudItem(pending.item);
     if (pending.kind === "route") {
@@ -331,6 +344,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
 
   const undoDelete = () => {
     if (!undo || undo.owner !== (ownerId || null)) return;
+    if (undo.pending.kind === "route" && !requireReadableRoutes()) return;
     try {
       if (undo.pending.kind === "route") setRoutes(saveRoutePlan(undo.pending.item, ownerId));
       if (undo.pending.kind === "event" && !getSavedTravelEvents(ownerId).some(item => item.id === undo.pending.item.id)) {
@@ -342,20 +356,32 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   };
 
   const pendingRoutes = Object.values(routeQueue || {}).filter(item => item.pending).length;
-  const cloudRoutes = routeQueue ? cloudItems.filter((item) => item.mobileKind === "route_plan" && routeQueue[item.clientKey || ""]?.kind !== "delete" && !routes.some((route) => route.id === item.clientKey)) : [];
+  // Project only the already-verified queue over retained base rows. A base
+  // read failure must not hide independent pending saves or cloud records.
+  let knownRoutes = routes;
+  if (ownerId && routeQueue) {
+    const knownRouteItems = new Map(routes.map(item => [item.id, item]));
+    for (const [id, operation] of Object.entries(routeQueue)) {
+      if (operation.kind === "delete") knownRouteItems.delete(id);
+      else knownRouteItems.set(id, operation.route);
+    }
+    knownRoutes = [...knownRouteItems.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+  const cloudRoutes = routeQueue ? cloudItems.filter((item) => item.mobileKind === "route_plan" && routeQueue[item.clientKey || ""]?.kind !== "delete" && !knownRoutes.some((route) => route.id === item.clientKey)) : [];
   const searchText = normalizeSearchText(query);
   const matches = (...parts: (string | undefined)[]) => !searchText || normalizeSearchText(parts.filter(Boolean).join(" ")).includes(searchText);
-  const visibleRoutes = routes.filter(item => matches(item.plan.summary, ...item.plan.routes.map(route => `${route.name} ${route.country}`)));
+  const visibleRoutes = knownRoutes.filter(item => matches(item.plan.summary, ...item.plan.routes.map(route => `${route.name} ${route.country}`)));
   const visibleCloudRoutes = cloudRoutes.filter(item => matches(item.title, item.destination));
   const visibleEvents = savedEvents.filter(event => matches(event.title, event.city, event.venue));
-  const visibleFavorites = favorites.filter(country => matches(country.name, country.alpha3));
+  const visibleFavorites = favorites.filter(country => matches(country.name, countryName(country.alpha3, country.name), country.alpha3));
   const categories: { id: LibrarySection; icon: TravelToolArtworkKind; title: string; note: string; count: number }[] = [
-    { id: "routes", icon: "explore", title: copy("Rotalarım", "My routes"), note: copy("Kaydettiğin gezi planları", "Your saved travel plans"), count: routes.length + cloudRoutes.length },
+    { id: "routes", icon: "explore", title: copy("Rotalarım", "My routes"), note: copy("Kaydettiğin gezi planları", "Your saved travel plans"), count: knownRoutes.length + cloudRoutes.length },
     { id: "places", icon: "saved", title: copy("Yerlerim", "My places"), note: copy("Kaydettiğin yerler ve kişisel işaretlerin", "Saved places and your personal pins", "Vendet dhe shenjat e tua të ruajtura"), count: savedPlaces.items.length + personalPins.items.length },
     { id: "events", icon: "events", title: copy("Etkinliklerim", "My events"), note: copy("Kaçırmak istemediklerin", "The things you don't want to miss"), count: savedEvents.length },
     { id: "countries", icon: "globe", title: copy("Ülkelerim", "My countries"), note: copy("Gitmek istediğin ülkeler", "Countries on your wishlist"), count: favorites.length },
   ];
   const selectedCategory = categories.find(item => item.id === libraryTab);
+  const selectedCategoryUnavailable = libraryTab === "routes" ? localReadError.routes || Boolean(cloudError) || cloudLoading : libraryTab === "events" ? localReadError.events : libraryTab === "countries" && localReadError.favorites;
   const visibleCount = libraryTab === "routes" ? visibleRoutes.length + visibleCloudRoutes.length : libraryTab === "events" ? visibleEvents.length : visibleFavorites.length;
   const chooseSection = (section: LibrarySection) => {
     // A manual section choice finishes the old deep-link request. Opening the
@@ -384,8 +410,8 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
         </nav>
         <section className="plans-collections" aria-labelledby="plans-collections-title"><div className="plans-section-heading"><div><h2 id="plans-collections-title" tabIndex={-1}>{copy("Kaydettiklerin", "Your saved discoveries")}</h2><p>{copy("Aklında kalan her şey, elinin altında.", "All the ideas you want to come back to.")}</p></div><Icon name="bookmark" size={20}/></div>
           <div className="plans-category-grid">{categories.map(item => {
-            const pendingCount = item.id === "routes" && cloudLoading;
-            const unavailableCount = item.id === "places" ? Boolean(savedPlaces.error || personalPins.error) : item.id === "routes" ? Boolean(cloudError) || localReadError.routes : item.id === "events" && localReadError.events;
+            const pendingCount = item.id === "routes" && cloudLoading && !localReadError.routes;
+            const unavailableCount = item.id === "places" ? Boolean(savedPlaces.error || personalPins.error) : item.id === "routes" ? Boolean(cloudError) || localReadError.routes : item.id === "countries" ? localReadError.favorites : item.id === "events" && localReadError.events;
             return <button type="button" className="plans-category" data-guide={item.id === "routes" ? "saved-library" : item.id === "countries" ? "saved-countries" : undefined} data-section={item.id} key={item.id} onClick={() => chooseSection(item.id)}>
               <span className="plans-category-picture" aria-hidden="true"><span className="plans-category-icon"><TravelToolArtwork kind={item.icon} size={72}/></span></span>
               <span className="plans-category-copy"><span className="plans-category-title"><strong>{item.title}</strong><span className="plans-category-count" aria-label={pendingCount ? copy("Kayıtlar yükleniyor", "Loading saved items") : unavailableCount ? copy("Liste okunamadı", "The list couldn't be read") : copy(`${item.count} kayıt`, `${item.count} saved`, `${item.count} të ruajtura`)}>{pendingCount ? "…" : unavailableCount ? "!" : item.count}</span></span><small>{item.note}</small>
@@ -405,11 +431,11 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
         </section>
         <p className="plans-storage-note"><Icon name="offline" size={16}/>{copy("Bu cihazdaki rotalarını, yerlerini ve etkinliklerini internetsiz de açabilirsin.", "Routes, places and events on this device can also be opened offline.")}</p>
       </> : <header className="plans-category-heading"><button type="button" onClick={() => chooseSection("all")}><Icon name="back" size={18}/>{copy("Tüm kayıtlar", "All saved")}</button><div><span className="plans-selected-icon"><TravelToolArtwork kind={selectedCategory?.icon || (libraryTab === "shared" ? "community" : "trips")} size={56}/></span><div><h1>{selectedCategory?.title || (libraryTab === "shared" ? copy("Ortak planlar", "Shared plans", "Planet e përbashkëta") : copy("Seyahat araçlarım", "My travel tools"))}</h1><p>{selectedCategory?.note || (libraryTab === "shared" ? copy("Arkadaşlarınla planlarını ve ortak masraflarını yönet.", "Manage plans and shared expenses with friends.", "Menaxho planet dhe shpenzimet e përbashkëta me miqtë.") : copy("Kişisel kartın, dünya haritan, günlüğün ve güvenlik araçların.", "Your personal card, world map, journal and safety tools.", "Karta personale, harta e botës, ditari dhe mjetet e sigurisë."))}</p></div></div></header>}
-      {undo && undo.owner === (ownerId || null) && <div className="daily-undo" role="status"><span>{copy("Kayıt kaldırıldı.", "Item removed.")}</span><button type="button" onClick={undoDelete}>{copy("Geri al", "Undo")}</button><button type="button" aria-label={copy("Geri almayı kapat", "Dismiss undo")} onClick={() => setUndo(null)}><Icon name="close" size={17}/></button></div>}
+      {undo && undo.owner === (ownerId || null) && <div className="daily-undo" role="status"><span>{copy("Kayıt kaldırıldı.", "Item removed.")}</span><button type="button" disabled={undo.pending.kind === "route" && localReadError.routes} onClick={undoDelete}>{copy("Geri al", "Undo")}</button><button type="button" aria-label={copy("Geri almayı kapat", "Dismiss undo")} onClick={() => setUndo(null)}><Icon name="close" size={17}/></button></div>}
       {cloudError && (libraryTab === "all" || libraryTab === "routes") && <div className="daily-load-error" role="status"><p>{cloudError}</p><button type="button" onClick={() => setCloudRetry(value => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
-      {((localReadError.routes && (libraryTab === "all" || libraryTab === "routes")) || (localReadError.events && (libraryTab === "all" || libraryTab === "events"))) && <div className="daily-load-error" role="status"><p>{copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")}</p><button type="button" onClick={refreshLocal}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div>}
+      {((localReadError.routes && (libraryTab === "all" || libraryTab === "routes")) || (localReadError.favorites && (libraryTab === "all" || libraryTab === "countries")) || (localReadError.events && (libraryTab === "all" || libraryTab === "events"))) && <div className="daily-load-error" role="status"><p>{copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")}</p><button type="button" onClick={refreshLocal}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div>}
       {selectedCategory && libraryTab !== "places" && selectedCategory.count > 0 && <label className="daily-library-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Kayıtlarında ara", "Search saved items")}</span><input type="search" value={query} placeholder={copy("Kayıtlarında ara…", "Search your saved items…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" onClick={() => setQuery("")} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</label>}
-      {selectedCategory && libraryTab !== "places" && searchText && visibleCount === 0 && <div className="daily-search-empty" role="status"><p>{copy("Bu aramayla eşleşen kaydın yok.", "No saved items match this search.")}</p><button type="button" onClick={() => setQuery("")}>{copy("Aramayı temizle", "Clear search")}</button></div>}
+      {selectedCategory && libraryTab !== "places" && !selectedCategoryUnavailable && searchText && visibleCount === 0 && <div className="daily-search-empty" role="status"><p>{copy("Bu aramayla eşleşen kaydın yok.", "No saved items match this search.")}</p><button type="button" onClick={() => setQuery("")}>{copy("Aramayı temizle", "Clear search")}</button></div>}
       {libraryTab === "places" && <div className="travel-assistant"><Suspense fallback={<p role="status">{copy("Yerlerin açılıyor…", "Opening your places…", "Po hapen vendet e tua…")}</p>}><TravelMap key={ownerId || "guest"} ownerId={ownerId} initialSection="saved"/></Suspense></div>}
       {(libraryTab === "travel" || libraryTab === "shared") && <section className="saved-travel-tools">
       {libraryTab === "travel" && <PersonalTravelCards ownerId={ownerId} trips={cardTrips.map(trip => ({ id: trip.id, title: trip.destinationCity || trip.destinationCountry, startDate: trip.startDate }))}/>}
@@ -433,12 +459,13 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
       {libraryTab === "countries" && <section className="saved-country-section">
         {visibleFavorites.map(country => {
           const destination = DISCOVERY_DESTINATIONS.find(item => item.alpha3 === country.alpha3);
+          const displayName = countryName(country.alpha3, country.name);
           return <button type="button" className="saved-country-row" data-guide="saved-country-open" key={country.alpha3} onClick={() => destination ? onOpenDestination(destination.code) : setUnavailableCountry(country)}>
-            {destination ? <img src={destinationArtwork(destination.code)} alt="" loading="lazy" width="64" height="52" /> : <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={country.name} />}
-            <span><strong>{country.name}</strong><small>{copy("Favori ülken", "Your favourite country")}</small></span><Icon name="heart" size={19} />
+            {destination ? <img src={destinationArtwork(destination.code)} alt="" loading="lazy" width="64" height="52" /> : <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={displayName} />}
+            <span><strong>{displayName}</strong><small>{copy("Favori ülken", "Your favourite country")}</small></span><Icon name="heart" size={19} />
           </button>;
         })}
-        {libraryTab === "countries" && !favorites.length && <Empty icon="globe" title={copy("Yeni bir yerle başla","Start with a new place")} text={copy("Keşfet'teki kalbe dokun; favori ülkelerin burada olsun.","Tap a heart in Explore to keep your favourite countries here.")} action={copy("Ülkeleri keşfet","Explore countries")} onAction={() => onNavigate("explore")} />}
+        {libraryTab === "countries" && !favorites.length && !localReadError.favorites && <Empty icon="globe" title={copy("Yeni bir yerle başla","Start with a new place")} text={copy("Keşfet'teki kalbe dokun; favori ülkelerin burada olsun.","Tap a heart in Explore to keep your favourite countries here.")} action={copy("Ülkeleri keşfet","Explore countries")} onAction={() => onNavigate("explore")} />}
       </section>}
       {libraryTab === "events" && <section className="saved-events-section">
         {ownerId && <p className="plans-storage-note">{copy("Etkinliklerin bu hesabınla diğer cihazlarına eşitlenir. Çevrimdışı değişikliklerin bağlantı gelince gönderilir; hatırlatıcı izinleri bu cihaza aittir.", "Events sync with this account on your other devices. Offline changes are sent when connected; reminder permissions belong to this device.", "Aktivitetet sinkronizohen me këtë llogari në pajisjet e tjera. Ndryshimet pa internet dërgohen kur lidhet; lejet e kujtesave i përkasin kësaj pajisjeje.")}</p>}
@@ -453,10 +480,10 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
       </section>}
 
       {libraryTab === "routes" && <div className="saved-list" data-guide="saved-route-list">
-        {(routes.length > 0 || cloudRoutes.length > 0) && <div className="plans-list-action"><span>{copy("Bir sonraki yolculuk için", "For your next journey")}</span><button type="button" onClick={() => onNavigate("route")}><Icon name="plus" size={18}/>{copy("Yeni rota", "New route")}</button></div>}
+        {(knownRoutes.length > 0 || cloudRoutes.length > 0) && <div className="plans-list-action"><span>{copy("Bir sonraki yolculuk için", "For your next journey")}</span><button type="button" onClick={() => onNavigate("route")}><Icon name="plus" size={18}/>{copy("Yeni rota", "New route")}</button></div>}
         {pendingRoutes > 0 && <div className="info-box" role="status"><p>{copy(`${pendingRoutes} kayıt işlemi eşitleme bekliyor.`, `${pendingRoutes} changes waiting to sync.`)}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && accessToken) void syncSavedRoutes(ownerId, accessToken).catch(() => onNotice(copy("Bağlantı kurulamadı; kayıtlar cihazda korundu.", "Could not connect; on-device records were kept."))); }}>{copy("Tekrar dene", "Retry")}</button></div>}
         {visibleRoutes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud) || localReadError.routes} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
           <small role="status">{!ownerId ? copy("Bu cihazda", "On this device") : routeQueue?.[saved.id]?.pending || !routeQueue?.[saved.id] ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesaba kaydedildi", "Saved to account")}</small>
           <small className="saved-route-updated">{copy("Çevrimdışı kopya · Son kayıt:", "Offline copy · Last saved:", "Kopje pa internet · Ruajtur së fundmi:")} <time dateTime={saved.createdAt}>{formatAppDate(new Date(saved.createdAt), dateLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></small>
           <p><RouteTranslation text={saved.plan.summary} sourceLocale={saved.plan.routes[0]?.mapJourney?.planning?.locale} accessToken={accessToken}/></p>
@@ -470,10 +497,10 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
           {cloudPlan && <button className="saved-card-detail-action" data-guide="saved-route-open" onClick={() => setSelectedPlan(cloudPlan)}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>}
         </article>})}
         {cloudLoading && <div className="skeleton-list"><div /></div>}
-        {!routes.length && !cloudRoutes.length && !cloudLoading && !cloudError && !localReadError.routes && <Empty guide="saved-routes-empty" icon="explore" title={copy("Henüz kayıtlı rotan yok", "No saved routes yet")} text={copy("Tercihlerini seç, sana uygun rotayı birlikte oluşturalım.", "Choose your preferences and we'll create a route that fits you.")} action={copy("İlk rotamı oluştur", "Create my first route")} onAction={() => onNavigate("route")} />}
+        {!knownRoutes.length && !cloudRoutes.length && !cloudLoading && !cloudError && !localReadError.routes && <Empty guide="saved-routes-empty" icon="explore" title={copy("Henüz kayıtlı rotan yok", "No saved routes yet")} text={copy("Tercihlerini seç, sana uygun rotayı birlikte oluşturalım.", "Choose your preferences and we'll create a route that fits you.")} action={copy("İlk rotamı oluştur", "Create my first route")} onAction={() => onNavigate("route")} />}
       </div>}
 
-      <DeleteConfirmation pending={pendingDelete} account={Boolean(ownerId)} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
+      <DeleteConfirmation pending={pendingDelete} account={Boolean(ownerId)} unavailable={Boolean(localReadError.routes && (pendingDelete?.kind === "route" || pendingDelete?.kind === "cloud" && pendingDelete.item.clientKey))} onReadAgain={refreshLocal} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
       {mapJourney && <LazyOverlay title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} loadingMessage={copy('Harita hazırlanıyor…','Preparing map…','Duke përgatitur hartën…')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }}><Sheet open title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => { setMapJourney(null); setSelectedPlan(null); }} initialJourney={mapJourney} ownerId={ownerId} accessToken={accessToken} onNotice={onNotice}/></Sheet></LazyOverlay>}
       <PlanDetail selected={mapJourney ? null : selectedPlan} accessToken={accessToken} onOpenMap={setMapJourney} onClose={() => setSelectedPlan(null)} onPrepareCockpit={onPrepareCockpit ? (index) => {
         if (!ownerId || !user || user.id !== ownerId || !accessToken) { onOpenAccount(); return; }
@@ -483,9 +510,9 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
         setSelectedPlan(null);
         onPrepareCockpit(intent);
       } : undefined} />
-      <Sheet open={!!unavailableCountry} title={unavailableCountry?.name || copy("Favori ülken", "Your favourite country")} onClose={() => setUnavailableCountry(null)}>
+      <Sheet open={!!unavailableCountry} title={unavailableCountry ? countryName(unavailableCountry.alpha3, unavailableCountry.name) : copy("Favori ülken", "Your favourite country")} onClose={() => setUnavailableCountry(null)}>
         {unavailableCountry && <div className="saved-plan-detail">
-          <CountryFlag code={alpha2FromAlpha3(unavailableCountry.alpha3)} label={unavailableCountry.name}/>
+          <CountryFlag code={alpha2FromAlpha3(unavailableCountry.alpha3)} label={countryName(unavailableCountry.alpha3, unavailableCountry.name)}/>
           <h3>{copy("Bu ülke için hazır rota henüz yok", "No ready-made route for this country yet")}</h3>
           <p>{copy("Ülke favorilerinde kayıtlı kalıyor. Haritada yerlerini keşfedip kaydedebilir ve kendi gezi sıranı oluşturabilirsin.", "This country stays in your favourites. Explore its places on the map, save them and make your own day list.", "Ky shtet mbetet te të preferuarat. Eksploro vendet e tij në hartë, ruaji dhe krijo rendin tënd të vizitave.")}</p>
           {onOpenCountryMap && <button type="button" className="primary-wide" onClick={() => { const country = alpha2FromAlpha3(unavailableCountry.alpha3); setUnavailableCountry(null); onOpenCountryMap(country); }}>{copy("Bu ülkeyi haritada keşfet", "Explore this country on the map", "Eksploro këtë shtet në hartë")}</button>}
@@ -497,9 +524,11 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   );
 }
 
-function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
+function DeleteConfirmation({ pending, account, unavailable = false, onReadAgain, onCancel, onConfirm }: {
   pending: PendingDelete | null;
   account: boolean;
+  unavailable?: boolean;
+  onReadAgain?: () => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -516,7 +545,8 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
         "The event will be removed from this device and its reminder cancelled. An item already added to a trip checklist stays there.",
         "Aktiviteti do të hiqet nga kjo pajisje dhe kujtesa e tij do të anulohet. Një artikull i shtuar më parë në listën e udhëtimit mbetet aty.",
       ) : account ? copy("Bu rota cihazından ve LetsGo2Travel hesabından silinecek. Bu işlem geri alınamaz.", "This route will be deleted from your device and LetsGo2Travel account. This cannot be undone.") : copy("Bu rota cihazından kaldırılacak. Sonrasında Geri al düğmesini kullanabilirsin.", "This route will be removed from your device. You can use Undo afterwards.")}</p>
-      <div><button className="secondary-wide" data-autofocus onClick={onCancel}>{copy("Vazgeç", "Cancel")}</button><button className="danger-wide" onClick={onConfirm}>{copy("Sil", "Delete")}</button></div>
+      {unavailable && <div className="daily-load-error" role="status"><p>{copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")}</p><button type="button" onClick={onReadAgain}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div>}
+      <div><button className="secondary-wide" data-autofocus onClick={onCancel}>{copy("Vazgeç", "Cancel")}</button><button className="danger-wide" disabled={unavailable} onClick={onConfirm}>{copy("Sil", "Delete")}</button></div>
     </div>
   </Sheet>;
 }

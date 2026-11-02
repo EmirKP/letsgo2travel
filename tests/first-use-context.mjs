@@ -13,6 +13,7 @@ function load(path,imports={},globals={}){
   const code=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date,Intl,URL,URLSearchParams,Error,...globals})(name=>{
     if(Object.hasOwn(imports,name))return imports[name];
+    if(name.endsWith('/event-occurrence'))return load('lib/event-occurrence.ts');
     const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     if(name.endsWith('.css'))return {};
     throw Error(`Missing import ${name}`);

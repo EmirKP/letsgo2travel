@@ -86,18 +86,35 @@ export function tripInviteFromUrl(value: string) {
 }
 
 const pendingKey = "l2t:pending-trip-invite:v1";
+const pendingLifetime = 5 * 60_000;
+type PendingTripInvite = { code: string; expires: number };
+
+function readPendingTripInvite(now: number): PendingTripInvite | null {
+  try {
+    const pending = JSON.parse(localStorage.getItem(pendingKey) || "null");
+    if (pending && typeof pending.code === "string" && /^\d{6}$/.test(pending.code) && Number.isFinite(pending.expires) && pending.expires > now && pending.expires <= now + pendingLifetime) return pending;
+    localStorage.removeItem(pendingKey);
+  } catch {
+    try { localStorage.removeItem(pendingKey); } catch { /* storage may be unavailable */ }
+  }
+  return null;
+}
+
 export function rememberTripInvite(value: string) {
   const code = parseTripInvite(value);
-  try { if (code) localStorage.setItem(pendingKey,JSON.stringify({code,expires:Date.now()+5*60_000})); else localStorage.removeItem(pendingKey); } catch { /* the current screen still holds the code */ }
+  const now = Date.now();
+  const pending = readPendingTripInvite(now);
+  try {
+    if (/^\d{6}$/.test(code)) {
+      // App initialization and login can read the same URL more than once.
+      // Keep its original deadline instead of renewing it on every read.
+      if (pending?.code !== code) localStorage.setItem(pendingKey,JSON.stringify({code,expires:now+pendingLifetime}));
+    } else localStorage.removeItem(pendingKey);
+  } catch { /* the current screen still holds the code */ }
   return code;
 }
 export function pendingTripInvite(url: string) {
   const incoming = parseTripInvite(url);
   if (incoming) return rememberTripInvite(incoming);
-  try {
-    const pending = JSON.parse(localStorage.getItem(pendingKey) || "null");
-    if (pending?.expires > Date.now()) return parseTripInvite(String(pending.code || ""));
-    localStorage.removeItem(pendingKey);
-  } catch { /* unavailable storage */ }
-  return "";
+  return readPendingTripInvite(Date.now())?.code || "";
 }

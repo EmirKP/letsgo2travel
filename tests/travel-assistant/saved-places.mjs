@@ -18,6 +18,10 @@ const legacySource = ts.transpileModule(readFileSync(new URL('../fixtures/saved-
 const collectionSource = ts.transpileModule(readFileSync(new URL('../../mobile/src/lib/accountCollections.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const searchText = { exports: {} };
+vm.runInNewContext(`(function(module,exports){${ts.transpileModule(readFileSync(new URL('../../mobile/src/lib/searchText.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText}\n})`, {})(searchText, searchText.exports);
 const plain = value => JSON.parse(JSON.stringify(value));
 const place = (id = 1, overrides = {}) => ({
   id: `node/${id}`, category: 'museum', latitude: 52.52, longitude: 13.4, name: `Museum ${id}`,
@@ -298,7 +302,7 @@ test('Undo storage and day-limit failures are atomic and the same token remains 
 const jsx = (type, props, key) => ({type, props, key});
 const uiNodes = value => !value || typeof value !== 'object' ? [] : [value, ...[value.props?.children].flat(Infinity).flatMap(uiNodes)];
 const uiText = value => Array.isArray(value) ? value.map(uiText).join('') : value?.props ? uiText(value.props.children) : typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-function savedPlacesUI(storageHarness, initialOwner, extraProps = {}) {
+function savedPlacesUI(storageHarness, initialOwner, extraProps = {}, locale = 'en') {
   const slots=[];let cursor=0, effects=[], dirty=false, tree, ownerId=initialOwner;
   const react={
     useState(initial){const at=cursor++;slots[at]??={value:typeof initial==='function'?initial():initial};return[slots[at].value,next=>{const value=typeof next==='function'?next(slots[at].value):next;if(value!==slots[at].value){slots[at].value=value;dirty=true;}}];},
@@ -309,7 +313,7 @@ function savedPlacesUI(storageHarness, initialOwner, extraProps = {}) {
   const code=ts.transpileModule(readFileSync(new URL('../../mobile/src/components/TravelSavedPlaces.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date})(name=>{
     if(name.endsWith('.css'))return{};
-    const imports={react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../../lib/travel-assistant/places':places,'../lib/savedPlaces':storageHarness.api,'../lib/i18n':{useI18n:()=>({copy:(_tr,en)=>en,locale:'en'})},'../lib/native':{openExternal:async()=>true},'../lib/travelAssistant':{directionsUrl:()=>''},'../lib/localeFormatting':{formatAppDate:()=>''},'./Icon':{Icon:'Icon'}};
+    const imports={react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../../lib/travel-assistant/places':places,'../lib/savedPlaces':storageHarness.api,'../lib/searchText':searchText.exports,'../lib/i18n':{useI18n:()=>({copy:(tr,en,sq)=>realLocaleModule('../lib/locale').translateCopy(locale,tr,en,sq),locale})},'../lib/native':{openExternal:async()=>true},'../lib/travelAssistant':{directionsUrl:()=>''},'../lib/localeFormatting':{formatAppDate:()=>''},'./Icon':{Icon:'Icon'}};
     const localeModule=realLocaleModule(name);if(localeModule)return localeModule;assert.ok(Object.hasOwn(imports,name),`UI import ${name}`);return imports[name];
   },out,out.exports);
   const app={
@@ -358,4 +362,51 @@ test('Unified map embedding hides the previous map and routes saved places while
   assert.equal(h.api.readSavedPlaces('owner-a').items[0].note, 'Updated in the embedded library');
   assert.deepEqual(plain(h.api.readSavedPlaces('owner-a').dayIds), ['apple/real-place']);
   assert.equal(h.api.readSavedPlaces('owner-b').items.length, 0); app.dispose();
+});
+
+for (const locale of ['tr', 'en', 'sq', 'ro']) {
+  test(`Saved-place search accepts Turkish I and plain keyboards without changing records (${locale})`, () => {
+    const h = harness();
+    h.api.saveTravelPlace(place(1, { name: 'Istanbul Museum' }), 'owner-a');
+    h.api.saveTravelPlace(place(2, { name: 'Işık Museum' }), 'owner-a');
+    const before = [...h.storage], writes = h.state.writes;
+    const app = savedPlacesUI(h, 'owner-a', { hideMap: true }, locale);
+    try {
+      const expected = h.api.readSavedPlaces('owner-a').items;
+      for (const [query, id] of [['istanbul', 'node/1'], ['İSTANBUL', 'node/1'], ['isik', 'node/2'], ['ışık', 'node/2'], ['IŞIK', 'node/2']]) {
+        const input = uiNodes(app.tree).find(node => node.type === 'input' && node.props.type === 'search');
+        input.props.onChange({ target: { value: query } }); app.render();
+        const cards = uiNodes(app.tree).filter(node => node.type?.name === 'SavedPlaceCard');
+        assert.deepEqual(cards.map(card => card.props.item.place.id), [id], `${locale}: ${query}`);
+        assert.equal(cards[0].props.name, expected.find(item => item.place.id === id).place.name);
+        assert.deepEqual(plain(cards[0].props.item), plain(expected.find(item => item.place.id === id)));
+      }
+      assert.deepEqual([...h.storage], before); assert.equal(h.state.writes, writes);
+    } finally { app.dispose(); }
+  });
+}
+
+test('Saved-place search combines notes and category filtering, then clears without changing day order or snapshots', () => {
+  const h = harness();
+  h.api.saveTravelPlace(place(1, { name: 'Istanbul Museum' }), 'owner-a');
+  h.api.saveTravelPlace(place(2, { name: 'Işık Cafe', category: 'cafe' }), 'owner-a');
+  h.api.updateTravelPlaceNote('node/1', 'Işık molası', 'owner-a');
+  h.api.updateTravelPlaceNote('node/2', 'Işık kahvesi', 'owner-a');
+  h.api.setTravelDayStop('node/2', true, 'owner-a'); h.api.setTravelDayStop('node/1', true, 'owner-a');
+  const before = [...h.storage], writes = h.state.writes;
+  const app = savedPlacesUI(h, 'owner-a', { hideMap: true });
+  const ids = () => uiNodes(app.tree).filter(node => node.type?.name === 'SavedPlaceCard').map(node => node.props.item.place.id);
+  const query = value => { uiNodes(app.tree).find(node => node.type === 'input' && node.props.type === 'search').props.onChange({ target: { value } }); app.render(); };
+  const category = value => { uiNodes(app.tree).find(node => node.type === 'select').props.onChange({ target: { value } }); app.render(); };
+  try {
+    query('isik'); assert.equal(ids().length, 2, 'Original notes are searchable with a plain keyboard');
+    category('museum'); assert.deepEqual(ids(), ['node/1']);
+    category('cafe'); assert.deepEqual(ids(), ['node/2']);
+    query('not present'); assert.deepEqual(ids(), []); assert.match(uiText(app.tree), /No matching places/);
+    app.click('Clear filters'); assert.deepEqual(ids(), plain(h.api.readSavedPlaces('owner-a').items.map(item => item.place.id)));
+    query('museum'); assert.deepEqual(ids(), ['node/1'], 'Existing category-label matching is preserved');
+    const dayButton = uiNodes(app.tree).find(node => node.type === 'button' && uiText(node).startsWith('Day list'));
+    dayButton.props.onClick(); app.render(); assert.deepEqual(ids(), ['node/2', 'node/1'], 'Search still leaves the independent day sequence intact');
+    assert.deepEqual([...h.storage], before); assert.equal(h.state.writes, writes);
+  } finally { app.dispose(); }
 });

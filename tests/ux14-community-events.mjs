@@ -5,8 +5,10 @@ import path from "node:path";
 import vm from "node:vm";
 import test from "node:test";
 import ts from "typescript";
+import { realLocaleModule } from "./fixtures/real-locale-modules.mjs";
 
 const require = createRequire(import.meta.url);
+const productionLocale = realLocaleModule('../lib/locale');
 function modules(overrides = {}, globals = {}) {
   const cache = new Map();
   const context = vm.createContext({ URL, URLSearchParams, Request, Response, Headers, AbortSignal, Date, Intl, console, setTimeout, clearTimeout,
@@ -28,7 +30,7 @@ const base={countryCode:'TR',startDate:'2026-10-27',endDate:'2027-03-27',categor
 const moment=i=>new Date(Date.UTC(2026,10,1,12,i)).toISOString();
 const tm=(i,extra={})=>({id:String(i),name:'Concert '+i,url:'https://ticketmaster.com/event/'+i,classifications:[{segment:{name:'Music'}}],dates:{start:{localDate:moment(i).slice(0,10),dateTime:moment(i)}},_embedded:{venues:[{city:{name:'Istanbul'},country:{countryCode:'TR'}}]},...extra});
 function service(fetch,db=null,env={TICKETMASTER_API_KEY:'test',PREDICTHQ_ACCESS_TOKEN:'test'}){return modules({'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db}},{fetch,process:{env}})('lib/travel-events.ts');}
-function curatedDb(rows){return{from(){let from=0,to=49;return{select(){return this;},eq(){return this;},gte(){return this;},lte(){return this;},order(){return this;},or(){return this;},ilike(){return this;},range(a,b){from=a;to=b;return this;},then(yes,no){return Promise.resolve({data:rows.slice(from,to+1),error:null}).then(yes,no);}};}};}
+function curatedDb(rows){return{from(){let from=0,to=49;return{select(){return this;},eq(){return this;},gte(){return this;},lte(){return this;},order(){return this;},or(){return this;},ilike(){return this;},limit(count){from=0;to=count-1;return this;},range(a,b){from=a;to=b;return this;},then(yes,no){return Promise.resolve({data:rows.slice(from,to+1),error:null}).then(yes,no);}};}};}
 
 test('Paginated event query uses genuine provider keyword and raw offsets, preserving every filtered and unconsumed source result',async()=>{
  const calls=[],raw=Array.from({length:104},(_,i)=>tm(i));raw[1]={...raw[1],url:''};raw[6]={...raw[6],classifications:[{segment:{name:'Sports'}}]};
@@ -100,6 +102,7 @@ function load(path,imports={},globals={}){
   const code=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date,Intl,URL,URLSearchParams,Error,...globals})(name=>{
     if(Object.hasOwn(imports,name))return imports[name];
+    if(name.endsWith('/event-occurrence'))return load('lib/event-occurrence.ts');
     if(name.endsWith('.css'))return {};
     throw Error(`Missing import ${name}`);
   },output,output.exports);
@@ -127,7 +130,7 @@ const eventContext=load('mobile/src/lib/eventSearchContext.ts',{'../../../lib/tr
 const eventTime=load('lib/event-time.ts',{'./zoned-time':load('lib/zoned-time.ts')});
 const today=()=>dates.localIsoDate(0);
 
-function eventsHarness(initialContext,{initialFilters,initialSaved=[],saveFails=false,mergeFails=false,reminderFailure=false,reminderRead,initialOwner=null,trips=[],featuredRows=[],reminderRows=[],permissionState='granted'}={}){
+function eventsHarness(initialContext,{initialFilters,initialSaved=[],saveFails=false,mergeFails=false,reminderFailure=false,reminderRead,initialOwner=null,trips=[],featuredRows=[],reminderRows=[],permissionState='granted',locale='en'}={}){
   const h=host(),cityRequests=[],searchRequests=[],merged=[],notices=[],filters=[],reminders=[],tripLists=[],attachments=[],external=[],created=[],cancelled=[],resumeHandlers=new Set();let contextHandled=0,accountOpens=0;
   const saved=new Map([['guest',initialSaved],['a',[{id:'a-private-event'}]],['b',[]]]);
   if(initialOwner)saved.set(initialOwner,initialSaved);
@@ -144,7 +147,7 @@ function eventsHarness(initialContext,{initialFilters,initialSaved=[],saveFails=
     '../lib/searchText':load('mobile/src/lib/searchText.ts'),
     '../lib/eventReminders':{readEventReminderState:async()=>({items:reminderRows,error:false}),eventReminderPermission:async()=> permissionState,openEventNotificationSettings:async()=>false,cancelEventReminder:async(eventId,owner)=>{cancelled.push({eventId,owner});return true;},reconcileEventReminders:async()=>{if(reminderRead)return reminderRead();if(reminderFailure)throw Error('reminder registry unavailable');return 0;},scheduleEventReminder:async(event,locale,owner)=>{reminders.push({event,locale,owner});return permissionState==='granted'?{ok:true}:{ok:false,reason:'permission'};}},
     '../lib/accountResume':{onAccountResume:callback=>{resumeHandlers.add(callback);return()=>resumeHandlers.delete(callback);}},
-    '../lib/i18n':{useI18n:()=>({locale:'en',copy:(_,en)=>en,countryName:(_,name)=>name,dateLocale:'en'})},'../lib/native':{openExternal:async url=>{external.push(url);return true;}},
+    '../lib/i18n':{useI18n:()=>({locale,copy:(...args)=>productionLocale.translateCopy(locale,...args),countryName:(_,name)=>name,dateLocale:locale})},'../lib/native':{openExternal:async url=>{external.push(url);return true;}},
     '../lib/storage':{getSavedTravelEvents:owner=>saved.get(owner||'guest')||[],mergeSavedTravelEvents:(events,owner)=>{if(mergeFails)throw Error('storage full');merged.push({events,owner});return{events:saved.get(owner||'guest')||[]};},toggleSavedTravelEvent:(event,owner)=>{if(saveFails)throw Error('storage full');const current=saved.get(owner||'guest')||[],adding=!current.some(item=>item.id===event.id),next=adding?[...current,event]:current.filter(item=>item.id!==event.id);saved.set(owner||'guest',next);return{events:next,saved:adding};}},
     '../lib/supabaseData':{attachTravelEventToCockpitTrip:async(owner,trip,event)=>{attachments.push({owner,trip,event});return{trip,attached:true};},getSupabaseDataErrorMessage:(_,fallback)=>fallback,listCockpitTrips:async(owner,token)=>{tripLists.push({owner,token});return trips;}},
   };
@@ -353,4 +356,174 @@ test('Contradictory empty upstream pages fail for retry instead of repeating pag
 test('Distinct non-Latin titles are preserved by source and client deduplication',async()=>{
  const titles=['東京の音楽','京都の音楽'];const api=service(async()=>Response.json({_embedded:{events:titles.map((name,i)=>tm(i,{name,dates:{start:{localDate:'2026-11-01',dateTime:moment(0)}}}))}}),null,{TICKETMASTER_API_KEY:'test'});assert.equal((await api.searchTravelEventPage({...base,query:''})).events.length,2);
  const h=eventsHarness(undefined);try{const same=new Date(Date.now()+7200000).toISOString();const view=await h.result(0,titles.map((title,i)=>uiEvent('unicode-'+i,same,{title})));assert.deepEqual(cardTitles(view),titles);}finally{h.dispose();}
+});
+
+test('Distinct source occurrence IDs retain different sessions, venues and date-only entries in paged and nonpaged search',async()=>{
+ const title='Fictional travelling performance',day='2026-11-01';
+ const show=(id,time,venue)=>tm(0,{id,name:title,dates:{timezone:'Europe/Istanbul',start:{localDate:day,...(time?{dateTime:`${day}T${time}:00Z`}:{timeTBA:true})}},_embedded:{venues:[{name:venue,city:{name:'Istanbul'},country:{countryCode:'TR'}}]}});
+ const raw=[show('date-only',null,'Hall A'),show('matinee','12:00','Hall A'),show('other-venue','12:00','Hall B'),show('distinct-source-id','12:00','Hall A'),show('evening','18:00','Hall A')];
+ const api=service(async()=>Response.json({_embedded:{events:raw},page:{totalPages:1}}),null,{TICKETMASTER_API_KEY:'test'});
+ const expected=new Set(raw.map(row=>'ticketmaster:'+row.id));
+ for(const result of [await api.searchTravelEventPage({...base,query:''}),await api.searchTravelEvents({...base,query:''})]){
+  assert.equal(result.events.length,raw.length);assert.deepEqual(new Set(result.events.map(event=>event.id)),expected);
+ }
+});
+
+test('The event list retains distinct same-day occurrence IDs and opens the exact evening chat intent',async()=>{
+ const h=eventsHarness(undefined),day=dates.localIsoDate(1),title='Fictional travelling performance';
+ const rows=[uiEvent('ticketmaster:matinee',`${day}T12:00:00Z`,{title,provider:'ticketmaster',venue:'Hall A'}),uiEvent('ticketmaster:evening',`${day}T18:00:00Z`,{title,provider:'ticketmaster',venue:'Hall A'}),uiEvent('ticketmaster:other-venue',`${day}T12:00:00Z`,{title,provider:'ticketmaster',venue:'Hall B'})];
+ try{
+  let view=await h.result(0,rows);assert.equal(cardTitles(view).length,3);
+  const entryButtons=nodes(view).filter(node=>node.type==='button'&&text(node).trim()==='Who’s going? · Chat');
+  assert.equal(entryButtons.length,3);entryButtons[2].props.onClick();view=h.render();
+  const panel=nodes(view).find(node=>node.type==='EventCompanionsPanel');assert.equal(panel.props.event,rows[1]);assert.equal(panel.props.event.id,'ticketmaster:evening');
+  assert.equal(h.accountOpens,0);assert.equal(h.reminders.length,0);assert.equal(h.attachments.length,0);
+ }finally{h.dispose();}
+});
+
+for(const nextCursor of [null,'next-raw-source-page'])test(`Limited empty event coverage is unconfirmed and has explicit retry without losing paging: ${String(nextCursor)}`,async()=>{
+ const h=eventsHarness(undefined);
+ try{
+  let view=await h.result(0,[],{coverageLimited:true,coverageStatus:'limited',nextCursor});
+  assert.match(text(view),/We could not fully check this selection/);assert.match(text(view),/This does not mean there are no events/);
+  assert.doesNotMatch(text(view),/Verified event listings are shown|No events found for these dates/);
+  const note=nodes(view).find(node=>String(node.props?.className||'').includes('event-provider-note'));
+  assert.equal(note.props.role,'status');assert.ok(button(note,'Retry'));
+  assert.equal(Boolean(nodes(view).find(node=>node.type==='button'&&text(node).trim()==='Show more events')),Boolean(nextCursor));
+  const prior={...h.searchRequests[0].params};button(note,'Retry').props.onClick();h.render();
+  assert.equal(h.searchRequests.length,2);assert.deepEqual({...h.searchRequests[1].params},prior);assert.equal(h.reminders.length,0);assert.equal(h.attachments.length,0);
+  view=await h.result(1,[],{coverageStatus:'no_results',coverageLimited:false});assert.match(text(view),/No events found for these dates/);assert.doesNotMatch(text(view),/could not fully check/);
+ }finally{h.dispose();}
+});
+
+const occurrence = load('lib/event-occurrence.ts');
+const occurrenceBase = Object.freeze({id:'ticketmaster:one',provider:'ticketmaster',title:'Fictional performance',countryCode:'TR',city:'Istanbul',venue:'Public Hall',startsAt:'2026-11-01T12:00:00Z',timePrecision:'exact'});
+for(const [name,patch,expected]of[
+ ['same canonical ID despite changed metadata',{id:'ticketmaster:one',title:'Changed title',provider:'unknown',startsAt:'bad',venue:''},true],
+ ['different source IDs at same provider',{id:'ticketmaster:two'},false],
+ ['known cross-provider exact occurrence',{id:'curated:one',provider:'curated'},true],
+ ['same instant with another offset',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T15:00:00+03:00'},true],
+ ['same instant with millisecond encoding',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T12:00:00.000Z'},true],
+ ['different same-day exact session',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T18:00:00Z'},false],
+ ['different venue',{id:'curated:one',provider:'curated',venue:'Another Hall'},false],
+ ['different city',{id:'curated:one',provider:'curated',city:'Ankara'},false],
+ ['different country',{id:'curated:one',provider:'curated',countryCode:'FR'},false],
+ ['different title',{id:'curated:one',provider:'curated',title:'Another performance'},false],
+ ['missing venue',{id:'curated:one',provider:'curated',venue:''},false],
+ ['missing city',{id:'curated:one',provider:'curated',city:''},false],
+ ['missing country',{id:'curated:one',provider:'curated',countryCode:''},false],
+ ['missing title',{id:'curated:one',provider:'curated',title:''},false],
+ ['unknown provider',{id:'unknown:one',provider:'unknown'},false],
+ ['unknown timing precision',{id:'curated:one',provider:'curated',timePrecision:undefined},false],
+ ['date-only timing',{id:'curated:one',provider:'curated',timePrecision:'date',startsAt:'2026-11-01'},false],
+ ['partial clock',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T12:00Z'},false],
+ ['offset-unaware clock',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T12:00:00'},false],
+ ['malformed clock',{id:'curated:one',provider:'curated',startsAt:'2026-11-01T12:00:00+00:99'},false],
+ ['missing ID',{id:'',provider:'curated'},false],
+])test(`Shared occurrence comparison: ${name}`,()=>{
+ const right=Object.freeze({...occurrenceBase,...patch}),before=JSON.stringify([occurrenceBase,right]);
+ assert.equal(occurrence.sameEventOccurrence(occurrenceBase,right),expected);
+ assert.equal(occurrence.sameEventOccurrence(right,occurrenceBase),expected);
+ assert.equal(JSON.stringify([occurrenceBase,right]),before,'Comparison never changes canonical IDs or source fields');
+});
+
+test('Occurrence comparison validates real calendar clocks and preserves Unicode distinctions and date-only ambiguity',()=>{
+ const alias=patch=>({...occurrenceBase,id:'curated:one',provider:'curated',...patch});
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,startsAt:'2026-03-02T12:00:00Z'},alias({startsAt:'2026-02-30T12:00:00Z'})),false);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,startsAt:'2026-11-02T00:00:00Z'},alias({startsAt:'2026-11-01T24:00:00Z'})),false);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,startsAt:'2026-11-01T23:30:00Z'},alias({startsAt:'2026-11-02T02:30:00+03:00'})),true);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,startsAt:'2026-11-01T12:00:00.100Z'},alias({startsAt:'2026-11-01T12:00:00.1Z'})),true);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,title:'東京の音楽'},alias({title:'京都の音楽'})),false);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,title:'Beyoncé · Live'},alias({title:'BEYONCE Live'})),true);
+ assert.equal(occurrence.sameEventOccurrence({...occurrenceBase,timePrecision:'date',startsAt:'2026-11-01'},alias({timePrecision:'date',startsAt:'2026-11-01'})),false);
+ assert.equal(occurrence.sameEventOccurrence(null,alias({})),false);
+ assert.equal(occurrence.sameEventOccurrence({id:''},{id:''}),false);
+});
+
+test('Finite source batches keep ambiguous same-provider IDs instead of indirectly merging both into an earlier cross-provider listing',()=>{
+ const b=Object.freeze({...occurrenceBase,id:'curated:b',provider:'curated'}),a1=occurrenceBase,a2=Object.freeze({...occurrenceBase,id:'ticketmaster:two'});
+ const result=occurrence.uniqueServiceEventOccurrences([b,a1,a2]);
+ assert.equal(result.length,3);assert.equal(result[0],b);assert.equal(result[1],a1);assert.equal(result[2],a2);
+ const ordinary=occurrence.uniqueServiceEventOccurrences([b,a1]);assert.equal(ordinary.length,1);assert.equal(ordinary[0],b);
+ const repeated=occurrence.uniqueServiceEventOccurrences([b,{...b,title:'Later metadata'},a1]);assert.equal(repeated.length,1);assert.equal(repeated[0],b);
+ assert.deepEqual(Array.from(occurrence.uniqueCanonicalEventIds([b,a1,a2,{...b,title:'Repeat'}]),event=>event.id),[b.id,a1.id,a2.id]);
+});
+
+test('Service cross-provider exact duplicates retain first source identity while finite-batch ambiguity preserves all original IDs',async()=>{
+ const title='Fictional shared performance',instant='2026-11-01T12:00:00.000Z';
+ const editorial={id:'curated:first',provider:'curated',title,category:'concert',country_code:'TR',city:'Istanbul',venue:'Public Hall',starts_at:instant,status:'scheduled',source_url:'https://official.example/first',updated_at:instant,featured:true};
+ const automatic=id=>tm(0,{id,name:title,dates:{timezone:'Europe/Istanbul',start:{localDate:'2026-11-01',dateTime:'2026-11-01T15:00:00+03:00'}},_embedded:{venues:[{name:'Public Hall',city:{name:'Istanbul'},country:{countryCode:'TR'}}]}});
+ for(const count of [1,2]){
+  const api=service(async()=>Response.json({_embedded:{events:Array.from({length:count},(_,i)=>automatic('source-'+i))},page:{totalPages:1}}),curatedDb([editorial]),{TICKETMASTER_API_KEY:'test'});
+  for(const result of [await api.searchTravelEventPage({...base,query:''}),await api.searchTravelEvents({...base,query:''}),await api.searchTravelEvents({...base,query:'',featured:true})]){
+   assert.equal(result.events.length,count===1?1:3);
+   assert.equal(result.events[0].id,'curated:first');assert.equal(result.events[0].sourceUrl,editorial.source_url);
+   if(count===2)assert.deepEqual(new Set(result.events.map(event=>event.id)),new Set(['curated:first','ticketmaster:source-0','ticketmaster:source-1']));
+  }
+ }
+});
+
+test('Distinct source occurrences keep raw pagination offsets and every original provider ID',async()=>{
+ const raw=Array.from({length:4},(_,i)=>tm(i,{id:'session-'+i,name:'Fictional sessions',dates:{start:{localDate:'2026-11-01',dateTime:moment(i*60)}},_embedded:{venues:[{name:'Same Hall',city:{name:'Istanbul'},country:{countryCode:'TR'}}]}}));
+ const api=service(async()=>Response.json({_embedded:{events:raw},page:{totalPages:1}}),null,{TICKETMASTER_API_KEY:'test'}),search={...base,query:'',limit:2};
+ const first=await api.searchTravelEventPage(search);assert.deepEqual(Array.from(first.events,event=>event.id),['ticketmaster:session-0','ticketmaster:session-1']);
+ const cursor=JSON.parse(decodeURIComponent(first.nextCursor));assert.equal(cursor.v,1);assert.equal(cursor.provider,'ticketmaster');assert.equal(cursor.curated,-1);assert.equal(cursor.automatic,2);assert.equal(cursor.scope,JSON.stringify(['TR','','',base.startDate,base.endDate,'concert','',2]));
+ const second=await api.searchTravelEventPage(search,first.nextCursor);assert.deepEqual(Array.from(second.events,event=>event.id),['ticketmaster:session-2','ticketmaster:session-3']);assert.equal(second.nextCursor,null);
+});
+
+test('Mobile pagination preserves returned canonical IDs without inferring cross-page aliases and deduplicates only actual repeated IDs',async()=>{
+ const h=eventsHarness(undefined),at=new Date(Date.now()+7200000).toISOString(),b=uiEvent('curated:first',at,{title:'Fictional same metadata',provider:'curated',venue:'Same Hall'}),a2={...b,id:'ticketmaster:later-source-id',provider:'ticketmaster'};
+ try{
+  let view=await h.result(0,[b],{nextCursor:'page-two'});button(view,'Show more events').props.onClick();h.render();
+  view=await h.result(1,[{...b,description:'Repeated ID'},a2]);assert.equal(cardTitles(view).length,2);
+  const entries=nodes(view).filter(node=>node.type==='button'&&text(node).trim()==='Who’s going? · Chat');entries[1].props.onClick();view=h.render();
+  assert.equal(nodes(view).find(node=>node.type==='EventCompanionsPanel').props.event,a2);
+  assert.equal(h.searchRequests[1].params.cursor,'page-two');assert.equal(h.reminders.length,0);assert.equal(h.attachments.length,0);
+ }finally{h.dispose();}
+});
+
+for(const [locale,expected]of Object.entries({tr:'Bu seçimin sonuçlarını tam olarak kontrol edemedik.',en:'We could not fully check this selection.',sq:'Nuk mund ta kontrollonim plotësisht këtë zgjedhje.',ro:'Nu am putut verifica complet această selecție.'}))test(`Limited-empty recovery uses the normal ${locale} copy catalog and preserves nonempty qualification`,async()=>{
+ await productionLocale.loadLocaleMessages(locale);
+ const h=eventsHarness(undefined,{locale});try{
+  let view=await h.result(0,[],{coverageLimited:true,coverageStatus:'limited'});assert.ok(text(view).includes(expected));
+  const note=nodes(view).find(node=>String(node.props?.className||'').includes('event-provider-note'));
+  const retry=nodes(note).find(node=>node.type==='button');assert.ok(retry);retry.props.onClick();h.render();
+  view=await h.result(1,[uiEvent('curated:visible',new Date(Date.now()+7200000).toISOString())],{coverageLimited:true,coverageStatus:'limited'});
+  assert.equal(cardTitles(view).length,1);assert.equal(text(view).includes(expected),false);
+  assert.ok(text(view).includes(productionLocale.translateCopy(locale,'Bu ülke için canlı etkinlik kapsamı şu anda sınırlı. Doğrulanmış etkinlik duyuruları gösteriliyor.','Live event coverage is currently limited for this country. Verified event listings are shown.','Mbulimi i aktiviteteve për këtë shtet është i kufizuar. Shfaqen njoftime të verifikuara.')));
+ }finally{h.dispose();}
+});
+
+function aliasBoundary({curatedClock='2026-11-01T21:00:00+03:00',curatedNext=false,automaticNext=false,repeatId=false}={}){
+ const title='Fictional one-to-one occurrence',instant='2026-11-01T18:00:00Z';
+ const editorial={id:'curated:alias',provider:'curated',title,category:'concert',country_code:'TR',city:'Istanbul',venue:'Public Hall',starts_at:curatedClock,status:'scheduled',source_url:'https://official.example/curated-alias',updated_at:instant};
+ const automatic=(id,time=instant,extra={})=>tm(0,{id,name:title,dates:{timezone:'Europe/Istanbul',start:{localDate:'2026-11-01',dateTime:time}},_embedded:{venues:[{name:'Public Hall',city:{name:'Istanbul'},country:{countryCode:'TR'}}]},...extra});
+ const editorialRows=repeatId?[]:[editorial,...(curatedNext?[{...editorial,id:'curated:next',title:'Genuine next occurrence',starts_at:'2026-11-01T23:00:00Z',source_url:'https://official.example/next'}]:[])];
+ const raw=[automatic('alias'),...(automaticNext?[automatic('next','2026-11-01T23:00:00Z',{name:'Genuine next occurrence'})]:[]),...(repeatId?[automatic('alias',instant,{name:'Repeated same ID'})]:[])];
+ const api=service(async()=>Response.json({_embedded:{events:raw},page:{totalPages:1}}),curatedDb(editorialRows),{TICKETMASTER_API_KEY:'test'});
+ return{api,search:{...base,query:'',limit:1},title};
+}
+
+test('A known excluded one-to-one alias at a page boundary is exhausted without a phantom second page',async()=>{
+ const {api,search,title}=aliasBoundary();const first=await api.searchTravelEventPage(search);
+ assert.equal(first.events.length,1);assert.equal(first.events[0].id,'ticketmaster:alias');assert.equal(first.events[0].title,title);
+ assert.equal(first.nextCursor,null,'The already excluded curated alias must not reappear alone on another page');
+});
+
+test('Draining an excluded curated alias stops before the genuine next occurrence and keeps its exact raw position',async()=>{
+ const {api,search}=aliasBoundary({curatedNext:true});const first=await api.searchTravelEventPage(search);
+ const cursor=JSON.parse(decodeURIComponent(first.nextCursor));assert.equal(cursor.curated,1);assert.equal(cursor.automatic,-1);assert.equal(cursor.v,1);assert.equal(cursor.provider,'ticketmaster');
+ const next=await api.searchTravelEventPage(search,first.nextCursor);assert.deepEqual(Array.from(next.events,event=>event.id),['curated:next']);assert.equal(next.nextCursor,null);
+});
+
+test('The mirrored source ordering drains only the excluded automatic alias and preserves the next provider position',async()=>{
+ const {api,search}=aliasBoundary({curatedClock:'2026-11-01T15:00:00-03:00',automaticNext:true});const first=await api.searchTravelEventPage(search);
+ assert.equal(first.events[0].id,'curated:alias');
+ const cursor=JSON.parse(decodeURIComponent(first.nextCursor));assert.equal(cursor.curated,-1);assert.equal(cursor.automatic,1);assert.equal(cursor.v,1);assert.equal(cursor.provider,'ticketmaster');
+ const next=await api.searchTravelEventPage(search,first.nextCursor);assert.deepEqual(Array.from(next.events,event=>event.id),['ticketmaster:next']);assert.equal(next.nextCursor,null);
+});
+
+test('Repeated actual IDs at a source frontier do not create another page or replace the first event',async()=>{
+ const {api,search,title}=aliasBoundary({repeatId:true});const first=await api.searchTravelEventPage(search);
+ assert.equal(first.events.length,1);assert.equal(first.events[0].id,'ticketmaster:alias');assert.equal(first.events[0].title,title);assert.equal(first.nextCursor,null);
 });

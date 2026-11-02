@@ -1,5 +1,6 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel, eventLocalDate, hasEventTime } from "../../../lib/event-time";
+import { uniqueCanonicalEventIds } from "../../../lib/event-occurrence";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
@@ -309,15 +310,7 @@ export function EventsScreen({ initialContext, initialFilters, onFiltersChange, 
       });
       if (serial !== requestSerial.current) return;
       const freshEvents = Array.isArray(result.data) ? result.data : [];
-      setEvents(previous => {
-        const seenIds = new Set<string>(), seenEvents = new Set<string>();
-        const normalized = (value: string) => value.toLocaleLowerCase('en').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-        return [...(append ? previous : []), ...freshEvents].filter(event => {
-          const key = [normalized(event.title), event.startsAt.slice(0, 10), event.countryCode, normalized(event.city)].join('|');
-          if (seenIds.has(event.id) || seenEvents.has(key)) return false;
-          seenIds.add(event.id); seenEvents.add(key); return true;
-        });
-      });
+      setEvents(previous => uniqueCanonicalEventIds([...(append ? previous : []), ...freshEvents]));
       setNextCursor(result.meta?.nextCursor || null);
       setPaginationLimited(result.meta?.paginationLimited === true);
       setAppliedSearch({ signature: requestedSignature, label: requestedLabel });
@@ -569,7 +562,9 @@ export function EventsScreen({ initialContext, initialFilters, onFiltersChange, 
     {providerConfigured && coverageStatus === "provider_unavailable" && <div className="info-box event-provider-note event-provider-unavailable" role="status"><Icon name="alert" size={18} /><p>{events.length
       ? copy("Canlı etkinlik kaynağına şu anda ulaşılamıyor. Biraz sonra yeniden dene; doğrulanmış duyurular gösterilmeye devam ediyor.", "The live event source is temporarily unavailable. Try again shortly; verified listings remain visible.", "Burimi i aktiviteteve nuk është i disponueshëm. Provo përsëri më vonë; njoftimet e verifikuara mbeten të dukshme.")
       : copy("Canlı etkinlik kaynağına şu anda ulaşılamıyor; sonuçları doğrulayamadık. Seçimlerin korundu, yeniden deneyebilirsin.", "The live event source is unavailable, so we could not check the results. Your choices are kept; try again.", "Burimi i aktiviteteve nuk është i disponueshëm, ndaj rezultatet nuk u verifikuan. Zgjedhjet ruhen; provo sërish.")}</p><button type="button" disabled={loading} onClick={() => void search()}>{copy("Yeniden dene", "Retry", "Provo sërish")}</button></div>}
-    {!liveSearchUnavailable && coverageLimited && coverageStatus !== "provider_unavailable" && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Bu ülke için canlı etkinlik kapsamı şu anda sınırlı. Doğrulanmış etkinlik duyuruları gösteriliyor.", "Live event coverage is currently limited for this country. Verified event listings are shown.", "Mbulimi i aktiviteteve për këtë shtet është i kufizuar. Shfaqen njoftime të verifikuara.")}</p></div>}
+    {!liveSearchUnavailable && coverageLimited && coverageStatus !== "provider_unavailable" && <div className="info-box event-provider-note" role="status"><Icon name="info" size={18} /><p>{events.length
+      ? copy("Bu ülke için canlı etkinlik kapsamı şu anda sınırlı. Doğrulanmış etkinlik duyuruları gösteriliyor.", "Live event coverage is currently limited for this country. Verified event listings are shown.", "Mbulimi i aktiviteteve për këtë shtet është i kufizuar. Shfaqen njoftime të verifikuara.")
+      : copy("Bu seçimin sonuçlarını tam olarak kontrol edemedik. Bu, etkinlik olmadığı anlamına gelmez. Seçimlerin korundu; yeniden dene.", "We could not fully check this selection. This does not mean there are no events. Your choices are kept; try again.", "Nuk mund ta kontrollonim plotësisht këtë zgjedhje. Kjo nuk do të thotë se nuk ka aktivitete. Zgjedhjet ruhen; provo sërish.")}</p>{!events.length && <button type="button" disabled={loading || moreLoading} onClick={() => void search()}>{copy("Yeniden dene", "Retry", "Provo sërish")}</button>}</div>}
     {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p><button onClick={() => void search()}>{copy("Tekrar dene", "Try again")}</button></div>}
 
     <section className="section-block event-results">

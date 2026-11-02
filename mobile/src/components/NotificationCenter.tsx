@@ -15,7 +15,7 @@ import { useI18n } from "../lib/i18n";
 import { socialRead, socialWrite } from "../lib/social";
 type SocialNotification = { id: string; kind: 'comment'|'reply'|'follow'; author: {username:string;key:string}; postId: string|null; commentId: string|null; createdAt:string; readAt:string|null };
 
-type SocialInbox = { items: SocialNotification[]; nextOffset: number | null; unreadCount: number };
+type SocialInbox = { items: SocialNotification[]; nextOffset: number | null; unreadCount: number; allReadConfirmed: boolean };
 function checkedSocialNotifications(value: unknown): SocialInbox {
   if (!value || typeof value !== "object" || !Array.isArray((value as { items?: unknown }).items)) {
     throw new Error("Invalid notifications response");
@@ -35,7 +35,8 @@ function checkedSocialNotifications(value: unknown): SocialInbox {
   if (page.nextOffset != null && (!Number.isInteger(page.nextOffset) || Number(page.nextOffset) < 0)
     || page.unreadCount !== undefined && (!Number.isInteger(page.unreadCount) || Number(page.unreadCount) < 0)) throw new Error("Invalid notifications response");
   return {items: items as SocialNotification[], nextOffset: page.nextOffset as number | null ?? null,
-    unreadCount: typeof page.unreadCount === "number" ? page.unreadCount : (items as SocialNotification[]).filter(item => !item.readAt).length};
+    unreadCount: typeof page.unreadCount === "number" ? page.unreadCount : (items as SocialNotification[]).filter(item => !item.readAt).length,
+    allReadConfirmed: page.unreadCount === 0 && (items as SocialNotification[]).every(item => Boolean(item.readAt))};
 }
 
 function formatDate(value: string, locale = "tr-TR") {
@@ -67,21 +68,39 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<FlightAlert[]>([]);
   const [socialNotifications,setSocialNotifications] = useState<SocialNotification[]>([]);
+  const retainedSocialIds = useRef<string[]>([]);
+  const [observedReadIds, setObservedReadIds] = useState<Set<string>>(() => new Set());
   const [socialUnread, setSocialUnread] = useState(0);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const moreRequest = useRef<AbortController | null>(null);
   const socialReadRevision = useRef(0);
+  const readFeedbackRevision = useRef(0);
+  const allReadObservation = useRef(0);
   const pendingSocialReads = useRef(new Set<string>());
   const acknowledgedSocialReads = useRef(new Set<string>());
+  const completedAllReads = useRef(0);
   const previouslyOpen = useRef(open);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; moreRequest.current?.abort(); }; }, []);
   const [loading, setLoading] = useState(false);
   const [serverWarning, setServerWarning] = useState("");
+  const [failedSocialReads, setFailedSocialReads] = useState<string[]>([]);
   const [readIds, setReadIds] = useState<string[]>(() => getReadNotificationIds(ownerId));
   const [storageTick, setStorageTick] = useState(0);
+
+  const acceptReadObservation = useCallback((page: SocialInbox, feedbackRevision: number) => {
+    if (!page.allReadConfirmed) return true;
+    // A GET may confirm the current read-state goal, never a historical POST.
+    // Older snapshots must not dismiss an action/failure that happened later.
+    if (feedbackRevision !== readFeedbackRevision.current) return false;
+    socialReadRevision.current++;
+    allReadObservation.current++;
+    completedAllReads.current++;
+    setFailedSocialReads([]);
+    return true;
+  }, []);
 
   useEffect(() => {
     const update = () => setStorageTick((value) => value + 1);
@@ -111,6 +130,7 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
     }
     let active = true;
     const readRevision = socialReadRevision.current;
+    const feedbackRevision = readFeedbackRevision.current;
     const controller = new AbortController();
     moreRequest.current?.abort(); moreRequest.current = null; setLoadingMore(false);
     setLoading(open);
@@ -125,7 +145,13 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
         if (visaResult.status === "fulfilled") setVisaNotifications(visaResult.value.slice(0, 10));
         if (alertResult.status === "fulfilled") setTriggeredAlerts(alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6));
         if (socialResult.status === 'fulfilled') {
-          if (readRevision === socialReadRevision.current) { setSocialNotifications(socialResult.value.items); setNextOffset(socialResult.value.nextOffset); setSocialUnread(socialResult.value.unreadCount); }
+          if (readRevision === socialReadRevision.current) {
+            if (acceptReadObservation(socialResult.value, feedbackRevision)) {
+              retainedSocialIds.current = socialResult.value.items.map(item => item.id);
+              setSocialNotifications(socialResult.value.items); setObservedReadIds(new Set());
+              setNextOffset(socialResult.value.nextOffset); setSocialUnread(socialResult.value.unreadCount);
+            }
+          }
           else setRefreshTick(value => value + 1);
         }
         if (visaResult.status === "rejected" || alertResult.status === "rejected" || socialResult.status === 'rejected') {
@@ -134,7 +160,7 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; controller.abort(); };
-  }, [accessToken, copy, online, ownerId, refreshTick]);
+  }, [accessToken, acceptReadObservation, copy, online, ownerId, refreshTick]);
 
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [{
@@ -180,12 +206,12 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   }, [copy, ownerId, storageTick, triggeredAlerts, visaNotifications,socialNotifications]);
 
   const isRead = useCallback((item: AppNotification) => {
-    if(item.kind==='social')return Boolean(socialNotifications.find(n=>`social-${n.id}`===item.id)?.readAt);
+    if(item.kind==='social')return socialNotifications.some(n=>`social-${n.id}`===item.id && Boolean(n.readAt || observedReadIds.has(n.id)));
     if (readIds.includes(item.id)) return true;
     if (item.kind === "release" && hasSeenRelease(releaseId)) return true;
     if (!item.id.startsWith("visa-")) return false;
     return Boolean(visaNotifications.find((notification) => `visa-${notification.id}` === item.id)?.read_at);
-  }, [readIds, visaNotifications,socialNotifications]);
+  }, [observedReadIds, readIds, visaNotifications,socialNotifications]);
   const unread = useMemo(() => socialUnread + notifications.filter((item) => item.kind !== "social" && !isRead(item)).length, [isRead, notifications, socialUnread]);
   useEffect(() => onUnreadChange(unread), [onUnreadChange, unread]);
 
@@ -198,15 +224,23 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
     if (item.kind !== "social") markRead([item.id]);
     const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
     if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
-    if(item.kind==='social'&&accessToken&&!pendingSocialReads.current.has(item.id)&&!acknowledgedSocialReads.current.has(item.id)&&socialNotifications.some(row=>`social-${row.id}`===item.id&&!row.readAt)) {
+    if(item.kind==='social'&&accessToken&&!pendingSocialReads.current.has(item.id)&&!acknowledgedSocialReads.current.has(item.id)&&socialNotifications.some(row=>`social-${row.id}`===item.id&&!row.readAt&&!observedReadIds.has(row.id))) {
+      readFeedbackRevision.current++;
+      const observedBefore = allReadObservation.current;
       pendingSocialReads.current.add(item.id);
       void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).then(() => {
-        if (!alive.current) return;
+        if (!alive.current || observedBefore !== allReadObservation.current) return;
         const wasUnread = !acknowledgedSocialReads.current.has(item.id);
         acknowledgedSocialReads.current.add(item.id);
+        setFailedSocialReads(previous => previous.filter(id => id !== item.id));
         setSocialNotifications(previous => previous.map(row => `social-${row.id}` === item.id ? {...row,readAt:new Date().toISOString()} : row));
         if (wasUnread) { socialReadRevision.current++; setSocialUnread(value => Math.max(0,value-1)); }
-      }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); }).finally(() => pendingSocialReads.current.delete(item.id));
+      }).catch(() => {
+        if (alive.current && observedBefore === allReadObservation.current && !acknowledgedSocialReads.current.has(item.id)) {
+          readFeedbackRevision.current++;
+          setFailedSocialReads(previous => previous.includes(item.id) ? previous : [...previous, item.id]);
+        }
+      }).finally(() => pendingSocialReads.current.delete(item.id));
     }
     onClose();
     if(item.kind==='social'&&onOpenSocial){const social=socialNotifications.find(n=>`social-${n.id}`===item.id);if(social){onOpenSocial(social.kind==='follow'?{profileKey:social.author.key}:{postId:social.postId||undefined,commentId:social.commentId||undefined});return;}}
@@ -217,13 +251,23 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   const markAllRead = () => {
     markRead(notifications.filter(item => item.kind !== "social").map((item) => item.id));
     if (!accessToken) return;
+    readFeedbackRevision.current++;
+    const observedBefore = allReadObservation.current;
+    const completedBefore = completedAllReads.current;
     void socialWrite('notifications-read',{},accessToken).then(() => {
-      if (!alive.current) return;
+      if (!alive.current || observedBefore !== allReadObservation.current) return;
+      completedAllReads.current++;
+      setFailedSocialReads([]);
       socialReadRevision.current++;
       for (const item of socialNotifications) acknowledgedSocialReads.current.add(`social-${item.id}`);
       for (const id of pendingSocialReads.current) acknowledgedSocialReads.current.add(id);
       setSocialUnread(0); setSocialNotifications(previous => previous.map(row => ({...row,readAt:row.readAt || new Date().toISOString()})));
-    }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); });
+    }).catch(() => {
+      if (alive.current && observedBefore === allReadObservation.current && completedBefore === completedAllReads.current) {
+        readFeedbackRevision.current++;
+        setFailedSocialReads(previous => previous.includes("all") ? previous : [...previous, "all"]);
+      }
+    });
     void Promise.allSettled(visaNotifications.filter((item) => !item.read_at).map((item) => markVisaAppointmentNotificationRead(item.id, accessToken)));
   };
 
@@ -231,17 +275,27 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
     if (moreRequest.current || nextOffset === null || !accessToken || !online) return;
     const controller = new AbortController(); moreRequest.current = controller; setLoadingMore(true);
     const readRevision = socialReadRevision.current;
+    const feedbackRevision = readFeedbackRevision.current;
     try {
       const page = checkedSocialNotifications(await socialRead<unknown>({section:"notifications",offset:nextOffset},accessToken,controller.signal));
       if (!controller.signal.aborted) {
         if (readRevision !== socialReadRevision.current) { setRefreshTick(value => value + 1); return; }
+        if (!acceptReadObservation(page, feedbackRevision)) return;
+        const retainedIds = [...new Set([...retainedSocialIds.current, ...page.items.map(item => item.id)])];
+        retainedSocialIds.current = retainedIds;
         setSocialNotifications(previous => [...new Map([...previous,...page.items].map(item => [item.id,item])).values()]);
+        // Project the observed state only onto currently retained rows. Fresh
+        // row data replaces this decoration; no timestamp or hidden ID is made.
+        setObservedReadIds(previous => page.allReadConfirmed
+          ? new Set(retainedIds)
+          : new Set([...previous].filter(id => !page.items.some(item => item.id === id))));
         setNextOffset(page.nextOffset); setSocialUnread(page.unreadCount);
       }
     } catch { if (!controller.signal.aborted) setServerWarning(copy("Eski bildirimler yüklenemedi. Tekrar dene.", "Could not load older notifications. Try again.", "Njoftimet e vjetra nuk u ngarkuan. Provo sërish.")); }
     finally { if (moreRequest.current === controller) { moreRequest.current = null; if (alive.current) setLoadingMore(false); } }
   };
 
+  const readWarning = failedSocialReads.length ? copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.") : "";
   return <Sheet open={open} title={copy("Bildirimler", "Notifications")} onClose={onClose} size="large">
     <div className="notification-toolbar">
       <span>{unread ? copy(`${unread} okunmamış bildirim`, `${unread} unread notifications`, `${unread} njoftime të palexuara`) : copy("Tüm bildirimleri gördün", "You're all caught up")}</span>
@@ -260,7 +314,7 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
       })}
     </div>
     {nextOffset !== null && <button type="button" className="secondary-wide" disabled={loadingMore || !online} onClick={() => void loadOlder()}>{copy("Eski bildirimleri göster", "Show older notifications", "Shfaq njoftimet e vjetra")}</button>}
-    {serverWarning && <div className="info-box"><Icon name="info" size={19} /><p>{serverWarning}</p></div>}
+    {(serverWarning || readWarning) && <div className="info-box"><Icon name="info" size={19} /><p>{[serverWarning, readWarning].filter(Boolean).join(" ")}</p></div>}
     {!online && <div className="info-box"><Icon name="offline" size={19} /><p>{copy("Çevrimdışısın. Kayıtlı bildirimler gösteriliyor; canlı bildirimler bağlantı geldiğinde yenilenir.", "You're offline. Saved notifications are shown; live notifications will refresh when you're connected.")}</p></div>}
   </Sheet>;
 }

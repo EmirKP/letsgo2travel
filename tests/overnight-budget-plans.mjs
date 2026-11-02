@@ -180,10 +180,10 @@ test('The actual saved-route deep-link effect contains an unreadable queue befor
   }
   visit(source);
   assert.ok(callback);
-  let handled = 0, section = '', state = { routes: false, events: false };
+  let handled = 0, reads = 0, section = '', state = { routes: false, events: false };
   const code = ts.transpileModule(`(${callback.getText(source)})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   assert.doesNotThrow(() => vm.runInNewContext(code, {
-    initialRouteId: 'bad', ownerId: 'owner-a', getSavedRoutePlans() { throw Error('Queue cannot be read'); },
+    initialRouteId: 'bad', ownerId: 'owner-a', readSavedLibrarySnapshot() { reads++; return { routes: { items: [], unavailable: true }, favorites: { items: [], unavailable: false } }; },
     setLibraryTab: value => { section = value; }, setLocalReadError: next => { state = next(state); },
     onInitialRouteHandled: () => handled++, onNotice() { throw Error('An unreadable route must not be misreported as deleted'); },
   }));
@@ -191,6 +191,7 @@ test('The actual saved-route deep-link effect contains an unreadable queue befor
   assert.equal(state.routes, true);
   assert.equal(state.events, false);
   assert.equal(handled, 1);
+  assert.equal(reads, 1, 'The actual unavailable snapshot must be read; an unrelated ReferenceError cannot satisfy this recovery test');
 });
 
 test('The route form opens despite unreadable saved records and its explicit retry never generates or overwrites a plan', () => {

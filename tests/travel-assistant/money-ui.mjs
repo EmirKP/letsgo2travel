@@ -352,3 +352,49 @@ test('Shared FX loader returns identity 1 for every supported currency without n
   assert.equal(app.calls.length, 0); assert.equal(app.values.size, 0);
   assert.equal(money.identityQuote('XXX', 'XXX'), null);
 });
+
+for (const enteredAmount of ['25', '']) for (const locationOutcome of ['success', 'failure']) test(`Amount intent ${JSON.stringify(enteredAmount)} keeps the visible pair after a late automatic-area ${locationOutcome}`, async () => {
+  let resolveArea, rejectArea;
+  const app = mount({
+    locate: () => new Promise((resolve, reject) => { resolveArea = resolve; rejectArea = reject; }),
+    loader: async (base, target) => quote({ base, quote: target, rate: 2, previousRate: null, previousDate: null, changePercent: null }),
+  });
+  const currency = label => find(app.tree, node => node.type === 'select' && node.props['aria-label'] === label).props.value;
+  const amount = () => find(app.tree, node => node.type === 'input');
+  try {
+    await app.settle(); assert.equal(currency('From'), 'EUR'); assert.equal(currency('To'), 'TRY');
+    assert.match(text(byClass(app.tree, 'tm-location-note')), /Finding your local currency/);
+    amount().props.onChange({ target: { value: enteredAmount } }); app.render();
+    assert.equal(byClass(app.tree, 'tm-location-note'), undefined, 'A deliberate amount edit settles only the pending automatic-selection note');
+    if (locationOutcome === 'success') resolveArea({ country: 'TR' }); else rejectArea(Error('Fictional area unavailable'));
+    await app.settle(); await app.settle();
+    assert.equal(currency('From'), 'EUR'); assert.equal(currency('To'), 'TRY'); assert.equal(amount().props.value, enteredAmount);
+    assert.deepEqual(app.calls, [['EUR', 'TRY']], 'The late area cannot request a newly reinterpreted pair');
+    assert.equal(app.choices.length, 0, 'Typing an amount is local intent, not a saved pair preference');
+    assert.equal(app.locationCalls, 1); assert.equal(byClass(app.tree, 'tm-location-note'), undefined);
+    if (enteredAmount) assert.match(text(byClass(app.tree, 'tm-conversion')), /≈ 50/);
+    else { assert.equal(amount().props['aria-invalid'], true); assert.doesNotMatch(text(byClass(app.tree, 'tm-conversion')), /≈/); }
+  } finally { app.dispose(); }
+});
+
+test('Amount edits preserve known guide, destination, unsupported and completed automatic currency provenance', async () => {
+  for (const [options, note] of [
+    [{ initialBaseCurrency: 'JPY' }, /selected from your country guide/],
+    [{ destinationCountry: 'JP', initialBaseCurrency: 'JPY' }, /comes from your travel country/],
+    [{ destinationCountry: 'ID', initialPair: { base: 'GBP', quote: 'USD' } }, /destination currency is not supported/],
+    [{ locate: async () => ({ country: 'GB' }) }, /Your local currency is selected/],
+    [{ locate: async () => { throw Error('Fictional denied area'); } }, /could not be determined/],
+  ]) {
+    const app = mount({ ...options, loader: async (base, target) => quote({ base, quote: target, rate: 2, previousRate: null, previousDate: null, changePercent: null }) });
+    try {
+      await app.settle(); await app.settle();
+      const before = text(byClass(app.tree, 'tm-location-note'));
+      assert.match(before, note);
+      const pairBefore = nodes(app.tree).filter(node => node.type === 'select').map(node => node.props.value);
+      find(app.tree, node => node.type === 'input').props.onChange({ target: { value: '25' } }); app.render();
+      assert.equal(text(byClass(app.tree, 'tm-location-note')), before, 'Amount editing cannot relabel already-known currency provenance');
+      assert.deepEqual(nodes(app.tree).filter(node => node.type === 'select').map(node => node.props.value), pairBefore);
+      assert.equal(app.choices.length, 0); assert.equal(find(app.tree, node => node.type === 'input').props.value, '25');
+    } finally { app.dispose(); }
+  }
+});

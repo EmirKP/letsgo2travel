@@ -1,4 +1,5 @@
 import { requestJson } from "./api";
+import type { AirportLifecycle } from "../../../lib/airport-lifecycle";
 
 // Havalimanı arama istemcisi: web ile AYNI ortak kaynak olan
 // /api/airports ucunu kullanır (OurAirports veri seti, sunucu tarafı
@@ -12,6 +13,7 @@ export type AirportOption = {
   country: string;
   countryCode: string;
   timeZone?: string | null;
+  lifecycle?: AirportLifecycle | null;
 };
 
 const cache = new Map<string, AirportOption[]>();

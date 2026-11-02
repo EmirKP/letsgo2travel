@@ -264,6 +264,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const [transferRequest, setTransferRequest] = useState<{ code: string; id: number } | null>(null);
   const [savedAcknowledgement, setSavedAcknowledgement] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ trip: CockpitTrip; session: CockpitSessionSnapshot } | null>(null);
@@ -312,6 +313,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     loadGeneration.current += 1;
     setBusy("");
     setDeleteTarget(null); pendingDelete.current = null;
+    setListError("");
     setError("");
     setLoading(false);
 
@@ -408,18 +410,20 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   }, [selectedTripId, selectedTrip, userId]);
   const selectedChecklistItems = useMemo(() => selectedTrip?.checklistItems.filter((item) => item.kind !== "event") || [], [selectedTrip]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ preserveActionError = false }: { preserveActionError?: boolean } = {}) => {
     const generation = ++loadGeneration.current;
     const session = captureSession();
     if (!session) {
       setTrips([]);
       setSelectedTripId("");
+      setListError("");
       setError("");
       setLoading(false);
       return;
     }
     setLoading(true);
-    setError("");
+    setListError("");
+    if (!preserveActionError) setError("");
     try {
       // İptal edilen kayıtlar da yüklenir; kullanıcı durumunu yeniden
       // "Yaklaşan" yapabilmeli ve geçmiş kararları kaybolmamalıdır.
@@ -432,7 +436,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setSelectedTripId((current) => next.some((trip) => trip.id === current) ? current : next[0]?.id || "");
     } catch (requestError) {
       if (generation === loadGeneration.current && isCurrentSession(session)) {
-        setError(getSupabaseDataErrorMessage(requestError, copy("Seyahatlerin yüklenemedi.", "Your trips could not be loaded.")));
+        setListError(getSupabaseDataErrorMessage(requestError, copy("Seyahatlerin yüklenemedi.", "Your trips could not be loaded.")));
       }
     } finally {
       if (generation === loadGeneration.current && isCurrentSession(session)) setLoading(false);
@@ -999,10 +1003,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       </button>}
     </form>}
 
+    {listError && <div className="info-box error cockpit-native-error" role="alert"><Icon name="alert" size={20} /><p>{listError}</p><button disabled={loading || Boolean(busy)} onClick={() => void load({ preserveActionError: true })}>{copy("Tekrar dene", "Try again")}</button></div>}
     {error && <div className="info-box error cockpit-native-error" role="alert"><Icon name="alert" size={20} /><p>{error}</p>{!formOpen && <button disabled={loading} onClick={() => void load()}>{copy("Tekrar dene", "Try again")}</button>}</div>}
 
     {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label={copy("Seyahatler yükleniyor", "Loading trips")}><div /><div /><div /></div>
-      : error && !trips.length ? null
+      : (listError || error || loadedOwner !== userId) && !trips.length ? null
       : !trips.length ? <div className="empty-state cockpit-native-empty">
         <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span><strong>{copy("Henüz seyahat eklemedin", "No trips added yet", "Ende nuk ke shtuar udhëtime")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
       </div>

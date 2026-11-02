@@ -163,16 +163,23 @@ export function getSavedRoutePlans(ownerId?: string | null) {
 }
 
 export function saveRoutePlan(plan: SavedRoutePlan, ownerId?: string | null) {
+  // Bind the checked base before any queue/base write. A soft reread here could
+  // turn a refused read into [] and replace other saved plans with this one.
+  const checked = readLibraryItems<SavedRoutePlan>(ROUTES_KEY, ownerId);
+  const current = routesWithOutbox(checked.items, ownerId);
   // Explicitly saving a deleted generation is a new save. Preserve the old
   // tombstone so delayed uploads and guest-import retries stay suppressed.
   if (ownerId && readRouteOutbox(ownerId)[plan.id]?.kind === "delete") {
     const inspiration = /^inspiration\.([A-Z0-9]{2,8})(?::|$)/.exec(plan.id);
     plan = { ...plan, id: inspiration ? `inspiration.${inspiration[1]}:${createId()}` : `route-${createId()}` };
   }
-  const next = [plan, ...getSavedRoutePlans(ownerId).filter((item) => item.id !== plan.id)];
+  const next = [plan, ...current.filter((item) => item.id !== plan.id)];
   if (ownerId) queueRouteSave(ownerId, plan);
   // Throw on failure so callers cannot announce a save that was never durable.
   window.localStorage.setItem(scopedKey(ROUTES_KEY, ownerId), JSON.stringify(next));
+  if (checked.guestLegacy) {
+    try { window.localStorage.removeItem(ROUTES_KEY); } catch { /* The saved scoped copy remains authoritative. */ }
+  }
   emitChange();
   return next;
 }
@@ -201,6 +208,38 @@ export function deleteRoutePlan(id: string, ownerId?: string | null) {
 
 export function getFavoriteDestinations(ownerId?: string | null) {
   return readScoped<FavoriteDestination>(FAVORITES_KEY, ownerId);
+}
+
+function readLibraryItems<T>(base: string, ownerId?: string | null): { items: T[]; guestLegacy: boolean } {
+  if (ownerId && !/^[a-zA-Z0-9_-]{1,80}$/.test(ownerId)) throw new Error("Invalid library owner");
+  const scoped = window.localStorage.getItem(scopedKey(base, ownerId));
+  const legacy = scoped === null && !ownerId;
+  const raw = legacy ? window.localStorage.getItem(base) : scoped;
+  if (raw === null) return { items: [], guestLegacy: false };
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("Library records cannot be read");
+  return { items: parsed as T[], guestLegacy: legacy };
+}
+
+// Library reads must distinguish a confirmed empty store from an unreadable
+// one. Keep this separate from legacy getters and their migration behaviour:
+// opening or retrying the library never creates a marker or rewrites a record.
+export function readSavedLibrarySnapshot(ownerId?: string | null): {
+  routes: { items: SavedRoutePlan[]; unavailable: boolean };
+  favorites: { items: FavoriteDestination[]; unavailable: boolean };
+} {
+  let routes: { items: SavedRoutePlan[]; unavailable: boolean };
+  let favorites: { items: FavoriteDestination[]; unavailable: boolean };
+  let baseRoutes: SavedRoutePlan[] = [], baseUnavailable = false;
+  try { baseRoutes = readLibraryItems<SavedRoutePlan>(ROUTES_KEY, ownerId).items; }
+  catch { baseUnavailable = true; }
+  // A refused base store does not invalidate a separately readable queue.
+  // Its verified saves remain usable, while the base warning stays visible.
+  try { routes = { items: routesWithOutbox(baseRoutes, ownerId), unavailable: baseUnavailable }; }
+  catch { routes = { items: [], unavailable: true }; }
+  try { favorites = { items: readLibraryItems<FavoriteDestination>(FAVORITES_KEY, ownerId).items, unavailable: false }; }
+  catch { favorites = { items: [], unavailable: true }; }
+  return { routes, favorites };
 }
 
 export function setFavoriteDestinations(destinations: FavoriteDestination[], ownerId?: string | null) {

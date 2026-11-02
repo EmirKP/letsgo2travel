@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
 import { TravelToolArtwork } from "./TravelToolArtwork";
 import { useI18n } from "../lib/i18n";
@@ -23,12 +23,15 @@ function PersonalCardsEditor({ ownerId, tripId, trips = [] }: PersonalTravelCard
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const formId = useId();
+  const reload = useCallback(() => {
+    const next = readPersonalTravelCards(ownerId);
+    setStored(previous => next.error ? { ...previous, error: next.error } : next);
+  }, [ownerId]);
   useEffect(() => {
-    const reload = () => setStored(readPersonalTravelCards(ownerId));
     window.addEventListener(PERSONAL_TRAVEL_CARDS_EVENT, reload);
     window.addEventListener("storage", reload);
     return () => { window.removeEventListener(PERSONAL_TRAVEL_CARDS_EVENT, reload); window.removeEventListener("storage", reload); };
-  }, [ownerId]);
+  }, [reload]);
   const items = tripId ? stored.items.filter(item => item.tripId === tripId) : stored.items;
   const tripOptions = tripId && !trips.some(trip => trip.id === tripId)
     ? [{ id: tripId, title: copy("Bu seyahat", "This trip", "Ky udhëtim") }, ...trips]
@@ -70,7 +73,7 @@ function PersonalCardsEditor({ ownerId, tripId, trips = [] }: PersonalTravelCard
     <header><span className="ptc-artwork"><TravelToolArtwork kind="offline" size={64}/></span><div><small>{copy("İNTERNET GEREKTİRMEZ", "NO INTERNET NEEDED")}</small><h2 id={`${formId}-title`}>{copy("Kişisel seyahat kartın", "Your personal travel card")}</h2></div></header>
     <p className="ptc-intro">{copy("Otelini, adresini ve rezervasyon notunu kendin ekle. İhtiyacın olduğunda tek yerde bul.", "Add your hotel, address and reservation note. Keep them together for when you need them.")}</p>
     <p className="ptc-storage"><Icon name="lock" size={15}/>{ownerId ? copy("Yalnız bu cihazda, bu hesabın bölümünde saklanır. Başka cihazlara eşitlenmez.", "Stored only on this device, under this account. It does not sync to other devices.") : copy("Bu cihazın misafir bölümünde saklanır. Cihazı kullanan diğer misafirler görebilir.", "Saved in this device's guest area. Other guests using this device can see it.")}</p>
-    {stored.error && <p className="ptc-error" role="alert">{copy("Mevcut kartlar okunamadı. Kayıtların üzerine yazılmadı; cihaz depolamasını kontrol et.", "Existing cards could not be read. Nothing was overwritten; check device storage.")}</p>}
+    {stored.error && <div className="ptc-error" role="alert"><p>{copy("Mevcut kartlar okunamadı. Kayıtların üzerine yazılmadı; cihaz depolamasını kontrol et.", "Existing cards could not be read. Nothing was overwritten; check device storage.")}</p><button type="button" className="secondary-wide" onClick={reload}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div>}
     {error && <p className="ptc-error" role="alert">{error}</p>}
     {message && <p className="ptc-message" role="status">{message}</p>}
     {removed && <div className="ptc-undo" role="status"><span>{copy("Kart kaldırıldı.", "Card removed.")}</span><button type="button" onClick={undo}>{copy("Geri al", "Undo")}</button><button type="button" onClick={() => setRemoved(null)} aria-label={copy("Geri almayı kapat", "Dismiss undo")}><Icon name="close" size={17}/></button></div>}

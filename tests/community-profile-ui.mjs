@@ -496,6 +496,75 @@ test('an unavailable profile clears previously displayed identity and content, u
   h.dispose();
 });
 
+test('default photo gallery exposes a failed metadata refresh and one explicit retry without hiding cached profile', async () => {
+  const h = harness({ profileKey: 'user:me' }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, followerCount: 4 }), items: [], nextOffset: null });
+    h.render({ revision: 1 });
+    await h.reject(1, new ApiError('Temporarily unavailable', 503));
+    assert.ok(find(h.tree, 'SocialGallery'));
+    assert.ok(button(h.tree, '4Followers'), 'An ordinary metadata failure must retain the cached profile');
+    assert.match(text(h.tree), /Could not connect/);
+    assert.equal(nodes(h.tree).filter(node => node.props?.role === 'alert').length, 1);
+    assert.ok(nodes(h.tree).findIndex(node => node.props?.role === 'alert') < nodes(h.tree).findIndex(node => node.type === 'SocialGallery'), 'Retry feedback appears before a potentially long photo gallery');
+    assert.ok(button(h.tree, 'Try again'));
+    h.click('Forum1');
+    assert.equal(nodes(h.tree).filter(node => node.props?.role === 'alert').length, 1, 'Forum must not render a duplicate notice');
+    h.click('Posts');
+    h.click('Try again');
+    assert.equal(h.requests.length, 3);
+    assert.ok(find(h.tree, 'SocialGallery'), 'Retry keeps the existing photo gallery mounted');
+    assert.equal(nodes(h.tree).filter(node => node.props?.role === 'alert').length, 0, 'A new attempt clears stale feedback');
+    await h.reject(2, new ApiError('Still unavailable', 503));
+    assert.ok(button(h.tree, 'Try again'));
+    assert.ok(button(h.tree, '4Followers'));
+    h.click('Try again');
+    await h.resolve(3, { profile: sample('user:me', { isOwn: true, followerCount: 8 }), items: [], nextOffset: null });
+    assert.ok(button(h.tree, '8Followers'));
+    assert.equal(button(h.tree, 'Try again'), undefined);
+    assert.equal(nodes(h.tree).filter(node => node.props?.role === 'alert').length, 0);
+    assert.ok(h.requests.every(request => !request.options.method), 'Refreshing metadata never automatically saves or follows');
+  } finally { h.dispose(); }
+});
+
+test('gallery metadata retry retains the same-owner edit draft across token rotation', async () => {
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Own Name', onSaveIdentity: async () => {} }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, bio: 'Existing bio' }), items: [], nextOffset: null });
+    h.click('Edit profile');
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Do not discard this draft' } }); h.render();
+    h.render({ accessToken: 'fresh-token' });
+    await h.reject(1, new ApiError('Temporarily unavailable', 503));
+    assert.equal(find(h.tree, 'textarea').props.value, 'Do not discard this draft');
+    h.click('Try again');
+    assert.equal(h.requests[2].options.headers.Authorization, 'Bearer fresh-token');
+    await h.resolve(2, { profile: sample('user:me', { isOwn: true, bio: 'Existing bio' }), items: [], nextOffset: null });
+    assert.equal(find(h.tree, 'textarea').props.value, 'Do not discard this draft');
+    assert.equal(h.requests.filter(request => request.options.method).length, 0);
+    assert.equal(h.calls.account, 0);
+  } finally { h.dispose(); }
+});
+
+test('forum pagination failure stays scoped to forum when switching to the photo gallery', async () => {
+  const h = harness();
+  try {
+    await h.resolve(0, { profile: sample(), items: [post('first')], nextOffset: 1 });
+    h.click('Forum1'); h.click('Show more');
+    await h.reject(1, new ApiError('Temporarily unavailable', 503));
+    assert.ok(button(h.tree, 'Try again'));
+    assert.match(text(h.tree), /Topic first/);
+    h.click('Posts');
+    assert.ok(find(h.tree, 'SocialGallery'));
+    assert.equal(button(h.tree, 'Try again'), undefined, 'Forum pagination is separate from photo-feed and profile-metadata failures');
+    h.click('Forum1');
+    assert.equal(nodes(h.tree).filter(node => node.props?.role === 'alert').length, 1);
+    h.click('Try again');
+    assert.match(h.requests[2].path, /offset=1/);
+    await h.resolve(2, { profile: sample(), items: [post('second')], nextOffset: null });
+    assert.match(text(h.tree), /Topic first/); assert.match(text(h.tree), /Topic second/);
+  } finally { h.dispose(); }
+});
+
 
 test('own unpublished forum photos show distinct status and no broken public discussion link',async()=>{
  const h=harness({profileKey:'user:me'});try{

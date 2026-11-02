@@ -109,7 +109,7 @@ test('An earlier same-owner save cannot approve a later event completion intent'
 });
 
 test('Events restores an unsaved snapshot, preserves it on token refresh, and forwards the complete event into profile completion', async () => {
-  const { eventsHarness } = declarations('tests/ux14-community-events.mjs', ['tick', 'deferred', 'jsx', 'load', 'host', 'nodes', 'text', 'button', 'dates', 'places', 'searchText', 'eventContext', 'eventTime', 'today', 'eventsHarness']);
+  const { eventsHarness } = declarations('tests/ux14-community-events.mjs', ['productionLocale', 'tick', 'deferred', 'jsx', 'load', 'host', 'nodes', 'text', 'button', 'dates', 'places', 'searchText', 'eventContext', 'eventTime', 'today', 'eventsHarness']);
   const h = eventsHarness(undefined, { initialOwner: 'a' }), event = bridgeHarness().context.event, completed = []; let handled = 0;
   try {
     let view = h.render({ profileEvent: event, onProfileEventHandled: () => handled++, onCompleteProfile: value => completed.push(value) });
@@ -172,7 +172,7 @@ function plansHarness({ raw = '{}', saved = [], cloud = [], places = [], pins = 
   const component = name => ({ [name]: name });
   const imports = {
     react: { ...host.react, lazy: loader => `Lazy:${loader.toString()}` }, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    '../lib/i18n': { useI18n: () => ({ locale: 'en', dateLocale: 'en-GB', copy: (_tr, en) => en }) },
+    '../lib/i18n': { useI18n: () => ({ locale: 'en', dateLocale: 'en-GB', countryName: (_code, fallback) => fallback, copy: (_tr, en) => en }) },
     '../lib/locale': { translateCopy: (_locale, _tr, en) => en }, '../lib/localeFormatting': { formatAppDate: () => '30 Oct 2026' }, '../../../lib/event-time': {},
     ...Object.fromEntries(['Icon', 'TravelToolArtwork', 'TravelReadinessCard', 'CountryFlag', 'Sheet', 'LazyOverlay', 'TripCollaborationHub', 'PersonalTravelCards', 'RouteBudgetAnalysis', 'RouteTranslation'].map(name => [`../components/${name}`, component(name)])),
     '../data/countryIso': { alpha2FromAlpha3: alpha3 => ({ THA: 'TH', FRA: 'FR' })[alpha3] || '' }, '../data/artwork': { destinationArtwork: () => 'fixture.webp' }, '../data/discovery': { DISCOVERY_DESTINATIONS: [] },
@@ -181,7 +181,7 @@ function plansHarness({ raw = '{}', saved = [], cloud = [], places = [], pins = 
     '../lib/openMapOffline': { listOpenMapPacks: async () => { if (packs instanceof Error) throw packs; return packs; }, subscribeOpenMapPacks: () => () => {} }, '../lib/offlineMaps': { readOfflineMapStatus: () => legacy },
     '../lib/journeyTools': { readSafetyTrips: () => [], saveSafetyTrips() { throw Error('Unexpected write'); } }, '../lib/savedRouteDisplay': {}, '../../../lib/planner-passport': {},
     '../lib/supabaseData': { listUserTrips: async () => cloud, getSupabaseDataErrorMessage: (_error, fallback) => fallback }, '../lib/accountResume': { onAccountResume: () => () => {} },
-    '../lib/storage': { getSavedRoutePlans: owner => outbox.routesWithOutbox(saved, owner), getFavoriteDestinations: () => favourites, getSavedTravelEvents: () => [] },
+    '../lib/storage': { readSavedLibrarySnapshot: owner => { let routes; try { routes = { items: outbox.routesWithOutbox(saved, owner), unavailable: false }; } catch { routes = { items: [], unavailable: true }; } return { routes, favorites: { items: favourites, unavailable: false } }; }, getSavedTravelEvents: () => [] },
     '../lib/native': {}, '../lib/routeOutbox': outbox, '../lib/routeSync': {}, '../lib/eventReminders': {}, '../lib/routeCockpitIntent': {},
     '../lib/searchText': { normalizeSearchText: value => value.toLowerCase() },
   };

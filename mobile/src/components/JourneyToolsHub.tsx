@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { DateTimeField } from "./DateTimeField";
 
 import { readJournal, writeJournal, validJournalDraft, type JournalEntry } from "../lib/travelJournal";
@@ -61,6 +61,12 @@ function tripLabel(trip: SafetyTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
+type JournalReadState = { entries: JournalEntry[]; readError: boolean };
+function readJournalState(ownerId?: string | null): JournalReadState {
+  try { return { entries: readJournal(ownerId).entries, readError: false }; }
+  catch { return { entries: [], readError: true }; }
+}
+
 export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId, accessToken, onNavigate, onNotice, onOpenAccount, onEditVisitedCountries, tripOptions, hideOverview = false, initialAirportCode }: {
   initialTool?: ToolId;
   toolRequestId?: number;
@@ -80,7 +86,8 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   const [active, setActive] = useState<ToolId | null>(initialTool || null);
   useEffect(() => { if (initialTool) setActive(initialTool); }, [initialTool, toolRequestId]);
   const [trips, setTrips] = useState<SafetyTrip[]>(() => readSafetyTrips(ownerId));
-  const [journal, setJournal] = useState<JournalEntry[]>(() => { try { return readJournal(ownerId).entries; } catch { return []; } });
+  const [journalState, setJournalState] = useState(() => readJournalState(ownerId));
+  const journal = journalState.entries;
   const [busy, setBusy] = useState("");
   const [journalTitle, setJournalTitle] = useState("");
   const [journalNote, setJournalNote] = useState("");
@@ -103,12 +110,15 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   const visited = useMemo(() => getVisitedCountries(ownerId), [ownerId, active]);
   const visitedCodes = useMemo(() => new Set(visited.map((item) => item.alpha3)), [visited]);
 
+  const reloadJournal = useCallback(() => {
+    const next = readJournalState(ownerId);
+    setJournalState(previous => next.readError ? { ...previous, readError: true } : next);
+  }, [ownerId]);
   useEffect(() => {
-    const reload = () => { try { setJournal(readJournal(ownerId).entries); } catch { onNotice(copy("Günlük okunamadı; mevcut kayıtlar değiştirilmedi.", "Journal storage could not be read; existing data was preserved.")); } };
-    reload();
-    window.addEventListener("l2t:journal-change", reload);
-    return () => window.removeEventListener("l2t:journal-change", reload);
-  }, [ownerId, copy, onNotice]);
+    reloadJournal();
+    window.addEventListener("l2t:journal-change", reloadJournal);
+    return () => window.removeEventListener("l2t:journal-change", reloadJournal);
+  }, [reloadJournal]);
 
   useEffect(() => {
     let live = true;
@@ -169,10 +179,13 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   const selectedMapName = selectedMapCountry ? countryName(selectedMapCountry, COUNTRY_LIST.find((item) => item.alpha3 === selectedMapCountry)?.name || selectedMapCountry) : "";
 
   const shareYear = async () => {
+    if (journalState.readError) return;
     const text = copy(`${year} seyahat özetim: ${yearCountries.size} ülke, ${yearTrips.length} seyahat, ${travelDays} gün ve ${yearJournal.length} anı.`, `My ${year} travel recap: ${yearCountries.size} countries, ${yearTrips.length} trips, ${travelDays} days and ${yearJournal.length} memories.`, `Përmbledhja ime e udhëtimeve për ${year}: ${yearCountries.size} shtete, ${yearTrips.length} udhëtime, ${travelDays} ditë dhe ${yearJournal.length} kujtime.`);
     const shared = await shareContent({ title: copy("LetsGo2Travel yıllık özetim", "My LetsGo2Travel year"), text, url: "https://www.letsgo2travel.com.tr" });
     onNotice(shared ? copy("Yıllık özetin paylaşmaya hazır.", "Your yearly recap is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
   };
+
+  const journalReadWarning = journalState.readError && <div className="info-box" role="alert"><div><p>{copy("Günlük okunamadı; mevcut kayıtlar değiştirilmedi.", "Journal storage could not be read; existing data was preserved.", "Ditari nuk u lexua nga ruajtja; të dhënat ekzistuese u ruajtën.")}</p><button type="button" className="secondary-wide" onClick={reloadJournal}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div></div>;
 
   return <section className="journey-tools" aria-labelledby={hideOverview ? undefined : "journey-tools-title"} aria-label={hideOverview ? copy("Aktarma yardımcısı", "Transfer assistant", "Ndihmësi i tranzitit") : undefined}>
     {!hideOverview && <><div className="journey-tools-heading"><div><small>{copy("YENİ · SEYAHATİNİN TAMAMI", "NEW · YOUR WHOLE JOURNEY")}</small><h2 id="journey-tools-title">{copy("Seyahat araçlarım", "My travel tools")}</h2><p>{copy("Anından güvenliğine kadar her şey tek yerde; aramana gerek yok.", "Everything from memories to safety in one place—no hunting around.")}</p></div><span><Icon name="sparkles" size={22} /></span></div>
@@ -180,6 +193,7 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
 
     <Sheet open={active === "journal"} title={copy("Seyahat günlüğüm", "Travel journal")} size="large" onClose={() => setActive(null)}>
       <div className="journey-sheet-intro journey-artwork-intro"><span><TravelToolArtwork kind="guide" size={64} /></span><div><small>{copy("ANILARIN SENİNLE KALSIN", "KEEP YOUR MEMORIES")}</small><h3>{copy("Bugünden bir şey yaz", "Write something from today")}</h3><p>{copy("Giriş yaptıysan kayıtların hesabınla eşitlenir.", "When signed in, entries sync with your account.")}</p></div></div>
+      {journalReadWarning}
       <form className="journey-journal-form" onSubmit={addJournal}>
         <div className="journey-form-row"><DateTimeField type="date" label={copy("Tarih", "Date")} required value={journalDate} max={localIsoDate(0)} onChange={setJournalDate} /><label>{copy("Hissettiğin", "Mood")}<select value={mood} onChange={(event) => setMood(event.target.value)}>{journalMoods.map((item) => <option key={item.value} value={item.value}>{copy(item.tr, item.en, item.sq)}</option>)}</select></label></div>
         {trips.length > 0 && <label>{copy("Seyahat", "Trip")}<select value={journalTripId} onChange={(event) => setJournalTripId(event.target.value)}><option value="">{copy("Seyahat seçmeden kaydet", "Save without choosing a trip")}</option>{trips.map((trip) => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}</select></label>}
@@ -187,7 +201,7 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
         <label>{copy("Neyi hatırlamak istiyorsun?", "What do you want to remember?")}<textarea value={journalNote} maxLength={1200} onChange={(event) => setJournalNote(event.target.value)} placeholder={copy("Gördüklerini, hissettiklerini ve küçük ayrıntıları yaz…", "Write what you saw, felt and the little details…")} /></label>
         <button type="submit" disabled={Boolean(busy) || !validJournalDraft(journalTitle,journalNote,journalDate)}>{busy === "journal" ? <span className="button-loader dark" /> : <Icon name="plus" size={17} />} {copy("Günlüğe ekle", "Add to journal")}</button>
       </form>
-      <div className="journey-journal-list">{journal.map((entry) => <article key={entry.id}><JournalMood value={entry.mood} locale={locale} /><div><small>{isCalendarDate(entry.entryDate) ? formatAppDate(new Date(`${entry.entryDate}T12:00:00`), dateLocale, { day: "2-digit", month: "short", year: "numeric" }) : copy("Tarih belirtilmedi", "Date not set")}{entry.place ? ` · ${entry.place}` : ""}</small><strong>{entry.title}</strong><p>{entry.note}</p>{user && entry.remoteId === undefined && <small>{copy("Eşitleme bekliyor", "Waiting to sync")}</small>}</div><button type="button" disabled={Boolean(busy)} onClick={() => void removeJournal(entry)} aria-label={copy("Anıyı sil", "Delete memory")}><Icon name="trash" size={16} /></button></article>)}{!journal.length && <p className="journey-empty">{copy("Henüz bir anı eklemedin. İlk seyahat notun burada görünecek.", "No memories yet. Your first travel note will appear here.")}</p>}</div>
+      <div className="journey-journal-list">{journal.map((entry) => <article key={entry.id}><JournalMood value={entry.mood} locale={locale} /><div><small>{isCalendarDate(entry.entryDate) ? formatAppDate(new Date(`${entry.entryDate}T12:00:00`), dateLocale, { day: "2-digit", month: "short", year: "numeric" }) : copy("Tarih belirtilmedi", "Date not set")}{entry.place ? ` · ${entry.place}` : ""}</small><strong>{entry.title}</strong><p>{entry.note}</p>{user && entry.remoteId === undefined && <small>{copy("Eşitleme bekliyor", "Waiting to sync")}</small>}</div><button type="button" disabled={Boolean(busy)} onClick={() => void removeJournal(entry)} aria-label={copy("Anıyı sil", "Delete memory")}><Icon name="trash" size={16} /></button></article>)}{!journal.length && !journalState.readError && <p className="journey-empty">{copy("Henüz bir anı eklemedin. İlk seyahat notun burada görünecek.", "No memories yet. Your first travel note will appear here.")}</p>}</div>
     </Sheet>
 
     <Sheet open={active === "map"} title={copy("Dünya haritam", "My world map")} size="large" onClose={() => setActive(null)}>
@@ -217,9 +231,9 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
     <Sheet open={active === "summary"} title={copy(`${year} seyahat özetim`, `My ${year} travel recap`, `Përmbledhja ime e udhëtimeve për ${year}`)} size="large" onClose={() => setActive(null)}>
       <div className="year-recap-hero"><small>LETSGO2TRAVEL · {year}</small><h3>{copy("Bu yıl dünyada bıraktığın iz", "Your footprint around the world")}</h3><p>{copy("Başlamış ve tamamlanmış seyahatlerin ile anıların. Ortak günler bir kez sayılır.", "Started and completed trips and memories. Overlapping days count once.")}</p></div>
       <div className="year-recap-stats"><article><strong>{yearCountries.size}</strong><small>{copy("Ülke", "Countries")}</small></article><article><strong>{yearTrips.length}</strong><small>{copy("Seyahat", "Trips")}</small></article><article><strong>{travelDays}</strong><small>{copy("Gün", "Days")}</small></article><article><strong>{yearTrips.filter((trip) => trip.originIata && trip.destinationIata).length}</strong><small>{copy("Uçuş", "Flights")}</small></article></div>
-      <div className="year-recap-memory"><JournalMood value={yearJournal[0]?.mood} locale={locale} /><div><small>{copy(`${yearJournal.length} GÜNLÜK ANI`, `${yearJournal.length} JOURNAL MEMORIES`, `${yearJournal.length} KUJTIME NË DITAR`)}</small><strong>{yearJournal[0]?.title || copy("İlk anını eklemeye hazır", "Ready for your first memory")}</strong><p>{yearJournal[0]?.note || copy("Seyahat günlüğüne yazdıkların burada özetlenecek.", "Your journal entries will be highlighted here.")}</p></div></div>
+      {journalState.readError ? journalReadWarning : <div className="year-recap-memory"><JournalMood value={yearJournal[0]?.mood} locale={locale} /><div><small>{copy(`${yearJournal.length} GÜNLÜK ANI`, `${yearJournal.length} JOURNAL MEMORIES`, `${yearJournal.length} KUJTIME NË DITAR`)}</small><strong>{yearJournal[0]?.title || copy("İlk anını eklemeye hazır", "Ready for your first memory")}</strong><p>{yearJournal[0]?.note || copy("Seyahat günlüğüne yazdıkların burada özetlenecek.", "Your journal entries will be highlighted here.")}</p></div></div>}
       {yearTrips.length > 0 && <div className="year-route-list">{yearTrips.slice(0, 6).map((trip) => <article key={trip.id}><CountryFlag code={trip.destinationCode} label={trip.destinationCountry} /><div><strong>{tripLabel(trip)}</strong><small>{formatAppDate(new Date(`${trip.startDate}T12:00:00`), dateLocale, { day: "2-digit", month: "short" })} · {recap.daysForTrip(trip)} {copy("gün", "days")}</small></div></article>)}</div>}
-      <button className="primary-wide" type="button" onClick={() => void shareYear()}><Icon name="share" size={18} /> {copy("Özetimi paylaş", "Share my recap")}</button>
+      <button className="primary-wide" type="button" disabled={journalState.readError} onClick={() => void shareYear()}><Icon name="share" size={18} /> {copy("Özetimi paylaş", "Share my recap")}</button>
     </Sheet>
   </section>;
 }

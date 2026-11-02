@@ -110,12 +110,26 @@ export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,o
   const descriptionFor = (t: Tool) => copy(...descriptions[t]);
   const officialGuide = (advisoryDestinations as Record<string, {fcdo?: string}>)[country]?.fcdo;
   const [guideNotice, setGuideNotice] = useState('');
+  const guideSourceRequest = useRef(0);
+  useEffect(() => {
+    setGuideNotice('');
+    return () => { guideSourceRequest.current++; };
+  }, [country, tool, locale]);
+  const openOfficialGuide = async () => {
+    if (!officialGuide) return;
+    const request = ++guideSourceRequest.current;
+    setGuideNotice('');
+    let opened = false;
+    try { opened = await openExternal(`https://www.gov.uk/foreign-travel-advice/${officialGuide}`); } catch { /* A native opening failure remains retryable. */ }
+    if (request === guideSourceRequest.current && !opened) setGuideNotice(copy('Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', 'The official page could not open. Check your connection.', 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.'));
+  };
   const search = normalizeSearchText(query);
   const searchResults = directoryTools.filter(t => normalizeSearchText([...labels[t],...descriptions[t],labelFor(t),descriptionFor(t),keywords[t]].join(' ')).includes(search));
   const appResults = search && onNavigate ? appTools(locale)
     .filter(item => item.view !== 'companion' && !item.tool && normalizeSearchText([...item.title, ...item.caption, item.keywords].join(' ')).includes(search))
     .sort((a, b) => Number(!normalizeSearchText(`${a.label} ${a.text}`).includes(search)) - Number(!normalizeSearchText(`${b.label} ${b.text}`).includes(search))) : [];
   const chooseTool = (next: Tool|null, initialMoneyCurrency: string|null = null) => {
+    guideSourceRequest.current++; setGuideNotice('');
     setMoneyInitialCurrency(next === 'money' ? initialMoneyCurrency : null);
     setTool(next === 'transit' ? null : next);
     window.requestAnimationFrame(() => {
@@ -124,6 +138,7 @@ export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,o
     });
   };
   const chooseCountry = (code: string) => {
+    guideSourceRequest.current++;
     manualCountry.current=true;setLocating(false);setLocationState('idle');setCountry(code);setGuideNotice('');selectTravelCountry(code);
   };
   const toolButton = (t: Tool) => <button type="button" data-guide="travel-tool" data-guide-tool={t} key={t} onClick={() => chooseTool(t)} className="ta-tool-card">
@@ -160,7 +175,7 @@ export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,o
       {tool==='guide' && country && <><CountryQuickFacts key={country} country={country} includeLocalAdvice={false} countryLabel={options.find(option => option.code === country)?.name} onOpenMoney={currency => {
         if (CURRENCIES.includes(currency)) chooseTool('money', currency);
       }} onOpenSafety={() => chooseTool('safety')}/><section className="ta-panel"><h3>{copy('İlgili bağlantılar','Related links','Lidhje të dobishme')}</h3><div className="ta-guide-quicklinks">
-        {officialGuide && <button type="button" onClick={() => void openExternal(`https://www.gov.uk/foreign-travel-advice/${officialGuide}`).then(ok => {if (!ok) setGuideNotice(copy('Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', 'The official page could not open. Check your connection.', 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.'));})}><TravelToolArtwork kind="guide" size={56}/>{copy('Bu ülke için resmî seyahat rehberi', 'Official travel advice for this country', 'Këshilla zyrtare udhëtimi për këtë shtet')}<Icon name="external" size={16}/></button>}
+        {officialGuide && <button type="button" onClick={() => void openOfficialGuide()}><TravelToolArtwork kind="guide" size={56}/>{copy('Bu ülke için resmî seyahat rehberi', 'Official travel advice for this country', 'Këshilla zyrtare udhëtimi për këtë shtet')}<Icon name="external" size={16}/></button>}
         <button type="button" onClick={() => chooseTool('safety')}><TravelToolArtwork kind="safety" size={56}/>{copy('Acil numaralar ve yardım', 'Emergency numbers and help', 'Numrat e urgjencës dhe ndihma')}</button>
         <button type="button" onClick={() => onPhrases(country)}><TravelToolArtwork kind="translate" size={56}/>{copy('Hazır ifadeleri aç', 'Open useful phrases', 'Hap shprehjet e dobishme')}</button>
         {onLocalTips && <button type="button" onClick={() => onLocalTips(country)}><TravelToolArtwork kind="guide" size={56}/>{copy('Yerel ipuçları ve kurallar', 'Local tips and rules', 'Këshilla dhe rregulla vendase')}</button>}

@@ -19,13 +19,13 @@ function loadFormatting(file) {
   return output.exports;
 }
 const localeFormatting = loadFormatting('mobile/src/lib/localeFormatting.ts');
-function storageModule() {
+function storageModule(allowedLanguages = languages) {
   let stored = null, writes = 0, quota = false;
   const result = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/lib/savedTranslations.ts')}\n})`, {
     Blob, Date, crypto: { randomUUID },
     localStorage: { getItem: () => stored, setItem: (_, value) => { if (quota) throw Error('quota'); writes++; stored = value; }, removeItem: () => { if (quota) throw Error('quota'); writes++; stored = null; } },
-  })(() => ({ TRANSLATION_LANGUAGES: languages }), result, result.exports);
+  })(() => ({ TRANSLATION_LANGUAGES: allowedLanguages }), result, result.exports);
   return { api: result.exports, raw: () => stored, writes: () => writes, inject: value => { stored = value; }, quota: value => { quota = value; } };
 }
 const card = { source: 'tr', target: 'en', text: 'Su alabilir miyim?', translation: 'May I have some water?' };
@@ -194,6 +194,56 @@ test('Albanian model selection is offered only on the wired-up ML Kit platform',
     vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/lib/offlineTranslation.ts')}\n})`, {})(() => ({ nativePlatform: () => platform }), output, output.exports);
     assert.equal(output.exports.translationLanguageOptions().some(([code]) => code === 'sq'), platform === 'android');
   }
+});
+
+function realOfflineTranslation(platform, status = 'unsupported') {
+  const calls = [];
+  const bridge = {
+    status: async input => { calls.push({ action: 'status', ...input }); return { status }; },
+    prepare: async input => { calls.push({ action: 'prepare', ...input }); },
+    translate: async input => { calls.push({ action: 'translate', ...input }); return { text: 'Fictional result' }; },
+  };
+  const output = { exports: {} };
+  vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/lib/offlineTranslation.ts')}\n})`, {})(name => {
+    assert.equal(name, './capacitor');
+    return { nativePlatform: () => platform, plugin: () => bridge };
+  }, output, output.exports);
+  return { api: output.exports, calls };
+}
+
+test('Romanian is reachable in shared language options while Albanian keeps its existing platform guard', async () => {
+  for (const platform of ['android', 'ios', 'web']) {
+    const { api, calls } = realOfflineTranslation(platform);
+    const options = api.translationLanguageOptions();
+    assert.equal(options.find(([code]) => code === 'ro')?.[1], 'Română');
+    assert.equal(options.some(([code]) => code === 'sq'), platform === 'android');
+    assert.equal(new Set(options.map(([code]) => code)).size, options.length);
+    assert.equal(calls.length, 0, 'Offering a language never downloads, translates or claims support');
+  }
+  for (const status of ['installed', 'supported', 'unsupported']) {
+    const { api, calls } = realOfflineTranslation('ios', status);
+    assert.equal(await api.translationStatus('ro', 'en'), status);
+    assert.equal(calls.length, 1); assert.equal(calls[0].action, 'status');
+    assert.equal(calls[0].source, 'ro'); assert.equal(calls[0].target, 'en');
+  }
+});
+
+test('Romanian translation cards round-trip through the existing validator without weakening corrupt-data guards', () => {
+  const { api } = realOfflineTranslation('ios');
+  const s = storageModule(api.TRANSLATION_LANGUAGES);
+  const roCard = { source: 'ro', target: 'en', text: 'Text fictiv', translation: 'Fictional text' };
+  const first = s.api.saveTranslation(roCard)[0];
+  assert.equal(s.api.readSavedTranslationState().error, null);
+  assert.equal(s.api.readSavedTranslations()[0].source, 'ro');
+  assert.equal(s.api.saveTranslation(roCard)[0].id, first.id);
+  s.inject(JSON.stringify([first, { ...first, id: 'invalid', text: 'Broken card' }]));
+  assert.equal(s.api.readSavedTranslationState().items[0].source, 'ro');
+  assert.equal(s.api.readSavedTranslationState().error, 'corrupt');
+  const before = s.raw(), writes = s.writes();
+  assert.throws(() => s.api.saveTranslation(roCard), /corrupt/);
+  assert.throws(() => s.api.deleteSavedTranslation(first.id), /corrupt/);
+  assert.equal(s.raw(), before); assert.equal(s.writes(), writes);
+  assert.throws(() => storageModule(api.TRANSLATION_LANGUAGES).api.saveTranslation({ ...roCard, source: 'xyz' }), /invalid/);
 });
 
 test('Offline point search and category filtering update map points and clear hidden selections', () => {

@@ -16,6 +16,34 @@ import './event-companions.css';
 
 type SharedProps = { ownerId?: string | null; accessToken?: string; onOpenAccount: () => void; onCompleteProfile?: () => void; onNotice: (message: string) => void; onOpenProfile?: (key: string) => void };
 export type EventCompanionsPanelProps = SharedProps & { event: Pick<TravelEvent, 'id' | 'title'>; initialChatOpen?: boolean; onChatClose?: () => void };
+type ActionKind = EventCommunityAction['action'];
+type ActionFailure = { action: ActionKind; message: string };
+type FeedbackFailure = { message: string; auth: boolean; token?: string; profile?: boolean; action?: ActionKind };
+
+const EVENT_CHAT_COPY = {
+  profileRequired: { tr: 'Katılmak için adını ve kullanıcı adını tamamla.', en: 'Complete your name and username to join this event.', sq: 'Plotëso emrin dhe emrin e përdoruesit për t’iu bashkuar aktivitetit.', ro: 'Completează numele și numele de utilizator pentru a participa la eveniment.' },
+  withdraw: { tr: 'Katılımı geri al', en: 'Withdraw RSVP', sq: 'Tërhiq pjesëmarrjen', ro: 'Retrage participarea' },
+  withdrawHint: { tr: 'Etkinliğe katılımını geri alarak bu sohbetten ayrılırsın.', en: 'This withdraws your RSVP and leaves the event chat.', sq: 'Kjo tërheq pjesëmarrjen tënde dhe të largon nga biseda e aktivitetit.', ro: 'Îți retrage participarea și te scoate din conversația evenimentului.' },
+  refreshChat: { tr: 'Sohbeti yenile', en: 'Refresh chat', sq: 'Rifresko bisedën', ro: 'Actualizează conversația' },
+  messageUnconfirmed: { tr: 'Mesajın gönderildiği doğrulanamadı. Taslağın duruyor; yeniden göndermeyi deneyebilirsin.', en: 'Message delivery could not be confirmed. Your draft is kept; you can try sending it again.', sq: 'Dërgimi i mesazhit nuk u konfirmua. Drafti ruhet; mund të provosh ta dërgosh përsëri.', ro: 'Livrarea mesajului nu a putut fi confirmată. Ciorna este păstrată; poți încerca să-l trimiți din nou.' },
+} as const;
+
+function joinedChatDate(event: EventCommunityEvent, dateLocale: string): string {
+  const calendarDay = event.startsAt.slice(0, 10);
+  const dateOnly = event.timePrecision === 'date';
+  const date = new Date(dateOnly ? `${calendarDay}T12:00:00Z` : event.startsAt);
+  if (!Number.isFinite(date.getTime()) || dateOnly && date.toISOString().slice(0, 10) !== calendarDay) return '—';
+  const format = (timeZone: string) => formatAppDate(date, dateLocale, { day: 'numeric', month: 'short', year: 'numeric', timeZone });
+  if (dateOnly) {
+    try { return format('UTC'); } catch { return calendarDay; }
+  }
+  if (event.timeZone) {
+    try { return format(event.timeZone); } catch { /* Unknown zones use an explicit UTC label below. */ }
+  }
+  // An instant is known, but a venue timezone must never be guessed from the
+  // device or country. Keep this fallback visibly identified as UTC.
+  try { return `${format('UTC')} · UTC`; } catch { return `${date.toISOString().slice(0, 10)} · UTC`; }
+}
 
 /** Replace the rechecked recent window while retaining explicitly loaded history. */
 function mergeEventChatRefresh(previous: EventCommunityState | null, current: EventCommunityState, retainHistory: boolean): EventCommunityState {
@@ -38,6 +66,7 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   const [state, setState] = useState<EventCommunityState | null>(null);
   const [loading, setLoading] = useState(Boolean(ownerId && accessToken));
   const [error, setError] = useState('');
+  const [actionFailure, setActionFailure] = useState<ActionFailure | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [profileRequired, setProfileRequired] = useState(false);
   const [verification, setVerification] = useState('');
@@ -57,12 +86,15 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   const active = useRef(true);
   const pending = useRef(false);
   const deferredSuccess = useRef<(() => void) | null>(null);
-  const deferredError = useRef<{ message: string; auth: boolean; token?: string; profile?: boolean } | null>(null);
+  const deferredError = useRef<FeedbackFailure | null>(null);
+  const actionFailureRef = useRef<ActionFailure | null>(null);
   const currentToken = useRef(accessToken);
+  const currentChatClose = useRef(onChatClose);
   const currentLoad = useRef<(silent?: boolean) => Promise<void>>(async () => {});
   const historyGeneration = useRef(0);
   const visibilityRevision = useRef(communityVisibilityRevision(ownerId));
   useEffect(() => { currentToken.current = accessToken; }, [accessToken]);
+  useEffect(() => { currentChatClose.current = onChatClose; }, [onChatClose]);
   const messageOperation = useRef<{ body: string; requestId: string } | null>(null);
   const latestLoad = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -75,6 +107,18 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   const historyScroll = useRef<{ top: number; height: number; firstId?: string } | null>(null);
   const lastScroll = useRef<{ open: boolean; lastId?: string }>({ open: false });
   const lastMessageId = state?.messages.at(-1)?.id;
+  const setActionFeedback = useCallback((failure: ActionFailure | null) => {
+    actionFailureRef.current = failure;
+    setActionFailure(failure);
+  }, []);
+  const applyFailure = useCallback((failure: FeedbackFailure) => {
+    if (failure.action && !failure.auth && !failure.profile) setActionFeedback({ action: failure.action, message: failure.message });
+    else setError(failure.message);
+    setAuthRequired(failure.auth); setProfileRequired(Boolean(failure.profile));
+    // Authentication feedback takes precedence without discarding an unsent
+    // draft or treating a successful later read as a message acknowledgment.
+    if (failure.auth) { setState(null); retainedHistory.current = false; historyScroll.current = null; }
+  }, [setActionFeedback]);
   useEffect(() => {
     const input = inputRef.current;
     if (!input || !chatOpen) return;
@@ -117,26 +161,23 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
     if (deferredError.current) {
       const failure = deferredError.current; deferredError.current = null;
       if (!failure.auth || failure.token === currentToken.current) {
-        setError(failure.message); setAuthRequired(failure.auth); setProfileRequired(Boolean(failure.profile));
-        if (failure.auth) { setState(null); retainedHistory.current = false; historyScroll.current = null; }
+        applyFailure(failure);
       }
     }
     return () => { active.current = false; controller.current?.abort(); };
-  }, []);
-  const failureText = useCallback((failure: unknown) => failure instanceof ApiError && failure.status === 401
+  }, [applyFailure, ownerId]);
+  const failureText = useCallback((failure: unknown, action?: ActionKind) => failure instanceof ApiError && failure.status === 401
     ? copy('Oturumun sona erdi. Etkinlik sohbetine devam etmek için tekrar giriş yap.', 'Your session has expired. Sign in again to continue the event chat.', 'Seanca jote ka skaduar. Hyr sërish për të vazhduar bisedën e aktivitetit.')
-    : locale === 'tr' && failure instanceof ApiError && failure.status > 0 && failure.status < 500 ? failure.message
+    : failure instanceof ApiError && failure.code === 'profile_required' ? EVENT_CHAT_COPY.profileRequired[locale]
+      : action === 'message' && (!(failure instanceof ApiError) || failure.status === 0 || failure.status >= 500) ? EVENT_CHAT_COPY.messageUnconfirmed[locale]
+        : locale === 'tr' && failure instanceof ApiError && failure.status > 0 && failure.status < 500 ? failure.message
       : copy('Etkinlik sohbetine şu anda bağlanılamıyor. Bağlantını kontrol edip tekrar dene.', 'Event chat is unavailable right now. Please retry.', 'Biseda e aktivitetit nuk është e disponueshme tani. Provo sërish.'), [locale, copy]);
-  const showFailure = useCallback((failure: unknown, token = currentToken.current) => {
+  const showFailure = useCallback((failure: unknown, token = currentToken.current, action?: ActionKind) => {
     if (failure instanceof ApiError && failure.status === 401 && token !== currentToken.current) return;
-    const result = { message: failureText(failure), auth: failure instanceof ApiError && failure.status === 401, token, profile: failure instanceof ApiError && failure.code === 'profile_required' };
+    const result = { message: failureText(failure, action), auth: failure instanceof ApiError && failure.status === 401, token, profile: failure instanceof ApiError && failure.code === 'profile_required', action };
     if (!active.current) { deferredError.current = result; return; }
-    setError(result.message); setAuthRequired(result.auth);
-    setProfileRequired(result.profile);
-    // Keep the unsent draft and open intent, but do not offer actions using
-    // membership data that the server can no longer authorize.
-    if (result.auth) { setState(null); retainedHistory.current = false; historyScroll.current = null; }
-  }, [failureText]);
+    applyFailure(result);
+  }, [applyFailure, failureText]);
   const load = useCallback(async (silent = false) => {
     if (!ownerId || !accessToken) return;
     const serial = ++latestLoad.current;
@@ -148,10 +189,19 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
       const result = await getEventCommunity(event.id, accessToken, request.signal);
       if (!active.current || serial !== latestLoad.current) return;
       setState(previous => mergeEventChatRefresh(previous, result.data, retainedHistory.current)); setVerification(result.verification); setError(''); setAuthRequired(false); setProfileRequired(false);
+      // A read can confirm withdrawal even if its POST response was lost. A
+      // same-body message cannot confirm delivery: reads contain no request ID.
+      if (actionFailureRef.current?.action === 'leave' && !result.data.joined) {
+        setActionFeedback(null);
+        historyGeneration.current++; retainedHistory.current = false; historyScroll.current = null;
+        setChatOpen(false); setInfoOpen(false); setPeopleOpen(false);
+        currentChatClose.current?.();
+        window.dispatchEvent?.(new Event('l2t:event-community-changed'));
+      }
     } catch (failure) {
       if (active.current && serial === latestLoad.current && !request.signal.aborted) showFailure(failure);
     } finally { if (serial === latestLoad.current) { readInFlight.current = false; if (active.current) setLoading(false); } }
-  }, [ownerId, accessToken, event.id, showFailure]);
+  }, [ownerId, accessToken, event.id, setActionFeedback, showFailure]);
   useEffect(() => { currentLoad.current = load; }, [load]);
   useEffect(() => subscribeCommunityVisibility(change => {
     if (change.ownerId && change.ownerId !== ownerId) return;
@@ -170,6 +220,7 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
     if (!ownerId || !accessToken) { onOpenAccount(); return; }
     if (pending.current) return;
     pending.current = true; setBusy(true); setError('');
+    if (actionFailureRef.current?.action === action.action) setActionFeedback(null);
     try {
       const result = await actOnEventCommunity(event.id, accessToken, action);
       // Re-read the full recent window after a visibility change; retained
@@ -181,8 +232,10 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
           // The write already confirmed withdrawal. A failed refresh must not
           // leave the old membership or its private history actionable.
           historyGeneration.current++; historyScroll.current = null;
+          setActionFeedback(null);
           setState(previous => previous ? { ...previous, joined: false, attendees: previous.attendees.filter(person => person.userId !== ownerId), messages: [], nextBefore: null, meetup: null } : previous);
           setChatOpen(false); setInfoOpen(false); setPeopleOpen(false);
+          onChatClose?.();
         }
         success?.();
       };
@@ -191,10 +244,11 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
       await currentLoad.current(true);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401 && accessToken !== currentToken.current) await currentLoad.current(true);
-      else showFailure(failure, accessToken);
+      else showFailure(failure, accessToken, action.action);
     }
     finally { pending.current = false; if (active.current) setBusy(false); }
   }
+  const withdrawRsvp = () => { void act({ action: 'leave' }); };
   async function older() {
     if (pending.current || !accessToken || !state?.nextBefore) return;
     pending.current = true; setBusy(true);
@@ -230,7 +284,8 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
   const closed = state && state.event.status !== 'scheduled';
   const isPast = (value: string) => Number.isFinite(Date.parse(value)) && Date.parse(value) < now;
   const openSafety = (target: NonNullable<typeof safety>) => { setSafety(target); setReporting(false); setReason(''); setNote(''); };
-  const errorBox = error && <div className="info-box error" role="alert"><p>{error}</p><button type="button" onClick={authRequired ? onOpenAccount : profileRequired ? onCompleteProfile || onOpenAccount : () => void load()} disabled={busy || loading}>{authRequired ? copy('Giriş yap', 'Sign in', 'Hyr') : profileRequired ? copy('Profilini tamamla', 'Complete your profile', 'Plotëso profilin') : copy('Tekrar dene', 'Retry', 'Provo sërish')}</button></div>;
+  const displayedError = authRequired || profileRequired ? error : actionFailure?.message || error;
+  const errorBox = displayedError && <div className="info-box error" role="alert"><p>{displayedError}</p><button type="button" onClick={authRequired ? onOpenAccount : profileRequired ? onCompleteProfile || onOpenAccount : () => void load()} disabled={busy || loading}>{authRequired ? copy('Giriş yap', 'Sign in', 'Hyr') : profileRequired ? copy('Profilini tamamla', 'Complete your profile', 'Plotëso profilin') : actionFailure ? EVENT_CHAT_COPY.refreshChat[locale] : copy('Tekrar dene', 'Retry', 'Provo sërish')}</button></div>;
   return <section className="event-companions" aria-label={copy('Etkinlik arkadaşları', 'Event companions', 'Shoqërues për aktivitetin')}>
     <div className="event-companions-heading"><div><h3>{copy('Kimler gidiyor?', 'Who is going?', 'Kush po shkon?')}</h3><p>{copy('Aynı etkinliğe katılan gezginlerle tanış.', 'Meet travellers attending the same event.', 'Njihu me udhëtarë që marrin pjesë në të njëjtin aktivitet.')}</p></div>{state && <strong>{state.memberCount} {copy('katılımcı', 'attendees', 'pjesëmarrës')}</strong>}</div>
     {!ownerId || !accessToken ? <button type="button" className="secondary-wide" onClick={onOpenAccount}>{copy('Katılımcıları görmek için giriş yap', 'Sign in to see attendees', 'Hyr për të parë pjesëmarrësit')}</button> : <>
@@ -241,7 +296,7 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
         {state.change && <p className="info-box" role="status">{copy('Etkinlik kaynağında değişiklik doğrulandı.', 'A change was verified at the event source.', 'U verifikua një ndryshim në burimin e aktivitetit.')} {copy('Önceki', 'Previous', 'Më parë')}: {snapshotLabel(state.change.previous)}. {copy('Güncel', 'Current', 'Aktualisht')}: {snapshotLabel(state.event)}.</p>}
         <div className="event-people">{state.attendees.map(personButton)}</div>
         <button type="button" className="secondary-wide" onClick={() => setPeopleOpen(true)}>{copy('Katılımcıları ara ve tümünü gör', 'Search and see all attendees', 'Kërko dhe shih të gjithë pjesëmarrësit')}</button>
-        {!state.joined ? <><p className="event-companions-consent">{copy('“Katılacağım” dediğinde herkese açık topluluk profilin bu listede görünür ve etkinlik grubuna katılırsın. Etkinliği kaydetmek katılım sayılmaz.', 'Choosing “I’m going” shows your public community profile here and joins the event group. Saving an event does not join it.', 'Kur zgjedh “Do të marr pjesë”, profili yt publik shfaqet këtu dhe bëhesh pjesë e grupit të aktivitetit. Ruajtja e aktivitetit nuk të shton në grup.')}</p><button type="button" className="primary-wide" disabled={busy || Boolean(closed)} onClick={() => void act({ action: 'join' })}>{busy ? copy('Kaydediliyor…', 'Saving…', 'Po ruhet…') : closed ? copy('Katılım kapalı', 'Attendance closed', 'Pjesëmarrja është mbyllur') : copy('Katılacağım', 'I’m going', 'Do të marr pjesë')}</button></> : <div className="event-companions-actions"><button type="button" className="primary-wide" onClick={() => setChatOpen(true)}>{copy('Etkinlik grup sohbeti', 'Event group chat', 'Biseda e grupit të aktivitetit')}</button><button type="button" disabled={busy} onClick={() => void act({ action: 'leave' }, () => setChatOpen(false))}>{copy('Katılımı geri al', 'Withdraw RSVP', 'Tërhiq pjesëmarrjen')}</button></div>}
+        {!state.joined ? <><p className="event-companions-consent">{copy('“Katılacağım” dediğinde herkese açık topluluk profilin bu listede görünür ve etkinlik grubuna katılırsın. Etkinliği kaydetmek katılım sayılmaz.', 'Choosing “I’m going” shows your public community profile here and joins the event group. Saving an event does not join it.', 'Kur zgjedh “Do të marr pjesë”, profili yt publik shfaqet këtu dhe bëhesh pjesë e grupit të aktivitetit. Ruajtja e aktivitetit nuk të shton në grup.')}</p><button type="button" className="primary-wide" disabled={busy || Boolean(closed)} onClick={() => void act({ action: 'join' })}>{busy ? copy('Kaydediliyor…', 'Saving…', 'Po ruhet…') : closed ? copy('Katılım kapalı', 'Attendance closed', 'Pjesëmarrja është mbyllur') : copy('Katılacağım', 'I’m going', 'Do të marr pjesë')}</button></> : <div className="event-companions-actions"><button type="button" className="primary-wide" onClick={() => setChatOpen(true)}>{copy('Etkinlik grup sohbeti', 'Event group chat', 'Biseda e grupit të aktivitetit')}</button><button type="button" disabled={busy} onClick={withdrawRsvp}>{EVENT_CHAT_COPY.withdraw[locale]}</button></div>}
       </>}
     </>}
     <Sheet open={chatOpen && Boolean(state?.joined)} title={event.title} onClose={() => { if (!busy) { setChatOpen(false); onChatClose?.(); } }} dismissible={!busy} className="event-chat-sheet" size="large" renderHeader={close => <div className="event-chat-topbar">
@@ -259,6 +314,8 @@ function EventCompanionsForAccount({ event, ownerId, accessToken, onOpenAccount,
         {state.meetup ? <div className="event-meetup"><span className="event-meetup-label">{copy('Sabitlenen buluşma', 'Pinned meetup', 'Takimi i fiksuar')}</span><strong>{state.meetup.publicPlace}</strong><p>{dateLabel(state.meetup.startsAt, state.event.timeZone)}{state.event.timeZone ? ` · ${state.event.timeZone}` : ` · ${copy('cihaz saati', 'device time', 'ora e pajisjes')}`}</p>{personButton(state.meetup.creator)}<small>{state.meetup.attendeeCount} {copy('kişi buluşmaya katılıyor', 'joining the meetup', 'po marrin pjesë në takim')}</small><div className="event-people">{state.meetup.attendees.map(personButton)}</div><div className="event-meetup-actions"><button type="button" disabled={busy || (!state.meetup.joined && (Boolean(closed) || isPast(state.meetup.startsAt)))} onClick={() => void act({ action: state.meetup!.joined ? 'meetup-leave' : 'meetup-join', meetupId: state.meetup!.id })}>{state.meetup.joined ? copy('Buluşmadan ayrıl', 'Leave meetup', 'Largohu nga takimi') : copy('Buluşmaya katıl', 'Join meetup', 'Merr pjesë në takim')}</button>{state.meetup.isOwn ? <button type="button" disabled={busy} onClick={() => void act({ action: 'meetup-delete', meetupId: state.meetup!.id })}>{copy('Buluşmayı kaldır', 'Remove meetup', 'Hiq takimin')}</button> : <button type="button" disabled={busy} onClick={() => openSafety({ type: 'meetup', id: state.meetup!.id, author: state.meetup!.creator })}>{copy('Bildir / engelle', 'Report / block', 'Raporto / blloko')}</button>}</div></div> : <button type="button" className="secondary-wide" disabled={busy || Boolean(closed)} onClick={() => setMeetupForm(value => !value)}>{copy('Buluşma saati ve yeri belirle', 'Set a meeting time and place', 'Cakto orën dhe vendin e takimit')}</button>}
         {meetupForm && !state.meetup && <form className="event-meetup-form" onSubmit={submit => { submit.preventDefault(); const instant = new Date(meetupDate); if (!Number.isFinite(instant.getTime())) return; void act({ action: 'meetup', startsAt: instant.toISOString(), publicPlace: publicPlace.trim() }, () => { setMeetupForm(false); setPublicPlace(''); setMeetupDate(''); }); }}><label>{copy('Buluşma saati (cihazının saat dilimi)', 'Meeting time (your device time zone)', 'Ora e takimit (zona kohore e pajisjes)')}<input required type="datetime-local" value={meetupDate} onChange={change => setMeetupDate(change.target.value)} disabled={busy}/></label><label>{copy('Halka açık buluşma yeri', 'Public meeting place', 'Vendi publik i takimit')}<input required minLength={5} maxLength={180} value={publicPlace} onChange={change => setPublicPlace(change.target.value)} placeholder={copy('Örn. salonun ana giriş kapısı', 'E.g. the venue’s main entrance', 'P.sh. hyrja kryesore e vendit të aktivitetit')} disabled={busy}/></label><small>{copy('Etkinliğin 3 gün öncesi ile 3 gün sonrası arasında bir saat seç. Özel adres veya iletişim bilgisi paylaşma.', 'Choose a time within 3 days of the event. Do not share a private address or contact details.', 'Zgjidh një orë brenda 3 ditëve para ose pas aktivitetit. Mos ndaj adresë private ose të dhëna kontakti.')}</small><button type="submit" className="primary-wide" disabled={busy || publicPlace.trim().length < 5 || !meetupDate}>{copy('Buluşmayı sabitle', 'Pin meetup', 'Fikso takimin')}</button></form>}
         <button type="button" className="event-chat-manage-blocks" onClick={() => setBlocksOpen(true)}>{copy('Engellenen hesaplar', 'Blocked accounts', 'Llogaritë e bllokuara')}</button>
+        <p className="event-companions-consent">{EVENT_CHAT_COPY.withdrawHint[locale]}</p>
+        <button type="button" className="secondary-wide event-chat-withdraw" disabled={busy} onClick={withdrawRsvp}>{EVENT_CHAT_COPY.withdraw[locale]}</button>
         </div>}
         {state.meetup && !infoOpen && <button type="button" className="event-chat-pin" onClick={() => setInfoOpen(true)}><Icon name="map" size={17}/><span><strong>{state.meetup.publicPlace}</strong><small>{dateLabel(state.meetup.startsAt, state.event.timeZone)}</small></span><Icon name="chevron" size={17}/></button>}
         {errorBox}
@@ -302,7 +359,7 @@ export function JoinedEventChats({ ownerId, ...props }: JoinedEventChatsProps) {
 }
 
 function JoinedEventChatsForAccount(props: JoinedEventChatsProps) {
-  const { copy } = useI18n();
+  const { copy, dateLocale } = useI18n();
   const [items, setItems] = useState<JoinedEventChat[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<'auth' | 'unavailable' | null>(null);
@@ -329,7 +386,7 @@ function JoinedEventChatsForAccount(props: JoinedEventChatsProps) {
     {error === 'auth' && <><p className="info-box" role="status">{copy('Oturumun sona erdi. Sohbetlerini görmek için tekrar giriş yap.', 'Your session has expired. Sign in again to see your chats.', 'Seanca jote ka skaduar. Hyr sërish për të parë bisedat.')}</p><button type="button" className="secondary-wide" onClick={props.onOpenAccount}>{copy('Giriş yap', 'Sign in', 'Hyr')}</button></>}
     {error === 'unavailable' && <p className="info-box" role="status">{items.length ? copy('Sohbet listesi yenilenemedi. Son yüklenen sohbetlerin gösteriliyor.', 'Could not refresh your chat list. Your last loaded chats are shown.', 'Lista e bisedave nuk u rifreskua. Po shfaqen bisedat e ngarkuara më parë.') : copy('Etkinlik sohbetleri şu anda alınamıyor. Tekrar dene.', 'Event chats are unavailable right now. Please retry.', 'Bisedat e aktiviteteve nuk janë të disponueshme tani. Provo sërish.')}</p>}
     {!loading && !error && !items.length && <p>{copy('“Katılacağım” dediğin etkinliklerin sohbetleri burada görünür.', 'Chats for events you RSVP to appear here.', 'Këtu shfaqen bisedat e aktiviteteve ku ke konfirmuar pjesëmarrjen.')}</p>}
-    {error !== 'auth' && items.length > 0 && <div className="event-joined-chat-list">{items.map(item => <button type="button" key={item.eventKey} onClick={() => setSelected(item)}><span><strong>{item.event.title}</strong><small>{item.event.city} · {item.event.startsAt.slice(0, 10)} · {item.memberCount} {copy('katılımcı', 'attendees', 'pjesëmarrës')}{item.muted ? ` · ${copy('sessizde', 'muted', 'në heshtje')}` : ''}</small></span><span aria-hidden="true">›</span></button>)}</div>}
+    {error !== 'auth' && items.length > 0 && <div className="event-joined-chat-list">{items.map(item => <button type="button" key={item.eventKey} onClick={() => setSelected(item)}><span><strong>{item.event.title}</strong><small>{item.event.city} · {joinedChatDate(item.event, dateLocale)} · {item.memberCount} {copy('katılımcı', 'attendees', 'pjesëmarrës')}{item.muted ? ` · ${copy('sessizde', 'muted', 'në heshtje')}` : ''}</small></span><span aria-hidden="true">›</span></button>)}</div>}
     <Sheet open={Boolean(selected)} title={selected?.event.title || copy('Etkinlik sohbeti', 'Event chat', 'Biseda e aktivitetit')} onClose={() => setSelected(null)}>{selected && <EventCompanionsPanel {...props} onCompleteProfile={props.onCompleteProfile ? () => props.onCompleteProfile?.(selected) : undefined} initialChatOpen onChatClose={() => setSelected(null)} event={{ id: selected.eventKey, title: selected.event.title }}/>}</Sheet>
   </section>;
 }

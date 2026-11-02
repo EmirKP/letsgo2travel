@@ -8,6 +8,7 @@
 // - Klavye (ok/enter/escape) ve dokunma (44px satır) erişilebilir.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { airportLifecycle, type AirportLifecycle } from "../../lib/airport-lifecycle";
 
 export type AirportOption = {
   iata: string;
@@ -15,6 +16,7 @@ export type AirportOption = {
   city: string;
   country: string;
   countryCode: string;
+  lifecycle?: AirportLifecycle | null;
 };
 
 type AirportAutocompleteProps = {
@@ -139,6 +141,7 @@ export default function AirportAutocomplete({ label, placeholder, value, onChang
       {value && (
         <p className="l2t-airport-selected">
           {value.name} · {value.city ? `${value.city}, ` : ""}{value.country}
+          {airportLifecycle(value.iata, value.countryCode) && <small>Artık kapalı · tarihî havalimanı</small>}
           <button type="button" onClick={() => { onChange(null); setQuery(""); }} aria-label="Seçimi temizle">Değiştir</button>
         </p>
       )}
@@ -158,6 +161,7 @@ export default function AirportAutocomplete({ label, placeholder, value, onChang
               >
                 <strong>{optionTitle(option)} <em>{option.iata}</em></strong>
                 <small>{option.name} · {option.country}</small>
+                {airportLifecycle(option.iata, option.countryCode) && <small>Artık kapalı · tarihî havalimanı</small>}
               </button>
             </li>
           ))}

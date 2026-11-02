@@ -9,7 +9,7 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 function load(path,imports={},globals={}){
  const fixtureModule={exports:{}};
  const code=ts.transpileModule(readFileSync(path,'utf8'),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,URLSearchParams,Buffer,Uint8Array,Map,Set,Date,AbortSignal,AbortController,...globals})(name=>{if(name in imports)return imports[name];if(name.endsWith('.css'))return{};throw Error(`Missing import ${name}`);},fixtureModule,fixtureModule.exports);
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,URLSearchParams,Buffer,Uint8Array,Map,Set,Date,AbortSignal,AbortController,...globals})(name=>{if(name in imports)return imports[name];if(name.endsWith('/event-occurrence'))return load('lib/event-occurrence.ts');if(name.endsWith('.css'))return{};throw Error(`Missing import ${name}`);},fixtureModule,fixtureModule.exports);
  return fixtureModule.exports;
 }
 const safety=load('lib/community/safety.ts');
@@ -19,6 +19,7 @@ function source(fetch=async()=>{throw Error('Unexpected provider request');},env
 }
 const feature=source();
 const visibility=load('mobile/src/lib/communityVisibility.ts');
+const uiDateFormatting=load('mobile/src/lib/localeFormatting.ts',{'./locales/sq-regions':load('mobile/src/lib/locales/sq-regions.ts')});
 test('canonical keys reject paths, arbitrary URLs and forged providers; parser allowlists fields and text bounds',()=>{
  assert.equal(feature.canonicalEventKey(a),`curated:${a}`);
  for(const input of ['https://evil.example','ticketmaster:../../private','curated:no','unknown:any','ticketmaster:',`predicthq:${'a'.repeat(161)}`]) assert.equal(feature.canonicalEventKey(input),null);
@@ -168,11 +169,11 @@ test('joined-chat refresh ignores an obsolete membership response and detaches r
  }finally{host.dispose();assert.equal(listeners.size,0);}
 });
 
-function joinedChatHarness(){
+function joinedChatHarness({locale='en'}={}){
  const host=activityHooks(),pending=[],listeners=new Map();let signIns=0;
  class ApiError extends Error{constructor(status){super('Request failed');this.status=status;}}
  const jsx=(type,props)=>({type,props});
- const panel=load('mobile/src/components/EventCompanionsPanel.tsx',{'react':host.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Sheet':{Sheet:'Sheet'},'./CommunityAvatar':{CommunityAvatar:'Avatar'},'./Icon':{Icon:'Icon'},'./EventParticipantDirectory':{EventParticipantDirectory:'Directory'},'./CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../lib/i18n':{useI18n:()=>({copy:(_tr,en)=>en,locale:'en'})},'../lib/api':{ApiError},'../lib/id':{},'../hooks/useCurrentTime':{},'../lib/localeFormatting':{},'../lib/communityVisibility':visibility,'../lib/eventCommunity':{listJoinedEventChats:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))}},{window:{addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)}});
+ const panel=load('mobile/src/components/EventCompanionsPanel.tsx',{'react':host.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Sheet':{Sheet:'Sheet'},'./CommunityAvatar':{CommunityAvatar:'Avatar'},'./Icon':{Icon:'Icon'},'./EventParticipantDirectory':{EventParticipantDirectory:'Directory'},'./CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../lib/i18n':{useI18n:()=>({copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?(sq||en):en,locale,dateLocale:{tr:'tr-TR',en:'en-GB',sq:'sq-AL',ro:'ro-RO'}[locale]})},'../lib/api':{ApiError},'../lib/id':{},'../hooks/useCurrentTime':{},'../lib/localeFormatting':uiDateFormatting,'../lib/communityVisibility':visibility,'../lib/eventCommunity':{listJoinedEventChats:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))}},{window:{addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)}});
  const wrapper=panel.JoinedEventChats({ownerId:a,accessToken:'token',onOpenAccount(){signIns++;},onNotice(){}});
  host.start(wrapper.type,wrapper.props);
  return{host,pending,listeners,ApiError,signIns:()=>signIns,refresh(){const view=host.render();uiNodes(view).find(node=>node.type==='button'&&uiText(node)==='Refresh').props.onClick();return host.render();}};
@@ -231,7 +232,7 @@ test('obsolete or hidden joined-chat errors cannot replace a newer successful re
 const dmAlice={key:`user:${a}`,userId:a,username:'alice',avatarUrl:null};
 const dmBob={key:`user:${b}`,userId:b,username:'bob',avatarUrl:null};
 const dmMessage=(id,author,body,minute=0)=>({id,author,body,createdAt:`2026-11-01T17:${String(minute).padStart(2,'0')}:00Z`});
-function dmHarness({ messages=[dmMessage('own',dmAlice,'My travel plan'),dmMessage('other',dmBob,'Meet at the public entrance',1)], nextBefore=null, write, history=[], historyRead, initialChatOpen=false, onChatClose, locale='en', joined=true }={}){
+function dmHarness({ messages=[dmMessage('own',dmAlice,'My travel plan'),dmMessage('other',dmBob,'Meet at the public entrance',1)], nextBefore=null, write, history=[], historyRead, initialChatOpen=false, onChatClose, onCommunityChanged, locale='en', joined=true }={}){
  const thread={scrollTop:0,clientHeight:300,scrollHeight:1000},input={style:{},scrollHeight:24};
  let server={eventKey:'ticketmaster:real',event:{id:'ticketmaster:real',title:'Real event',startsAt:'2026-11-01T17:00:00Z',timeZone:null,status:'scheduled'},joined,muted:false,memberCount:2,attendees:[dmAlice,dmBob],messages:copy(messages),nextBefore,meetup:null};
  const host=activityHooks({commit(tree){for(const node of uiNodes(tree)){if(node.props?.className==='event-chat-thread')node.props.ref.current=thread;if(node.type==='textarea'&&node.props.ref)node.props.ref.current=input;}}});
@@ -241,7 +242,7 @@ function dmHarness({ messages=[dmMessage('own',dmAlice,'My travel plan'),dmMessa
  const panel=load('mobile/src/components/EventCompanionsPanel.tsx',{'react':host.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Sheet':{Sheet:'Sheet'},'./CommunityAvatar':{CommunityAvatar:'Avatar'},'./Icon':{Icon:'Icon'},'./EventParticipantDirectory':{EventParticipantDirectory:'Directory'},'./CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../lib/i18n':{useI18n:()=>i18n},'../lib/api':{ApiError},'../lib/id':{createId:()=>`10000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`},'../hooks/useCurrentTime':{useCurrentTime:()=>Date.parse('2026-10-24')},'../lib/localeFormatting':{formatAppDate:(date,locale,options)=>new Intl.DateTimeFormat(locale,options).format(date)},'../lib/communityVisibility':visibility,'../lib/eventCommunity':{
   getEventCommunity:async(_event,_token,_signal,cursor)=>{reads.push({cursor,token:_token});if(readError)throw readError;if(cursor&&historyRead)await historyRead();return{data:copy(cursor?{...server,messages:history,nextBefore:null}:server),verification:'current'};},
   actOnEventCommunity:async(_event,_token,action)=>{writes.push(copy(action));if(write)return write(action);if(action.action==='mute')server={...server,muted:action.muted};if(action.action==='message')server={...server,messages:[...server.messages,dmMessage(`new-${sequence}`,dmAlice,action.body,2)]};return{success:true};},
- }},{window:{setInterval:fn=>{timers.set(++timer,fn);return timer;},clearInterval:id=>timers.delete(id)},document:{visibilityState:'visible'}});
+ }},{Event,window:{setInterval:fn=>{timers.set(++timer,fn);return timer;},clearInterval:id=>timers.delete(id),dispatchEvent:event=>{if(event.type==='l2t:event-community-changed')onCommunityChanged?.();return true;}},document:{visibilityState:'visible'}});
  const wrapper=panel.EventCompanionsPanel({event:{id:'ticketmaster:real',title:'Real event'},ownerId:a,accessToken:'token',initialChatOpen,onChatClose,onOpenAccount(){signIns++;},onCompleteProfile(){profileCompletions++;},onNotice(){},onOpenProfile:key=>profiles.push(key)});
  host.start(wrapper.type,wrapper.props);
  const render=()=>host.render();
@@ -417,7 +418,7 @@ test('compact DM composer keeps multiline text and retries a failed send with it
  try{
   await h.ready();h.open();let view=h.type('First line\nSecond line');
   const textarea=uiNodes(view).find(node=>node.type==='textarea');assert.equal(textarea.props.rows,1);assert.equal(textarea.props.onKeyDown,undefined);assert.equal(textarea.props.value,'First line\nSecond line');
-  h.submit();view=await h.settle();assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'First line\nSecond line');assert.match(uiText(view),/unavailable right now/);
+  h.submit();view=await h.settle();assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'First line\nSecond line');assert.match(uiText(view),/Message delivery could not be confirmed/);assert.ok(h.button('Refresh chat',view));
   reject=false;h.submit();view=await h.settle();assert.equal(h.writes.length,2);assert.equal(h.writes[0].requestId,h.writes[1].requestId);assert.equal(h.writes[0].body,'First line\nSecond line');assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'');
  }finally{h.dispose();}
 });
@@ -486,4 +487,156 @@ test('attendee directory initial failure and expired authorization have explicit
  const h=directoryHarness();try{
   h.calls[0].reject(new Error('offline'));let view=await h.settle();assert.doesNotMatch(uiText(view),/No attendees match/);h.click('Retry');h.calls[1].reject(new h.ApiError(401));view=await h.settle();assert.match(uiText(view),/Sign in again/);h.click('Sign in');assert.equal(h.signIns(),1);
  }finally{h.host.dispose();}
+});
+
+test('Joined chat dates use the event timezone, retain literal date-only days and label unknown zones honestly in four locales',async()=>{
+ const cases=[
+  {startsAt:'2026-11-02T00:30:00Z',timeZone:'America/New_York',timePrecision:'exact',day:'2026-11-01'},
+  {startsAt:'2026-11-01T23:30:00Z',timeZone:'Asia/Tokyo',timePrecision:'exact',day:'2026-11-02'},
+  {startsAt:'2026-11-02',timeZone:'America/New_York',timePrecision:'date',day:'2026-11-02'},
+  {startsAt:'2026-11-02T00:30:00Z',timeZone:null,timePrecision:'exact',day:'2026-11-02',utc:true},
+  {startsAt:'2026-11-02T00:30:00Z',timeZone:'Invalid/Zone',timePrecision:'exact',day:'2026-11-02',utc:true},
+ ];
+ for(const locale of ['tr','en','sq','ro']){
+  const h=joinedChatHarness({locale});try{
+   const chats=cases.map((item,i)=>({eventKey:`ticketmaster:date-${i}`,event:{id:`ticketmaster:date-${i}`,title:`Date fixture ${i}`,city:'Fixture city',...item},memberCount:2,muted:false}));
+   h.pending[0].resolve({data:chats});await uiTick();const view=h.host.render();
+   for(const [i,item] of cases.entries()){
+    const row=uiNodes(view).find(node=>node.type==='button'&&uiText(node).startsWith(`Date fixture ${i}`));assert.ok(row);
+    const expected=new Intl.DateTimeFormat({tr:'tr-TR',en:'en-GB',sq:'sq-AL',ro:'ro-RO'}[locale],{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(`${item.day}T12:00:00Z`));
+    assert.ok(uiText(row).includes(expected),`${locale} case${i}: ${uiText(row)} must contain ${expected}`);
+    if(item.utc)assert.match(uiText(row),/UTC/);else assert.doesNotMatch(uiText(row),/UTC/);
+   }
+  }finally{h.host.dispose();}
+ }
+});
+
+test('First-use profile_required feedback explains identity completion in four languages without automatically joining',async()=>{
+ const guidance={tr:'Katılmak için adını ve kullanıcı adını tamamla.',en:'Complete your name and username to join this event.',sq:'Plotëso emrin dhe emrin e përdoruesit për t’iu bashkuar aktivitetit.',ro:'Completează numele și numele de utilizator pentru a participa la eveniment.'};
+ for(const locale of ['tr','en','sq','ro']){
+  let h;h=dmHarness({joined:false,locale,write:async()=>{throw new h.ApiError(400,'Katılmak için adını ve kullanıcı adını tamamla.','profile_required');}});
+  try{
+   await h.ready();h.button(locale==='tr'?'Katılacağım':locale==='sq'?'Do të marr pjesë':'I’m going').props.onClick();const view=await h.settle();
+   assert.ok(uiText(view).includes(guidance[locale]));assert.doesNotMatch(uiText(view),/Event chat is unavailable right now/);
+   h.button(locale==='tr'?'Profilini tamamla':locale==='sq'?'Plotëso profilin':'Complete your profile',view).props.onClick();assert.equal(h.profileCompletions(),1);assert.equal(h.signIns(),0);
+   h.host.render({accessToken:'new-token'});await h.settle();assert.equal(h.writes.length,1);assert.equal(h.writes[0].action,'join');
+  }finally{h.dispose();}
+ }
+});
+
+test('Withdrawing from the reachable Group info control closes both chat and its selected inbox parent after confirmed success',async()=>{
+ const parent=joinedChatHarness();let child;
+ try{
+  parent.pending[0].resolve({data:[joinedChat]});await uiTick();const view=parent.host.render({initialChat:joinedChat});
+  const childEntry=uiNodes(view).find(node=>typeof node.type==='function'&&node.type.name==='EventCompanionsPanel');assert.ok(childEntry);
+  child=dmHarness({initialChatOpen:true,onChatClose:childEntry.props.onChatClose,write:async action=>{if(action.action==='leave')child.setServer({joined:false,messages:[],nextBefore:null,meetup:null});return{success:true};}});
+  await child.ready();const details=uiNodes(child.info()).find(node=>node.props?.className==='event-chat-details');assert.ok(details);
+  const withdraw=child.button('Withdraw RSVP',details);assert.ok(withdraw,'Withdrawal must be reachable inside Group info, not behind the modal');
+  withdraw.props.onClick();const after=await child.settle();
+  assert.deepEqual(child.writes,[{action:'leave'}]);assert.equal(uiNodes(after).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet').props.open,false);
+  assert.equal(uiNodes(parent.host.render()).find(node=>node.type==='Sheet').props.open,false);
+ }finally{child?.dispose();parent.host.dispose();}
+});
+
+test('Failed or pending Group info withdrawal keeps membership, conversation, draft and parent selection',async()=>{
+ let finish,closes=0,h;h=dmHarness({initialChatOpen:true,onChatClose:()=>{closes++;},write:async()=>new Promise((_resolve,reject)=>{finish=reject;})});
+ try{
+  await h.ready();h.type('Keep my unsent plan');let details=uiNodes(h.info()).find(node=>node.props?.className==='event-chat-details');
+  const withdraw=h.button('Withdraw RSVP',details);assert.ok(withdraw);withdraw.props.onClick();let view=h.render();
+  assert.equal(closes,0);assert.equal(uiNodes(view).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet').props.open,true);
+  assert.equal(h.button('Withdraw RSVP',uiNodes(view).find(node=>node.props?.className==='event-chat-details')).props.disabled,true);
+  finish(new h.ApiError(503));view=await h.settle();assert.equal(closes,0);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Keep my unsent plan');assert.match(uiText(view),/Meet at the public entrance/);
+  details=uiNodes(view).find(node=>node.props?.className==='event-chat-details');assert.equal(h.button('Withdraw RSVP',details).props.disabled,false);assert.equal(h.writes.length,1);
+ }finally{h.dispose();}
+});
+
+test('Group info withdrawal labels explain participation in all four languages and closing chat alone does not RSVP',async()=>{
+ const labels={tr:'Katılımı geri al',en:'Withdraw RSVP',sq:'Tërhiq pjesëmarrjen',ro:'Retrage participarea'};
+ for(const locale of ['tr','en','sq','ro']){
+  let closes=0;const h=dmHarness({locale,initialChatOpen:true,onChatClose:()=>{closes++;}});try{
+   await h.ready();const header=h.header();const info=uiNodes(header).find(node=>node.type==='button'&&node.props['aria-controls']);info.props.onClick();
+   const details=uiNodes(h.render()).find(node=>node.props?.className==='event-chat-details');assert.ok(h.button(labels[locale],details));
+   uiNodes(h.render()).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet').props.onClose();assert.equal(closes,1);assert.equal(h.writes.length,0);
+  }finally{h.dispose();}
+ }
+});
+
+test('Unresolved withdrawal feedback survives silent polls and Refresh chat without retrying a mutation',async()=>{
+ let h;h=dmHarness({initialChatOpen:true,write:async()=>{throw new h.ApiError(503);}});
+ try{
+  await h.ready();h.type('Keep this draft');h.button('Withdraw RSVP',uiNodes(h.info()).find(node=>node.props?.className==='event-chat-details')).props.onClick();let view=await h.settle();
+  const original=uiNodes(view).find(node=>node.props?.role==='alert');assert.ok(original);const message=uiText(original.props.children[0]);
+  await h.poll();view=await h.poll();assert.ok(uiNodes(view).some(node=>node.props?.role==='alert'&&uiText(node).includes(message)));assert.equal(h.writes.length,1);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Keep this draft');
+  const chat=uiNodes(view).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet');h.button('Refresh chat',chat).props.onClick();view=await h.settle();
+  assert.equal(h.writes.length,1);assert.ok(uiNodes(view).some(node=>node.props?.role==='alert'));assert.equal(chat.props.open,true);
+ }finally{h.dispose();}
+});
+
+test('Failed sends retain unconfirmed-delivery feedback and draft across polling, then explicit Send retries with the same request ID',async()=>{
+ let attempt=0,h;h=dmHarness({initialChatOpen:true,write:async action=>{if(++attempt===1)throw new h.ApiError(503);h.setServer({messages:[dmMessage('confirmed',dmAlice,action.body,5)]});return{success:true};}});
+ try{
+  await h.ready();h.type('Safe explicit retry');h.submit();await h.settle();let view=await h.poll();assert.ok(uiNodes(view).some(node=>node.props?.role==='alert'));assert.match(uiText(view),/Message delivery could not be confirmed/);assert.equal(h.writes.length,1);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Safe explicit retry');
+  h.submit();view=await h.settle();assert.equal(h.writes.length,2);assert.equal(h.writes[0].requestId,h.writes[1].requestId);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'');assert.equal(uiNodes(view).some(node=>node.props?.role==='alert'),false);assert.match(uiText(view),/Safe explicit retry/);
+ }finally{h.dispose();}
+});
+
+test('Activity resume does not erase a deferred failed-send warning when its initial read succeeds',async()=>{
+ let fail,h;h=dmHarness({initialChatOpen:true,write:async()=>new Promise((_resolve,reject)=>{fail=reject;})});
+ try{
+  await h.ready();h.type('Unsent while hidden');h.submit();h.host.hide();fail(new h.ApiError(503));await uiTick();h.host.show();const view=await h.settle();
+  assert.match(uiText(view),/Message delivery could not be confirmed/);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Unsent while hidden');assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.disabled,false);assert.equal(h.writes.length,1);
+ }finally{h.dispose();}
+});
+
+test('Recovered read-only outages still clear their warning and do not create action feedback or writes',async()=>{
+ const h=dmHarness({initialChatOpen:true});try{
+  await h.ready();h.setReadError(new h.ApiError(503));let view=await h.poll();assert.ok(uiNodes(view).some(node=>node.props?.role==='alert'));assert.ok(h.button('Retry',view));
+  h.setReadError(null);view=await h.poll();assert.equal(uiNodes(view).some(node=>node.props?.role==='alert'),false);assert.equal(h.writes.length,0);
+ }finally{h.dispose();}
+});
+
+test('An echoed message body does not falsely acknowledge a lost response; explicit same-ID Send can confirm it',async()=>{
+ let attempt=0,h;h=dmHarness({initialChatOpen:true,write:async action=>{if(++attempt===1){h.setServer({messages:[dmMessage('committed-once',dmAlice,action.body,4)]});throw new h.ApiError(0);}return{success:true};}});
+ try{
+  await h.ready();h.type('Committed with lost response');h.submit();await h.settle();let view=await h.poll();assert.match(uiText(view),/Committed with lost response/);assert.match(uiText(view),/Message delivery could not be confirmed/);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Committed with lost response');assert.equal(h.writes.length,1);
+  h.submit();view=await h.settle();assert.equal(h.writes[0].requestId,h.writes[1].requestId);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'');assert.equal(uiNodes(view).some(node=>node.props?.role==='alert'),false);assert.equal(uiNodes(view).filter(node=>node.props?.className==='event-message-bubble').length,1);
+ }finally{h.dispose();}
+});
+
+test('A fresh joined=false read resolves a lost withdrawal acknowledgement and closes its selected inbox parent without another POST',async()=>{
+ const parent=joinedChatHarness();let child;
+ try{
+  parent.pending[0].resolve({data:[joinedChat]});await uiTick();const view=parent.host.render({initialChat:joinedChat});
+  const entry=uiNodes(view).find(node=>typeof node.type==='function'&&node.type.name==='EventCompanionsPanel');assert.ok(entry);
+  child=dmHarness({initialChatOpen:true,onChatClose:entry.props.onChatClose,onCommunityChanged:()=>parent.listeners.get('l2t:event-community-changed')?.(),write:async()=>{child.setServer({joined:false,messages:[],nextBefore:null,meetup:null});throw new child.ApiError(0);}});
+  await child.ready();child.button('Withdraw RSVP',uiNodes(child.info()).find(node=>node.props?.className==='event-chat-details')).props.onClick();let after=await child.settle();assert.ok(uiNodes(after).some(node=>node.props?.role==='alert'));
+  after=await child.poll();assert.equal(uiNodes(after).some(node=>node.props?.role==='alert'),false);assert.equal(uiNodes(after).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet').props.open,false);assert.equal(uiNodes(parent.host.render()).find(node=>node.type==='Sheet').props.open,false);assert.equal(child.writes.length,1);
+  assert.equal(parent.pending.length,2,'Observed membership change refreshes the inbox using its existing local event');parent.pending[1].resolve({data:[]});await uiTick();assert.doesNotMatch(uiText(parent.host.render()),/My joined concert/);
+ }finally{child?.dispose();parent.host.dispose();}
+});
+
+test('Refresh chat never sends a captured old body after the user edits the failed message',async()=>{
+ let attempt=0,h;h=dmHarness({initialChatOpen:true,write:async action=>{if(++attempt===1)throw new h.ApiError(503);h.setServer({messages:[dmMessage('edited-confirmed',dmAlice,action.body,5)]});return{success:true};}});
+ try{
+  await h.ready();h.type('Original failed body');h.submit();await h.settle();h.type('Edited current body');const chat=uiNodes(h.render()).find(node=>node.type==='Sheet'&&node.props.className==='event-chat-sheet');assert.ok(h.button('Refresh chat',chat));h.button('Refresh chat',chat).props.onClick();await h.settle();assert.equal(h.writes.length,1);
+  h.submit();await h.settle();assert.equal(h.writes[1].body,'Edited current body');assert.notEqual(h.writes[0].requestId,h.writes[1].requestId);
+ }finally{h.dispose();}
+});
+
+test('Unconfirmed-send guidance and read-only Refresh chat labels are localized in four languages',async()=>{
+ const labels={tr:'Sohbeti yenile',en:'Refresh chat',sq:'Rifresko bisedën',ro:'Actualizează conversația'};
+ const guidance={tr:'Mesajın gönderildiği doğrulanamadı.',en:'Message delivery could not be confirmed.',sq:'Dërgimi i mesazhit nuk u konfirmua.',ro:'Livrarea mesajului nu a putut fi confirmată.'};
+ for(const locale of ['tr','en','sq','ro']){
+  let h;h=dmHarness({locale,initialChatOpen:true,write:async()=>{throw new h.ApiError(0);}});try{
+   await h.ready();h.type('Local translated draft');h.submit();await h.settle();const view=await h.poll();assert.ok(uiText(view).includes(guidance[locale]));assert.ok(h.button(labels[locale],view));assert.equal(h.writes.length,1);
+  }finally{h.dispose();}
+ }
+});
+
+test('Expired authorization takes priority over an unresolved send while new-token recovery restores its draft and actionable delivery status',async()=>{
+ let h;h=dmHarness({initialChatOpen:true,write:async()=>{throw new h.ApiError(503);}});
+ try{
+  await h.ready();h.type('Recover after signing in');h.submit();await h.settle();h.setReadError(new h.ApiError(401));let view=await h.poll();assert.match(uiText(view),/Your session has expired/);assert.doesNotMatch(uiText(view),/Message delivery could not be confirmed/);assert.ok(h.button('Sign in',view));
+  h.setReadError(null);h.host.render({accessToken:'refreshed-token'});view=await h.settle();assert.doesNotMatch(uiText(view),/Your session has expired/);assert.match(uiText(view),/Message delivery could not be confirmed/);assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.value,'Recover after signing in');assert.equal(uiNodes(view).find(node=>node.type==='textarea').props.disabled,false);assert.equal(h.writes.length,1);
+ }finally{h.dispose();}
 });

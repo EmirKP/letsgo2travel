@@ -111,12 +111,13 @@ await test("login/signup returns to the invite without allowing external redirec
   assert.equal(safeAuthNext("?next=%2Fdavet%2Fmy-token","https://example.test"),"/davet/my-token");
   for(const next of ["//evil.test","/\\evil.test","https://evil.test"]) assert.equal(safeAuthNext(`?next=${encodeURIComponent(next)}`,"https://example.test"),"/profil");
 });
-await test("a pending invite survives restart, expires, and clears after acceptance",()=>{
+await test("a six-digit pending invite survives restart, expires, clears after acceptance and drops legacy cache",()=>{
   const localStorage=storage();const load=modules({"./api":{}},{localStorage});
-  const invites=load("mobile/src/lib/tripCollaboration.ts");const token="A_valid-invite-token_123456789";
+  const invites=load("mobile/src/lib/tripCollaboration.ts");const token="001234";
   invites.rememberTripInvite(token);assert.equal(invites.pendingTripInvite("capacitor://localhost"),token);
   invites.rememberTripInvite("");assert.equal(invites.pendingTripInvite("capacitor://localhost"),"");
   localStorage.setItem("l2t:pending-trip-invite:v1",JSON.stringify({code:token,expires:0}));assert.equal(invites.pendingTripInvite("capacitor://localhost"),"");
+  localStorage.setItem("l2t:pending-trip-invite:v1",JSON.stringify({code:"A_valid-invite-token_123456789",expires:Date.now()+7*86400000}));assert.equal(invites.pendingTripInvite("capacitor://localhost"),"");
 });
 await test("portrait and landscape map drags move the SVG by exactly 100 screen pixels",()=>{
   const map=modules()("mobile/src/lib/mapGeometry.ts");

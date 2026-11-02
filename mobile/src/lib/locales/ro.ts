@@ -1518,7 +1518,7 @@ export const RO_MESSAGES: Record<string, string> = {
   "Tap View on the result. Its details show the highlights and let you save the country as a favourite. This does not create a route or use your AI allowance.": "Apasă Vezi pe rezultat. Detaliile arată punctele de interes și îți permit să salvezi țara la favorite. Nu se creează un traseu și nu se consumă utilizări AI.",
   "Tap a day to see its stops and route.": "Atinge o zi pentru a vedea opririle și traseul.",
   "Tap a stop to change its duration and note. You can add more places from the map.": "Atinge o oprire pentru a-i modifica durata și nota. Poți adăuga mai multe locuri de pe hartă.",
-  "Tap a tool in the results. To prepare for no internet, open Offline map and download an area. A pack is ready only after a confirmed download.": "Atinge un instrument din rezultate. Pentru a te pregăti fără internet, deschide Harta offline și descarcă o zonă. Un pachet este pregătit doar după confirmarea descărcării.",
+  "Open a tool in the results. For offline use, open Map → Downloads and download an area. The map is ready only after a confirmed download.": "Deschide un instrument din rezultate. Pentru utilizare offline, deschide Hartă → Descărcări și descarcă o zonă. Harta este pregătită numai după confirmarea descărcării.",
   "Tap the countries you've visited. When signed in, your choices sync with your web travel map.": "Atinge țările pe care le-ai vizitat. Când ești conectat, alegerile se sincronizează cu harta călătoriilor de pe site.",
   "Tap the point you want to mark on the map.": "Atinge pe hartă punctul pe care vrei să îl marchezi.",
   "Tap water": "Apă de la robinet",
@@ -4229,6 +4229,7 @@ export const RO_MESSAGES: Record<string, string> = {
   "Pair the Old City with the waterfront boulevard; the evening lights reveal a different side of Baku.": "Combină orașul vechi cu bulevardul de pe malul apei; luminile serii dezvăluie o altă față a orașului Baku.",
   "Palace": "Palat",
   "Paris": "Paris",
+  "Park": "Parc",
   "Partly cloudy": "Parțial noros",
   "Passport": "Pașaport",
   "Pharmacy": "Farmacie",
@@ -4274,6 +4275,7 @@ export const RO_MESSAGES: Record<string, string> = {
   "Some businesses in smaller towns may close in the afternoon.": "Unele afaceri din localitățile mici se pot închide după-amiaza.",
   "Some cities may fine visitors for wearing beachwear away from the beach.": "Unele orașe pot amenda vizitatorii care poartă ținută de plajă în afara plajei.",
   "Square": "Piață",
+  "Stadium": "Stadion",
   "Standard city precautions are generally appropriate in central areas.": "Măsurile obișnuite de precauție urbană sunt în general potrivite în zonele centrale.",
   "Start in Sololaki and walk down into the old town for a rewarding first look at the city.": "Începe în Sololaki și coboară pe jos spre orașul vechi pentru o primă descoperire reușită a orașului.",
   "Starting itinerary: check opening times and transport for your travel dates.": "Itinerar de pornire: verifică programul și transportul pentru datele călătoriei tale.",
@@ -4491,5 +4493,8 @@ export const RO_MESSAGES: Record<string, string> = {
   "Save city": "Salvează orașul",
   "Photo credits": "Sursele fotografiilor",
   "Your saved routes could not be read. Other results are available.": "Rutele salvate nu au putut fi citite. Celelalte rezultate sunt disponibile.",
-  "Read saved routes again": "Reîncarcă rutele salvate"
+  "Read saved routes again": "Reîncarcă rutele salvate",
+  "Now closed · historical airport": "Închis acum · aeroport istoric",
+  "Language pack status could not be checked. Your text is kept; try again.": "Starea pachetelor de limbă nu a putut fi verificată. Textul este păstrat; încearcă din nou.",
+  "We could not fully check this selection. This does not mean there are no events. Your choices are kept; try again.": "Nu am putut verifica complet această selecție. Asta nu înseamnă că nu există evenimente. Opțiunile tale sunt păstrate; încearcă din nou."
 };

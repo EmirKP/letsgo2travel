@@ -278,6 +278,9 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     if (!beginMutation(alert.id)) return;
     try {
       const result = await updateAlert(alert.id, body, accessToken);
+      // A refresh started during the PATCH may still hold its earlier snapshot.
+      loadGeneration.current += 1;
+      setLoading(false);
       setAlerts((current) => current.map((item) => item.id === alert.id ? { ...item, ...body, ...(body.is_active === undefined ? {} : { status: body.is_active ? "active" : "paused" }) } : item));
       onNotice(responseNotice(result, notice, locale));
     } catch (requestError) {
@@ -358,6 +361,9 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     const active = alert.is_active !== false && !isPastLocalDate(alert.departure_date);
     try {
       await restoreAlert(alert.id, active, accessToken);
+      // A refresh during restore may still hold the earlier deleted state.
+      loadGeneration.current += 1;
+      setLoading(false);
       deletedIds.current.delete(alert.id);
       setAlerts((current) => [{ ...alert, is_active: active, status: active ? "active" : "paused" }, ...current.filter((item) => item.id !== alert.id)]);
       onNotice(copy("Alarm geri alındı.", "Alert restored.", "Njoftimi u rikthye."));

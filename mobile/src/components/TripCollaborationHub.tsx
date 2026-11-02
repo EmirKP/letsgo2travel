@@ -29,6 +29,7 @@ import { Sheet } from "./Sheet";
 import "./trip-collaboration-artwork.css";
 
 type CollaborationTab = "team" | "vote" | "budget";
+type TripRemovalTarget = Pick<SharedTripSummary, "id" | "title" | "startDate" | "memberCount" | "role">;
 
 type TripCollaborationHubProps = {
   accessToken: string;
@@ -71,7 +72,10 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const [trips, setTrips] = useState<SharedTripSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [joinError, setJoinError] = useState("");
   const [inviteCode, setInviteCode] = useState(() => /^\d{6}$/.test(tripInviteFromUrl(initialInviteCode || "")) ? tripInviteFromUrl(initialInviteCode || "") : "");
+  const inviteIntent = useRef({ code: inviteCode, revision: 0 });
+  const incomingInvite = useRef<string | undefined>(undefined);
   const [selectedTripId, setSelectedTripId] = useState("");
   const [workspace, setWorkspace] = useState<TripCollaborationWorkspace | null>(null);
   const [tab, setTab] = useState<CollaborationTab>("team");
@@ -81,7 +85,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteTime, setInviteTime] = useState(() => ({ wall: Date.now(), monotonic: sharedInviteMonotonicNow() }));
-  const [removeTrip, setRemoveTrip] = useState<SharedTripSummary | null>(null);
+  const [removeTrip, setRemoveTrip] = useState<TripRemovalTarget | null>(null);
   const [removeError, setRemoveError] = useState("");
   const [optionTitle, setOptionTitle] = useState("");
   const [optionDetails, setOptionDetails] = useState("");
@@ -111,6 +115,11 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const expenseRequest = useRef<{signature:string;id:string} | null>(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; workspaceRequest.current++; tripRequest.current++; inviteRequest.current++; }; },[]);
 
+  const updateInviteCode = useCallback((code: string) => {
+    if (inviteIntent.current.code !== code) inviteIntent.current = { code, revision: inviteIntent.current.revision + 1 };
+    setInviteCode(code);
+  }, []);
+
   const loadTrips = useCallback(async () => {
     if (!accessToken) return;
     const request = ++tripRequest.current;
@@ -128,12 +137,14 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
   useEffect(() => { void loadTrips(); }, [loadTrips, refreshKey]);
   useEffect(() => {
+    if (incomingInvite.current === initialInviteCode) return;
+    incomingInvite.current = initialInviteCode;
     if (!initialInviteCode) return;
     const code = tripInviteFromUrl(initialInviteCode);
-    setInviteCode(/^\d{6}$/.test(code) ? code : "");
-    setError(/^\d{6}$/.test(code) ? "" : sharedTripCopy(locale, "expired"));
+    updateInviteCode(/^\d{6}$/.test(code) ? code : "");
+    setJoinError(/^\d{6}$/.test(code) ? "" : sharedTripCopy(locale, "expired"));
     setEntry("join");
-  }, [initialInviteCode, locale]);
+  }, [initialInviteCode, locale, updateInviteCode]);
   useEffect(() => { if (initialEntry) setEntry(initialEntry); }, [initialEntry]);
 
   const loadWorkspace = useCallback(async (tripId: string) => {
@@ -237,22 +248,27 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     const code = tripInviteFromUrl(inviteCode);
     if (!code || busy || actionPending.current) return;
     actionPending.current = true;
+    const revision = inviteIntent.current.revision;
+    const stillCurrentInvite = () => mounted.current && inviteIntent.current.revision === revision;
     setBusy("accept");
-    setError("");
+    setJoinError("");
     try {
       const result = await collaborationAction<{ data: { tripId: string }; message: string }>(accessToken, { action: "accept_invite", inviteCode: code });
       if (!mounted.current) return;
-      setInviteCode("");
+      if (!stillCurrentInvite()) { await loadTrips(); return; }
+      updateInviteCode("");
+      const handledRevision = inviteIntent.current.revision;
       rememberTripInvite("");
       onInviteHandled?.();
       onNotice(copy("Ortak seyahate katıldın.", "You joined the shared trip."));
       setEntry(null);
       await loadTrips();
-      openTrip(result.data.tripId);
+      if (mounted.current && inviteIntent.current.revision === handledRevision) openTrip(result.data.tripId);
     } catch (requestError) {
-      if (!mounted.current) return;
+      if (!stillCurrentInvite()) return;
       const code = requestError && typeof requestError === "object" && "code" in requestError ? requestError.code : "";
-      setError(code === "INVITE_EXPIRED" ? sharedTripCopy(locale, "expired") : code === "INVITE_RATE_LIMITED" ? sharedTripCopy(locale, "rateLimited") : code === "COLLAB_SCHEMA_MISSING" ? sharedTripCopy(locale, "unavailable") : errorText(requestError, sharedTripCopy(locale, "joinFailed")));
+      if (code === "INVITE_EXPIRED") { rememberTripInvite(""); onInviteHandled?.(); }
+      setJoinError(code === "INVITE_EXPIRED" ? sharedTripCopy(locale, "expired") : code === "INVITE_RATE_LIMITED" ? sharedTripCopy(locale, "rateLimited") : code === "COLLAB_SCHEMA_MISSING" ? sharedTripCopy(locale, "unavailable") : errorText(requestError, sharedTripCopy(locale, "joinFailed")));
     } finally {
       actionPending.current = false;
       if (mounted.current && !selectedRef.current) setBusy("");
@@ -338,11 +354,22 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       onNotice(sharedTripCopy(locale, target.role === "owner" ? "deleted" : "left"));
       await loadTrips();
     } catch (requestError) {
-      if (mounted.current) setRemoveError(errorText(requestError, sharedTripCopy(locale, "removeFailed")));
+      if (mounted.current) {
+        const financialHistory = target.role !== "owner" && requestError && typeof requestError === "object" && "status" in requestError && requestError.status === 409;
+        setRemoveError(financialHistory ? sharedTripCopy(locale, "leaveFinancialHistory") : errorText(requestError, sharedTripCopy(locale, "removeFailed")));
+      }
     } finally {
       actionPending.current = false;
       if (mounted.current) setBusy(current => current === `remove-${target.id}` ? "" : current);
     }
+  };
+
+  const leaveWorkspace = () => {
+    if (!workspace || workspace.myRole === "owner") return;
+    // A joined trip may open even if the separate list refresh failed. Its
+    // current server workspace also takes precedence over a stale list role.
+    setRemoveError("");
+    setRemoveTrip({ id: workspace.trip.id, title: workspace.trip.title, startDate: workspace.trip.startDate, memberCount: workspace.members.length, role: workspace.myRole });
   };
 
   const addOption = async (event: FormEvent<HTMLFormElement>) => {
@@ -371,13 +398,15 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const canEdit = workspace?.myRole === "owner" || workspace?.myRole === "editor";
   const totalSpent = useMemo(() => (workspace?.expenses.filter(expense => expense.currency === workspace.budget.currency).reduce((sum, expense) => sum + Math.round(expense.amount*100), 0) || 0) / 100, [workspace]);
   const progress = workspace?.budget.targetAmount ? Math.round(totalSpent / workspace.budget.targetAmount * 100) : 0;
+  const joinFeedback = entry === "join" ? joinError : "";
+  const entryError = joinFeedback || error;
 
   return <>
     <section className="trip-collaboration-hub">
-      <div className="trip-entry-actions"><button type="button" onClick={() => { setError(""); setEntry("create"); }}><Icon name="plus" size={18}/>{copy("Ortak seyahat oluştur", "Create shared trip", "Krijo udhëtim të përbashkët")}</button><button type="button" onClick={() => { setError(""); setEntry("join"); }}><Icon name="users" size={18}/>{sharedTripCopy(locale, "join")}</button></div>
+      <div className="trip-entry-actions"><button type="button" onClick={() => { setError(""); setJoinError(""); setEntry("create"); }}><Icon name="plus" size={18}/>{copy("Ortak seyahat oluştur", "Create shared trip", "Krijo udhëtim të përbashkët")}</button><button type="button" onClick={() => { setError(""); setJoinError(""); setEntry("join"); }}><Icon name="users" size={18}/>{sharedTripCopy(locale, "join")}</button></div>
 
       {entry === "join" && <form className="trip-invite-join" onSubmit={acceptInvite}>
-        <label>{sharedTripCopy(locale, "codeLabel")}<input value={inviteCode} maxLength={6} inputMode="numeric" autoComplete="one-time-code" autoCapitalize="none" autoCorrect="off" onChange={(event) => { setInviteCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }} placeholder="000000" /></label>
+        <label>{sharedTripCopy(locale, "codeLabel")}<input value={inviteCode} maxLength={6} inputMode="numeric" autoComplete="one-time-code" autoCapitalize="none" autoCorrect="off" onChange={(event) => { updateInviteCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setJoinError(""); }} placeholder="000000" /></label>
         <button type="submit" disabled={Boolean(busy) || !tripInviteFromUrl(inviteCode)}>{busy === "accept" ? <span className="button-loader dark" /> : <Icon name="users" size={18} />} {copy("Katıl", "Join")}</button>
         <p>{sharedTripCopy(locale, "codeHint")}</p>
       </form>}
@@ -390,7 +419,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
         <button type="submit" disabled={Boolean(busy) || !newCountry || !isCalendarDate(newStart) || !isCalendarDate(newEnd) || newEnd < newStart}>{busy === "create" ? <span className="button-loader dark"/> : <Icon name="plus" size={18}/>} {copy("Oluştur ve arkadaşlarını davet et", "Create and invite friends", "Krijo dhe fto miqtë")}</button>
       </form>}
 
-      {error && !selectedTripId && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{error}</span><button onClick={() => void loadTrips()}>{copy("Yenile", "Retry")}</button></div>}
+      {entryError && !selectedTripId && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{entryError}</span><button type="button" onClick={() => void loadTrips()}>{joinFeedback ? sharedTripCopy(locale, "refreshTrips") : copy("Yenile", "Retry")}</button></div>}
       {loading ? <div className="trip-collaboration-loading" role="status"><span className="button-loader dark" /> {copy("Ortak seyahatler yükleniyor", "Loading shared trips")}</div>
         : trips.length ? <div className="trip-collaboration-list">
           {trips.map((trip) => <div key={trip.id} className="trip-collaboration-row"><button type="button" className="trip-collaboration-open" disabled={Boolean(busy)} onClick={() => openTrip(trip.id)}>
@@ -442,7 +471,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
               <button type="button" className="trip-member-remove" disabled={Boolean(busy)} aria-label={copy("Katılımcıyı çıkar", "Remove participant")} onClick={() => window.confirm(copy(`${member.name} ortak seyahatten çıkarılsın mı?`, `Remove ${member.name} from the shared trip?`, `Të hiqet ${member.name} nga udhëtimi i përbashkët?`)) && void mutate(`remove-${member.userId}`, { action: "remove_member", tripId: workspace.trip.id, userId: member.userId })}><Icon name="close" size={16} /></button>
             </> : <em>{copy(ROLE_LABELS[member.role].tr, ROLE_LABELS[member.role].en, ROLE_LABELS[member.role].sq)}</em>}
           </article>)}</div>
-          {workspace.myRole !== "owner" && <button type="button" className="danger-wide" disabled={Boolean(busy)} onClick={() => { const trip = trips.find(item => item.id === workspace.trip.id); if (trip) { setRemoveError(""); setRemoveTrip(trip); } }}>{sharedTripCopy(locale, "leave")}</button>}
+          {workspace.myRole !== "owner" && <button type="button" className="danger-wide" disabled={Boolean(busy)} onClick={leaveWorkspace}>{sharedTripCopy(locale, "leave")}</button>}
         </section>}
 
         {tab === "vote" && <section className="trip-workspace-section">

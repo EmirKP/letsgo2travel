@@ -34,7 +34,7 @@ function browserClock() {
     advance(ms) { now += ms; monotonic += ms; for (const fn of [...timers.values()]) fn(); }, shiftWall(ms) { now += ms; for (const fn of [...timers.values()]) fn(); }, suspend(ms) { now += ms; }, visibility(value) { document.visibilityState = value; for (const fn of [...listeners]) fn(); }, timerCount: () => timers.size };
 }
 
-function hubFixture({ locale = 'en', perform, role = 'owner' } = {}) {
+function hubFixture({ locale = 'en', perform, role = 'owner', listTrips, getWorkspace, remembered } = {}) {
   const h = hooks(), clock = browserClock(), actions = [], copies = [], shares = [], cleared = [], notices = [];
   let generation = 0, trips = [{ id: 'trip-a', title: 'Germany test trip', destinationCode: 'DE', destinationCountry: 'Germany', startDate: '2026-11-20', endDate: '2026-11-22', role, memberCount: 2 }];
   const language = { locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en, countryName: (_code, value) => value };
@@ -49,13 +49,13 @@ function hubFixture({ locale = 'en', perform, role = 'owner' } = {}) {
   const imports = { react: h.react, '../lib/localeFormatting': { formatAppDate: date => date.toISOString().slice(0, 10) }, '../lib/dates': { isCalendarDate: () => true, localIsoDate: () => '2026-11-01' }, '../lib/i18n': { useI18n: () => language },
     '../lib/sharedTripInviteClient': load('mobile/src/lib/sharedTripInviteClient.ts', {}, { Date: clock.Date, performance: clock.performance }),
     '../lib/native': { shareContent: async value => { shares.push(value); return true; } },
-    '../lib/tripCollaboration': { listSharedTrips: async () => trips, getTripCollaboration: async () => workspace(), collaborationAction: action, tripInviteFromUrl: value => /^\d{6}$/.test(value) ? value : '', rememberTripInvite() {} },
+    '../lib/tripCollaboration': { listSharedTrips: async () => listTrips ? listTrips() : trips, getTripCollaboration: async () => getWorkspace ? getWorkspace() : workspace(), collaborationAction: action, tripInviteFromUrl: value => /^\d{6}$/.test(value) ? value : '', rememberTripInvite(value) { remembered?.(value); } },
     '../data/countries': { COUNTRY_LIST: [] }, '../data/countryIso': { alpha2FromAlpha3: () => 'DE' }, '../lib/supabaseData': { createCockpitTrip() { throw Error('Fixture must not create records'); }, getSupabaseDataErrorMessage: (_error, fallback) => fallback },
     '../lib/activeTripContext': { activeTripContextFromTrip: () => null, clearActiveTripContext: (...args) => cleared.push(args), writeActiveTripContext: () => false }, '../lib/id': { createId: () => 'fixture-only' } };
   for (const name of ['DateTimeField', 'CountryPicker', 'Icon', 'TravelToolArtwork', 'CountryFlag', 'Sheet']) imports[`./${name}`] = { [name]: name };
   const { TripCollaborationHub } = load('mobile/src/components/TripCollaborationHub.tsx', imports, { Date: clock.Date, Error, window: clock.window, document: clock.document, navigator: { clipboard: { writeText: async value => copies.push(value) } } });
   h.start(TripCollaborationHub, { accessToken: 'fixture-token', userId: 'owner-a', refreshKey: '', onNotice: value => notices.push(value) });
-  return { h, clock, actions, copies, shares, cleared, notices, async open() { await tick(); const tree = h.render(); find(tree, 'button', p => p.className === 'trip-collaboration-open').props.onClick(); await tick(); return h.render(); }, async invite() { let tree = await this.open(); button(tree, client.sharedTripCopy(locale, 'invite')).props.onClick(); await tick(); return h.render(); }, async remove() { await tick(); find(h.render(), 'button', p => p.className === 'trip-collaboration-remove').props.onClick(); return h.render(); } };
+  return { h, clock, actions, copies, shares, cleared, notices, setLocale(value) { locale=value;language.locale=value;return h.render(); }, async open() { await tick(); const tree = h.render(); find(tree, 'button', p => p.className === 'trip-collaboration-open').props.onClick(); await tick(); return h.render(); }, async invite() { let tree = await this.open(); button(tree, client.sharedTripCopy(locale, 'invite')).props.onClick(); await tick(); return h.render(); }, async remove() { await tick(); find(h.render(), 'button', p => p.className === 'trip-collaboration-remove').props.onClick(); return h.render(); } };
 }
 
 test('The invitation uses the server clock, keeps leading zeroes and expires after five minutes', () => {
@@ -196,4 +196,119 @@ test('A refused delete/leave keeps the row and selected context and permits a de
 test('The new invitation and destructive-action controls have all four app languages', () => {
   for (const locale of ['tr', 'en', 'sq', 'ro']) for (const key of ['join', 'codeLabel', 'delete', 'leave', 'deleteExplanation', 'unavailable', 'renews']) assert.ok(client.sharedTripCopy(locale, key).length > 2);
   assert.equal(client.sharedTripCopy('ro', 'join'), 'Alătură-te cu un cod'); assert.equal(client.sharedTripCopy('sq', 'delete'), 'Fshi udhëtimin');
+});
+
+test('A just-joined participant can leave the opened workspace even when refreshing the trip list fails', async () => {
+  let reads=0;
+  const f=hubFixture({role:'editor',listTrips:async()=>{ if(++reads===1)return [];throw Error('List unavailable fixture'); },perform:body=>body.action==='accept_invite'?{data:{tripId:'trip-a'}}:undefined});
+  try {
+    await tick();let tree=f.h.render({initialInviteCode:'001234'});
+    await find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit({preventDefault(){}});await tick();tree=f.h.render();
+    const workspace=find(tree,'Sheet',p=>p.open&&p.title==='Shared trip');assert.ok(workspace);
+    button(workspace,'Leave trip').props.onClick();tree=f.h.render();
+    const confirmation=find(tree,'Sheet',p=>p.open&&p.title==='Leave trip');assert.ok(confirmation,'Leave must use the loaded workspace, not require a missing list row');
+    assert.match(text(confirmation),/Germany test trip/);assert.equal(f.actions.length,1);
+    button(confirmation,'Cancel').props.onClick();assert.equal(f.actions.length,1);assert.equal(f.cleared.length,0);
+  }finally{f.h.close();}
+});
+test('Workspace leave confirmation uses the current server role instead of an older owner role in the list',async()=>{
+  const f=hubFixture({role:'editor',listTrips:async()=>[{id:'trip-a',title:'Old title',destinationCode:'DE',destinationCountry:'Germany',startDate:'2026-11-20',endDate:'2026-11-22',role:'owner',memberCount:1}]});
+  try{
+    let tree=await f.open();button(find(tree,'Sheet',p=>p.open&&p.title==='Shared trip'),'Leave trip').props.onClick();tree=f.h.render();
+    const confirmation=find(tree,'Sheet',p=>p.open&&p.title==='Leave trip');assert.ok(confirmation);assert.match(text(confirmation),/Germany test trip/);assert.doesNotMatch(text(confirmation),/Old title/);
+    button(confirmation,'Leave trip').props.onClick();await tick();assert.deepEqual(plain(f.actions),[{action:'leave_trip',tripId:'trip-a'}]);
+  }finally{f.h.close();}
+});
+test('Reading the same incoming URL during login does not renew the original five-minute pending deadline',()=>{
+  const clock=browserClock(),values=new Map(),localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const parser=load('lib/trip-invite.ts',{}, {URL}),invites=load('mobile/src/lib/tripCollaboration.ts',{'./api':{},'../../../lib/trip-invite':parser},{localStorage,Date:clock.Date});
+  const url='https://www.letsgo2travel.com.tr/davet/001234';assert.equal(invites.pendingTripInvite(url),'001234');
+  clock.advance(120000);assert.equal(invites.pendingTripInvite(url),'001234');
+  assert.equal(JSON.parse(values.get('l2t:pending-trip-invite:v1')).expires,clock.initial+300000);
+  clock.advance(180000);assert.equal(invites.pendingTripInvite('capacitor://localhost'),'');assert.equal(values.size,0);
+});
+test('Upgrading removes old seven-day legacy or overlong pending invitations instead of reopening an expired join',()=>{
+  for(const code of ['oldLegacyInviteToken12345','001234']){
+    const clock=browserClock(),values=new Map([['l2t:pending-trip-invite:v1',JSON.stringify({code,expires:clock.initial+7*86400000})]]);
+    const localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+    const parser=load('lib/trip-invite.ts',{}, {URL}),invites=load('mobile/src/lib/tripCollaboration.ts',{'./api':{},'../../../lib/trip-invite':parser},{localStorage,Date:clock.Date});
+    assert.equal(invites.pendingTripInvite('capacitor://localhost'),'');assert.equal(values.size,0);
+  }
+});
+test('Malformed or blocked pending storage cannot crash a cold start or prevent using an incoming code',()=>{
+  for(const raw of ['broken-json','null','[]',JSON.stringify({code:123456,expires:Date.now()+100000}),JSON.stringify({code:'001234',expires:'tomorrow'})]){
+    const values=new Map([['l2t:pending-trip-invite:v1',raw]]),localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+    const parser=load('lib/trip-invite.ts',{}, {URL}),invites=load('mobile/src/lib/tripCollaboration.ts',{'./api':{},'../../../lib/trip-invite':parser},{localStorage});
+    assert.equal(invites.pendingTripInvite('capacitor://localhost'),'');assert.equal(values.size,0);
+  }
+  const denied=()=>{throw Error('Storage blocked fixture');},parser=load('lib/trip-invite.ts',{}, {URL});
+  const invites=load('mobile/src/lib/tripCollaboration.ts',{'./api':{},'../../../lib/trip-invite':parser},{localStorage:{getItem:denied,setItem:denied,removeItem:denied}});
+  assert.equal(invites.pendingTripInvite('capacitor://localhost'),'');assert.equal(invites.rememberTripInvite('001234'),'001234');
+});
+test('A new incoming code replaces the pending invite while a duplicate keeps its original deadline',()=>{
+  const clock=browserClock(),values=new Map(),localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const parser=load('lib/trip-invite.ts',{}, {URL}),invites=load('mobile/src/lib/tripCollaboration.ts',{'./api':{},'../../../lib/trip-invite':parser},{localStorage,Date:clock.Date});
+  invites.rememberTripInvite('001234');clock.advance(100000);invites.rememberTripInvite('001234');assert.equal(JSON.parse(values.get('l2t:pending-trip-invite:v1')).expires,clock.initial+300000);
+  assert.equal(invites.rememberTripInvite('005678'),'005678');assert.equal(JSON.parse(values.get('l2t:pending-trip-invite:v1')).expires,clock.initial+400000);
+  invites.rememberTripInvite('');assert.equal(values.size,0);
+});
+test('An authoritative expired-invite rejection clears its automatic login handoff but preserves the editable code',async()=>{
+  const remembered=[],handled=[];
+  const f=hubFixture({remembered:value=>remembered.push(value),perform:body=>{if(body.action==='accept_invite')throw Object.assign(new Error('Expired fixture'),{code:'INVITE_EXPIRED'});}});
+  try{
+    await tick();let tree=f.h.render({initialInviteCode:'001234',onInviteHandled:()=>handled.push(true)});
+    await find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit({preventDefault(){}});tree=f.h.render();
+    assert.deepEqual(remembered,['']);assert.equal(handled.length,1);assert.equal(find(tree,'input').props.value,'001234');assert.match(text(tree),/Ask your friend for a new 6-digit code/);
+  }finally{f.h.close();}
+});
+test('Financial-history leave rejection explains retained access in every language without deleting or clearing the trip',async()=>{
+  const expected={tr:'Ortak masraf kayıtların olduğu için bu seyahatten ayrılamıyorsun.',en:'You cannot leave this trip while shared expenses are linked to your account.',sq:'Nuk mund të largohesh nga ky udhëtim ndërsa shpenzimet e përbashkëta lidhen me llogarinë tënde.',ro:'Nu poți părăsi călătoria cât timp ai cheltuieli comune asociate contului.'};
+  for(const locale of ['tr','en','sq','ro']){
+    const f=hubFixture({locale,role:'viewer',perform:body=>{if(body.action==='leave_trip')throw Object.assign(new Error('Bu katılımcının masraf geçmişi var; hesapları korumak için katılımcı çıkarılamaz.'),{status:409});}});
+    try{
+      const tree=await f.remove();button(tree,client.sharedTripCopy(locale,'leave')).props.onClick();await tick();const next=f.h.render();
+      assert.ok(text(next).includes(expected[locale]));assert.equal(f.cleared.length,0);assert.ok(find(next,'button',p=>p.className==='trip-collaboration-open'));
+    }finally{f.h.close();}
+  }
+});
+test('A late reply for an older invite cannot clear a newer incoming code or open the wrong workspace',async()=>{
+  for(const succeeds of [false,true]){
+    let finish,fail;const remembered=[],handled=[];
+    const f=hubFixture({remembered:value=>remembered.push(value),perform:body=>body.action==='accept_invite'?new Promise((resolve,reject)=>{finish=resolve;fail=reject;}):undefined});
+    try{
+      await tick();let tree=f.h.render({initialInviteCode:'001234',onInviteHandled:()=>handled.push(true)});
+      const request=find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit({preventDefault(){}});
+      tree=f.h.render({initialInviteCode:'005678'});assert.equal(find(tree,'input').props.value,'005678');
+      if(succeeds)finish({data:{tripId:'trip-a'}});else fail(Object.assign(new Error('Expired old request'),{code:'INVITE_EXPIRED'}));
+      await request;await tick();tree=f.h.render();
+      assert.equal(find(tree,'input').props.value,'005678');assert.equal(handled.length,0);assert.deepEqual(remembered,[]);
+      assert.equal(find(tree,'Sheet',p=>p.open&&p.title==='Shared trip'),undefined);assert.doesNotMatch(text(tree),/no longer valid|Expired old request/);
+    }finally{f.h.close();}
+  }
+});
+test('Changing the app language does not replace a code the user is editing with the older incoming code',async()=>{
+  const f=hubFixture();try{
+    await tick();let tree=f.h.render({initialInviteCode:'001234'});find(tree,'input').props.onChange({target:{value:'005678'}});tree=f.h.render();assert.equal(find(tree,'input').props.value,'005678');
+    tree=f.setLocale('ro');assert.equal(find(tree,'input').props.value,'005678');
+  }finally{f.h.close();}
+});
+test('A failed join keeps its editable code and retries through Join instead of a misleading trip-list refresh button',async()=>{
+  let joins=0;
+  const f=hubFixture({perform:body=>{if(body.action==='accept_invite'){if(++joins===1)throw Error('Connection unavailable fixture');return {data:{tripId:'trip-a'}};}}});
+  try{
+    await tick();let tree=f.h.render({initialInviteCode:'001234'});
+    await find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit({preventDefault(){}});tree=f.h.render();
+    const alert=find(tree,'div',p=>p.className==='trip-collaboration-error');assert.match(text(alert),/Connection unavailable fixture/);assert.equal(button(alert,'Retry'),undefined,'The retry-looking button must not merely refresh unrelated list data');
+    assert.ok(button(alert,'Refresh trips'));button(alert,'Refresh trips').props.onClick();await tick();tree=f.h.render();assert.equal(joins,1);assert.match(text(tree),/Connection unavailable fixture/);
+    assert.equal(find(tree,'input').props.value,'001234');await find(tree,'form',p=>p.className==='trip-invite-join').props.onSubmit({preventDefault(){}});await tick();
+    assert.equal(joins,2);assert.ok(find(f.h.render(),'Sheet',p=>p.open&&p.title==='Shared trip'));
+  }finally{f.h.close();}
+});
+test('Trip-list failures retain a genuine list retry without submitting any invitation',async()=>{
+  let reads=0;
+  const f=hubFixture({listTrips:async()=>{if(++reads===1)throw Error('List unavailable fixture');return [];}});
+  try{
+    await tick();let tree=f.h.render();const alert=find(tree,'div',p=>p.className==='trip-collaboration-error');assert.ok(button(alert,'Retry'));
+    button(alert,'Retry').props.onClick();await tick();tree=f.h.render();assert.equal(reads,2);assert.equal(f.actions.length,0);assert.doesNotMatch(text(tree),/List unavailable fixture/);
+  }finally{f.h.close();}
 });

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Additive reviewed lifecycle annotations; not a current-flight filter or a historical-code rewrite.",
+  "source": {
+    "ownerDownloadPage": "https://ourairports.com/data/",
+    "repository": "https://github.com/davidmegginson/ourairports-data",
+    "commit": "a53a511473382df1da2ba56a229b4b4a3c3904ee",
+    "commitDate": "2026-11-01T02:53:21Z",
+    "url": "https://raw.githubusercontent.com/davidmegginson/ourairports-data/a53a511473382df1da2ba56a229b4b4a3c3904ee/airports.csv",
+    "sha256": "1aab80ccfa203a0d02476c16ac282d9e787cf3d08700d7365c5c5502a0db8ba7",
+    "bytes": 12755603
+  },
+  "reviewedIdentities": [
+    {
+      "iata": "TXL",
+      "countryCode": "DE",
+      "ourAirportsId": "2223",
+      "historicalIcao": "EDDT",
+      "catalogName": "Berlin-Tegel International Airport",
+      "checkedAt": "2026-11-01",
+      "sourceUrl": "https://corporate.berlin-airport.de/de/unternehmen-presse/presseportal/pressemitteilungen/2020-11-06-umzug-von-tegel-nach-ber-steht-bevor.html",
+      "corroboratingSourceUrl": "https://www.berlin.de/sen/uvk/mobilitaet-und-verkehr/verkehrsplanung/luftfahrt/flugplaetze/ehemalige-flugplaetze/",
+      "identityReview": {
+        "reviewed": true,
+        "basis": "The current closed OurAirports id2223/DE-0876 explicitly carries former TXL and EDDT keywords in DE; operator and Berlin aviation authority corroborate the same Tegel identity and closure. The original supplemental record retains the matching Berlin-Tegel name and DE country. Its coordinates are415m from the current source; no automatic geographic/name threshold is used.",
+        "legacySupplementalSource": "airports@1.0.0",
+        "legacySupplementalCoordinates": { "latitude": "52.553944", "longitude": "13.291722" },
+        "observedCurrentCoordinates": { "latitude": "52.557675", "longitude": "13.29185" }
+      }
+    }
+  ]
+}

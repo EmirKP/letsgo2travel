@@ -47,7 +47,7 @@ function harness() {
   },{AbortController,window:{setTimeout:(fn)=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)}});
   const props={user:{id:'owner'},accessToken:'token',onOpenAccount(){},onNotice:msg=>notices.push(msg)};
   let tree;
-  const h={requests,notices,render(){tree=host.render(()=>PriceAlertsScreen(props));return tree;},get tree(){return tree;},async settle(){await tick();return h.render();},dispose:()=>host.dispose(),expire(){for(const fn of timers.values())fn();h.render();}};
+  const h={requests,notices,render(next={}){Object.assign(props,next);tree=host.render(()=>PriceAlertsScreen(props));return tree;},get tree(){return tree;},async settle(){await tick();return h.render();},dispose:()=>host.dispose(),expire(){for(const fn of timers.values())fn();h.render();}};
   h.render(); return h;
 }
 async function ready(overrides) {const h=harness();h.requests[0].resolve([fixture(overrides)]);await h.settle();return h;}
@@ -109,4 +109,127 @@ test('Globally muted channel is explained even when the per-alert checkbox is se
     assert.doesNotMatch(text(h.tree),/Phone notification · muted in settings/);
     assert.equal(nodes(h.tree).find(n=>n.type==='NotificationPreferences'),undefined);
   }finally{h.dispose();}
+});
+
+const alertCard = tree => nodes(tree).find(node => node.type === 'article' && node.props.className?.includes('alert-card'));
+const channelField = (tree, index) => nodes(alertCard(tree)).filter(node => node.type === 'input' && node.props.type === 'checkbox')[index];
+const patchCases = [
+  { name: 'Pause', initial: { is_active: true }, change: h => button(h.tree, 'Pause').props.onClick(), body: { is_active: false }, confirmed: tree => !!button(tree, 'Resume') },
+  { name: 'Resume', initial: { is_active: false, status: 'paused' }, change: h => button(h.tree, 'Resume').props.onClick(), body: { is_active: true }, confirmed: tree => !!button(tree, 'Pause') },
+  { name: 'email channel', initial: { notify_email: true, notify_push: true }, change: h => channelField(h.tree, 0).props.onChange({ target: { checked: false } }), body: { notify_email: false }, confirmed: tree => channelField(tree, 0).props.checked === false },
+  { name: 'push channel', initial: { notify_email: true, notify_push: true }, change: h => channelField(h.tree, 1).props.onChange({ target: { checked: false } }), body: { notify_push: false }, confirmed: tree => channelField(tree, 1).props.checked === false },
+];
+
+for (const operation of patchCases) test(`${operation.name} acknowledgement survives a token-refresh read started during its PATCH in either response order`, async () => {
+  for (const order of ['patch-first', 'read-first']) {
+    const h = await ready(operation.initial);
+    try {
+      button(h.tree, 'Create alert').props.onClick(); h.render();
+      nodes(h.tree).find(node => node.type === 'input' && node.props.type === 'number').props.onChange({ target: { value: '1234' } }); h.render();
+      operation.change(h); h.render();
+      const patch = h.requests.find(request => request.kind === 'patch');
+      assert.ok(patch); assert.deepEqual(JSON.parse(JSON.stringify(patch.args[1])), operation.body);
+      assert.equal(channelField(h.tree, 0).props.disabled, true);
+      h.render({ accessToken: 'fresh-token' });
+      const refreshedRead = h.requests.filter(request => request.kind === 'list').at(-1);
+      assert.equal(refreshedRead.args[0], 'fresh-token');
+      if (order === 'read-first') { refreshedRead.resolve([fixture(operation.initial)]); await h.settle(); }
+      patch.resolve({ success: true }); await h.settle();
+      assert.equal(operation.confirmed(h.tree), true, 'PATCH acknowledgement must be visible');
+      if (order === 'patch-first') { refreshedRead.resolve([fixture(operation.initial)]); await h.settle(); }
+      assert.equal(operation.confirmed(h.tree), true, 'An earlier snapshot cannot roll back acknowledged fields');
+      assert.equal(nodes(h.tree).find(node => node.props?.className?.split(' ').includes('alert-list')).props['aria-busy'], false);
+      assert.equal(button(h.tree, 'Refresh').props.disabled, false, 'Discarded reads cannot leave loading stuck');
+      assert.equal(nodes(h.tree).find(node => node.type === 'input' && node.props.type === 'number').props.value, '1234');
+      assert.equal(h.requests.filter(request => request.kind === 'patch').length, 1, 'Token rotation never repeats the mutation');
+      assert.equal(h.notices.length, 1);
+    } finally { h.dispose(); }
+  }
+});
+
+test('A genuine explicit refresh after PATCH acknowledgement remains authoritative', async () => {
+  const h = await ready();
+  try {
+    button(h.tree, 'Pause').props.onClick(); h.render();
+    h.requests.find(request => request.kind === 'patch').resolve({ success: true }); await h.settle();
+    assert.ok(button(h.tree, 'Resume'));
+    button(h.tree, 'Refresh').props.onClick(); h.render();
+    h.requests.at(-1).resolve([fixture({ is_active: true, status: 'active' })]); await h.settle();
+    assert.ok(button(h.tree, 'Pause'), 'A truly later server state must not be pinned behind a local mutation cache');
+    assert.equal(h.requests.filter(request => request.kind === 'patch').length, 1);
+  } finally { h.dispose(); }
+});
+
+test('Failed PATCH preserves a token-refresh authoritative result, error and busy recovery in either response order', async () => {
+  for (const order of ['patch-first', 'read-first']) {
+    const h = await ready();
+    try {
+      button(h.tree, 'Pause').props.onClick(); h.render(); const patch = h.requests.find(request => request.kind === 'patch');
+      h.render({ accessToken: 'fresh-token' }); const refreshedRead = h.requests.filter(request => request.kind === 'list').at(-1);
+      if (order === 'read-first') { refreshedRead.resolve([fixture({ is_active: false, status: 'paused' })]); await h.settle(); }
+      patch.reject(Error('response lost')); await h.settle();
+      if (order === 'patch-first') { refreshedRead.resolve([fixture({ is_active: false, status: 'paused' })]); await h.settle(); }
+      assert.ok(button(h.tree, 'Resume'), 'Failed mutation must not undo a newer successful server read');
+      assert.match(text(h.tree), /Alert status could not be updated/);
+      assert.equal(h.notices.length, 0); assert.equal(button(h.tree, 'Refresh').props.disabled, false);
+      assert.equal(h.requests.filter(request => request.kind === 'patch').length, 1);
+    } finally { h.dispose(); }
+  }
+});
+
+test('Ordinary old-token read remains fenced while a same-owner alert draft survives token refresh and form close', async () => {
+  const h = harness();
+  try {
+    h.render({ accessToken: 'fresh-token' });
+    h.requests[1].resolve([fixture({ destination_label: 'Current city' })]); await h.settle();
+    h.requests[0].resolve([fixture({ destination_label: 'Old city' })]); await h.settle();
+    assert.match(text(h.tree), /Current city/); assert.doesNotMatch(text(h.tree), /Old city/);
+    button(h.tree, 'Create alert').props.onClick(); h.render();
+    nodes(h.tree).find(node => node.type === 'input' && node.props.type === 'number').props.onChange({ target: { value: '1234' } }); h.render();
+    button(h.tree, 'Close form').props.onClick(); h.render(); button(h.tree, 'Create alert').props.onClick(); h.render();
+    assert.equal(nodes(h.tree).find(node => node.type === 'input' && node.props.type === 'number').props.value, '1234');
+    assert.ok(h.requests.every(request => request.kind === 'list'));
+  } finally { h.dispose(); }
+});
+
+test('Undo acknowledgement survives a token-refresh read begun during restore while later explicit reads remain authoritative', async () => {
+  for (const active of [false, true]) for (const order of ['restore-first', 'read-first']) {
+    const h = await ready({ is_active: active, status: active ? 'active' : 'paused' });
+    try {
+      button(h.tree, 'Delete alert').props.onClick(); h.render(); h.requests.at(-1).resolve({ success: true }); await h.settle();
+      button(h.tree, 'Undo').props.onClick(); h.render(); const restore = h.requests.find(request => request.kind === 'restore');
+      assert.equal(restore.args[1], active, 'Undo retains the original paused or active status');
+      h.render({ accessToken: 'fresh-token' }); const refreshedRead = h.requests.filter(request => request.kind === 'list').at(-1);
+      if (order === 'read-first') { refreshedRead.resolve([]); await h.settle(); }
+      restore.resolve({ success: true }); await h.settle(); assert.ok(button(h.tree, 'Delete alert'));
+      if (order === 'restore-first') { refreshedRead.resolve([]); await h.settle(); }
+      assert.ok(button(h.tree, 'Delete alert'), 'A pre-restore empty snapshot cannot erase the acknowledged restored row');
+      assert.ok(button(h.tree, active ? 'Pause' : 'Resume'));
+      assert.doesNotMatch(text(h.tree), /No price alerts yet/);
+      assert.equal(button(h.tree, 'Refresh').props.disabled, false);
+      assert.equal(h.requests.filter(request => request.kind === 'restore').length, 1);
+      assert.deepEqual(h.notices, ['Alert restored.']);
+      button(h.tree, 'Refresh').props.onClick(); h.render(); h.requests.at(-1).resolve([]); await h.settle();
+      assert.equal(button(h.tree, 'Delete alert'), undefined, 'A genuinely later authoritative empty list is still accepted');
+      assert.match(text(h.tree), /No price alerts yet/);
+    } finally { h.dispose(); }
+  }
+});
+
+test('Lost restore acknowledgement keeps the refreshed authoritative row in either response order without automatic restore retry', async () => {
+  for (const order of ['restore-first', 'read-first']) {
+    const h = await ready();
+    try {
+      button(h.tree, 'Delete alert').props.onClick(); h.render(); h.requests.at(-1).resolve({ success: true }); await h.settle();
+      button(h.tree, 'Undo').props.onClick(); h.render(); const restore = h.requests.find(request => request.kind === 'restore');
+      h.render({ accessToken: 'fresh-token' }); const refreshedRead = h.requests.filter(request => request.kind === 'list').at(-1);
+      if (order === 'read-first') { refreshedRead.resolve([fixture()]); await h.settle(); }
+      restore.reject(Error('response lost')); await h.settle();
+      if (order === 'restore-first') { refreshedRead.resolve([fixture()]); await h.settle(); }
+      assert.ok(button(h.tree, 'Delete alert'), 'Tombstone is removed before the uncertain restore attempt, so a successful fresh GET is authoritative');
+      assert.ok(button(h.tree, 'Pause')); assert.match(text(h.tree), /could not be restored/);
+      assert.equal(h.notices.length, 0); assert.equal(button(h.tree, 'Refresh').props.disabled, false);
+      assert.equal(h.requests.filter(request => request.kind === 'restore').length, 1);
+    } finally { h.dispose(); }
+  }
 });

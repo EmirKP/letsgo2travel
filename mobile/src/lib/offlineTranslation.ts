@@ -4,6 +4,7 @@ import { nativePlatform, plugin } from "./capacitor";
 export const TRANSLATION_LANGUAGES = [
   ["tr", "Türkçe"],
   ["en", "English"],
+  ["ro", "Română"],
   ["sq", "Shqip"],
   ["de", "Deutsch"],
   ["fr", "Français"],

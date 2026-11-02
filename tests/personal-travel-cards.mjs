@@ -3,6 +3,10 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
+
+const cardLocales = realLocaleModule('../lib/locale');
+await Promise.all(['sq','ro'].map(locale => cardLocales.loadLocaleMessages(locale)));
 
 function setup() {
   const data = new Map(); let blocked = false, sequence = 0;
@@ -93,6 +97,11 @@ function editor(locale = 'tr') {
       return [slots[position].value, next => { slots[position].value = typeof next === 'function' ? next(slots[position].value) : next; }];
     },
     useId: () => 'personal-card',
+    useCallback(callback, deps) {
+      const position = cursor++, previous = slots[position];
+      if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) slots[position] = { value: callback, deps };
+      return slots[position].value;
+    },
     useEffect(effect, deps) {
       const position = cursor++, previous = slots[position];
       if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) {
@@ -110,7 +119,7 @@ function editor(locale = 'tr') {
     './Icon': { Icon: 'Icon' },
     './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     '../lib/personalTravelCards': store.api,
-    '../lib/i18n': { useI18n: () => ({ copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB' }) },
+    '../lib/i18n': { useI18n: () => ({ copy: (...args) => cardLocales.translateCopy(locale, ...args), dateLocale: ({tr:'tr-TR',en:'en-GB',sq:'sq-AL',ro:'ro-RO'})[locale] }) },
     '../lib/localeFormatting': { formatAppDate: (date, locale, options) => new Intl.DateTimeFormat(locale, options).format(date) },
     './personal-travel-cards.css': {},
   })[name] ?? (() => { throw Error(`Unexpected import: ${name}`); })(), output, output.exports);
@@ -231,4 +240,40 @@ test('An unavailable trip is not silently unlinked offline; editing, unlinking, 
   assert.equal(restored.id, original.id); assert.equal(restored.tripId, null);
   assert.equal(restored.reservationNote, 'New offline note');
   h.dispose();
+});
+
+test('A read-only card retry recovers an initial read error in all four normal copy paths',()=>{
+ for(const [locale,retry] of [['tr','Yeniden oku'],['en','Read again'],['sq','Lexo përsëri'],['ro','Citește din nou']]){
+  const h=editor(locale);try{
+   h.api.savePersonalTravelCard('a',{...draft,title:'Preserved hotel'});const before=JSON.stringify([...h.data]);const original=h.data.get.bind(h.data);let denied=true;
+   h.data.get=key=>{if(denied)throw Error('transient read denial');return original(key);};
+   let view=h.render({ownerId:'a'});const readAgain=find(view,'button',p=>text(p.children)===retry);assert.ok(readAgain,`${locale}: current read recovery is visible`);assert.notEqual(readAgain.props.disabled,true);
+   readAgain.props.onClick();view=h.render();assert.ok(find(view,'button',p=>text(p.children)===retry));assert.equal(JSON.stringify([...h.data]),before);
+   denied=false;click(view,retry);view=h.render();assert.match(text(view),/Preserved hotel/);assert.equal(find(view,'button',p=>text(p.children)===retry),undefined);assert.equal(JSON.stringify([...h.data]),before);
+  }finally{h.dispose();}
+ }
+});
+
+test('Card rereads preserve confirmed rows, current draft, action failure and undo state',()=>{
+ const h=editor('en');try{
+  h.api.savePersonalTravelCard('a',{...draft,title:'Saved card'});let view=h.render({ownerId:'a'});click(view,'Edit');view=h.render();change(view,'note','Unsaved reservation');view=h.render();
+  const originalGet=h.data.get.bind(h.data),originalSet=h.data.set.bind(h.data);let readDenied=false,writeDenied=true;
+  h.data.get=key=>{if(readDenied)throw Error('read denied');return originalGet(key);};h.data.set=(key,value)=>{if(writeDenied)throw Error('quota');return originalSet(key,value);};
+  submit(view);view=h.render();assert.match(text(view),/Could not save/);const before=JSON.stringify([...h.data]);
+  readDenied=true;h.window.dispatchEvent(new Event('storage'));view=h.render();assert.equal(find(view,'textarea',p=>p.id==='personal-card-note').props.value,'Unsaved reservation');assert.match(text(view),/Existing cards could not be read/);
+  click(view,'Read again');view=h.render();assert.match(text(view),/Could not save/);assert.equal(find(view,'textarea',p=>p.id==='personal-card-note').props.value,'Unsaved reservation');
+  readDenied=false;click(view,'Read again');view=h.render();assert.doesNotMatch(text(view),/Existing cards could not be read/);assert.match(text(view),/Could not save/);assert.equal(find(view,'textarea',p=>p.id==='personal-card-note').props.value,'Unsaved reservation');assert.equal(JSON.stringify([...h.data]),before);
+  writeDenied=false;submit(view);view=h.render();assert.equal(h.api.readPersonalTravelCards('a').items[0].reservationNote,'Unsaved reservation');
+  click(view,'Remove card');view=h.render();assert.ok(find(view,'button',p=>text(p.children)==='Undo'));
+  readDenied=true;h.window.dispatchEvent(new Event(h.api.PERSONAL_TRAVEL_CARDS_EVENT));view=h.render();assert.ok(find(view,'button',p=>text(p.children)==='Undo'));
+  readDenied=false;click(view,'Read again');view=h.render();assert.ok(find(view,'button',p=>text(p.children)==='Undo'));click(view,'Undo');view=h.render();assert.match(text(view),/Saved card/);assert.equal(h.api.readPersonalTravelCards('a').items[0].reservationNote,'Unsaved reservation');
+ }finally{h.dispose();}
+});
+
+test('Failed card event rereads keep confirmed rows and owner remount never carries them to another account',()=>{
+ const h=editor('en');try{
+  h.api.savePersonalTravelCard('a',{...draft,title:'Owner A card'});h.api.savePersonalTravelCard('b',{...draft,title:'Owner B card'});let view=h.render({ownerId:'a'});
+  const original=h.data.get.bind(h.data);let denied=true;h.data.get=key=>{if(denied)throw Error('read denied');return original(key);};h.window.dispatchEvent(new Event('storage'));view=h.render();assert.match(text(view),/Owner A card/);assert.match(text(view),/Existing cards could not be read/);
+  view=h.render({ownerId:'b'});assert.doesNotMatch(text(view),/Owner A card/);denied=false;click(view,'Read again');view=h.render();assert.match(text(view),/Owner B card/);assert.doesNotMatch(text(view),/Owner A card/);
+ }finally{h.dispose();}
 });

@@ -53,7 +53,7 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
     setTarget(card.target);
     setText(card.text);
     setReuse((previous) => ({ card, revision: (previous?.revision || 0) + 1 }));
-    editorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    editorRef.current?.scrollIntoView({ block: "start", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth" });
   }
   return (
     <section className="ta-panel ta-form ta-translation">
@@ -128,7 +128,7 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
   onSave: (card: TranslationCard) => void; onShow: (card: TranslationCard) => void;
 }) {
   const { copy, locale } = useI18n();
-  const [status, setStatus] = useState<TranslationStatus | "checking">("checking");
+  const [status, setStatus] = useState<TranslationStatus | "checking" | "check-failed">("checking");
   const [result, setResult] = useState<TranslationCard | null>(initial || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -143,7 +143,7 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
     active.current = true;
     const check = ++statusRevision.current;
     setStatus('checking');
-    void translationStatus(source, target).then((s) => { if (active.current && check === statusRevision.current) setStatus(s); }).catch(() => { if (active.current && check === statusRevision.current) setStatus("unsupported"); });
+    void translationStatus(source, target).then((s) => { if (active.current && check === statusRevision.current) setStatus(s); }).catch(() => { if (active.current && check === statusRevision.current) setStatus("check-failed"); });
     return () => { active.current = false; revision.current++; statusRevision.current++; };
   }, [source, target, statusReload]);
   useEffect(() => onAccountResume(() => {
@@ -176,9 +176,9 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
     }
   }
   return <>
-    <p role="status">{status === "checking" ? copy("Dil desteği kontrol ediliyor…", "Checking language support…") : status === "installed" ? copy("Dil paketleri hazır. İnternetsiz çevirebilirsin.", "Language packs ready. You can translate offline.") : status === "supported" ? copy("Bu dil çifti için paket indirmek gerekiyor. Wi-Fi kullan; indirme birkaç dakika sürebilir.", "This language pair needs a download. Use Wi-Fi; this can take several minutes.") : copy("Bu cihazda bu dil çifti için çevrimdışı çeviri kullanılamıyor. Hazır ifadeleri veya kayıtlı çevirilerini kullanabilir ya da başka bir dil çifti seçebilirsin.", "Offline translation is unavailable for this language pair on this device. Use phrase cards or saved translations, or choose another pair.")}</p>
+    <p role="status">{status === "checking" ? copy("Dil desteği kontrol ediliyor…", "Checking language support…") : status === "check-failed" ? copy("Dil paketlerinin durumu kontrol edilemedi. Metnin korunuyor; yeniden dene.", "Language pack status could not be checked. Your text is kept; try again.", "Gjendja e paketave të gjuhëve nuk u kontrollua. Teksti ruhet; provo sërish.") : status === "installed" ? copy("Dil paketleri hazır. İnternetsiz çevirebilirsin.", "Language packs ready. You can translate offline.") : status === "supported" ? copy("Bu dil çifti için paket indirmek gerekiyor. Wi-Fi kullan; indirme birkaç dakika sürebilir.", "This language pair needs a download. Use Wi-Fi; this can take several minutes.") : copy("Bu cihazda bu dil çifti için çevrimdışı çeviri kullanılamıyor. Hazır ifadeleri veya kayıtlı çevirilerini kullanabilir ya da başka bir dil çifti seçebilirsin.", "Offline translation is unavailable for this language pair on this device. Use phrase cards or saved translations, or choose another pair.")}</p>
     {status === "supported" && <button className="primary-wide" disabled={busy} onClick={() => void run(true)}>{busy ? copy("Paket hazırlanıyor…", "Preparing pack…") : copy("Dil paketlerini indir", "Download language packs")}</button>}
-    {(isIOSNative() || status === 'installed' || status === 'supported' || error) && <button type="button" className="secondary-wide" disabled={busy || status === 'checking'} onClick={() => setStatusReload(value => value + 1)}>{copy('Paket durumunu kontrol et', 'Check language packs', 'Kontrollo paketat e gjuhëve')}</button>}
+    {(isIOSNative() || status === 'installed' || status === 'supported' || status === 'check-failed' || error) && <button type="button" className="secondary-wide" disabled={busy || status === 'checking'} onClick={() => setStatusReload(value => value + 1)}>{copy('Paket durumunu kontrol et', 'Check language packs', 'Kontrollo paketat e gjuhëve')}</button>}
     <label>{copy("Çevrilecek metin", "Text to translate")}
       <textarea rows={4} maxLength={2000} value={text} disabled={busy} lang={source} dir="auto" onChange={(event) => { revision.current++; onTextChange(event.target.value); setResult(null); setError(""); }} />
     </label>

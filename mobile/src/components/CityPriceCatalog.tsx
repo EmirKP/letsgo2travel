@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { CITY_BENCHMARKS, CITY_PRICE_SOURCE } from "../../../lib/country-intelligence/city-benchmarks";
+import { CITY_BENCHMARKS, CITY_PRICE_SOURCE, type CityBenchmark } from "../../../lib/country-intelligence/city-benchmarks";
+import { budgetCityLabel } from "../data/budgetCityLabels";
 import { BUDGET_CURRENCIES, type BudgetCurrency } from "../../../lib/country-intelligence/trip-budget";
 import { minimumBudgetRooms, personalBudgetDuration, personalTripBudget, validatePersonalBudget, type BudgetRange } from "../../../lib/country-intelligence/personal-budget";
 import { routeCityBenchmark } from "../../../lib/country-intelligence/route-budget";
 import { useI18n } from "../lib/i18n";
-import { appRegionName } from "../lib/localeFormatting";
+import { appRegionName, formatAppDate } from "../lib/localeFormatting";
 import { bundledImageSource } from "../lib/bundledImageSource";
 import { budgetDestinationSuggestions, exactBudgetCityId, matchesBudgetDestination, type BudgetDestinationSuggestion } from "../lib/budgetDestinationSearch";
 import { activityAllowanceFromGbp, activityAllowanceToGbp } from "../lib/budgetActivityInput";
@@ -77,7 +78,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
   const activityCurrency = rate === null ? "GBP" : preferences.currency;
   const activityRate = rate ?? 1;
   const activityAmount = activityDraft?.canonical === preferences.activityAllowance && activityDraft.currency === activityCurrency && activityDraft.rate === activityRate ? activityDraft.value : activityAllowanceFromGbp(preferences.activityAllowance, activityRate);
-  const textLocale = locale === "tr" ? "tr" : "en";
+  const cityLabel = (row: CityBenchmark) => budgetCityLabel(row, locale);
   const money = (value: number, currency = "GBP") => new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
   const displayMoney = (value: number) => money(value * (rate ?? 1), rate === null ? "GBP" : preferences.currency);
   const displayRange = (range: BudgetRange) => `${displayMoney(range.low)} – ${displayMoney(range.high)}`;
@@ -119,18 +120,20 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
   };
   const rows = CITY_BENCHMARKS.filter(row => (!quickCity || row.id === quickCity) && (!quickCountry || row.code === quickCountry) && matchesBudgetDestination(row.id, query))
     .map(row => ({ row, budget: personalTripBudget(row, preferences) }))
-    .sort((a, b) => sort === "name" ? a.row.city[textLocale].localeCompare(b.row.city[textLocale], locale) : ((a.budget?.total ?? 0) - (b.budget?.total ?? 0)) * (sort === "high" ? -1 : 1));
+    .sort((a, b) => sort === "name" ? cityLabel(a.row).localeCompare(cityLabel(b.row), locale) : ((a.budget?.total ?? 0) - (b.budget?.total ?? 0)) * (sort === "high" ? -1 : 1));
   const visible = rows.slice(0, limit);
   const selected = CITY_BENCHMARKS.find(row => row.id === selectedId);
   const selectedPhoto = selected ? BUDGET_CITY_PHOTOS[selected.id] : undefined;
   const selectedBudget = selected ? personalTripBudget(selected, preferences) : null;
-  const activeBenchmark = activeTrip ? routeCityBenchmark({ name: activeTrip.city || activeTrip.title, cityOrRegion: activeTrip.city, country: activeTrip.countryCode }) : null;
+  const activeCityId = activeTrip ? exactBudgetCityId(activeTrip.city || activeTrip.title) : null;
+  const activeBenchmark = activeTrip ? CITY_BENCHMARKS.find(row => row.id === activeCityId && row.code === activeTrip.countryCode)
+    || routeCityBenchmark({ name: activeTrip.city || activeTrip.title, cityOrRegion: activeTrip.city, country: activeTrip.countryCode }) : null;
   const hasDates = !!(preferences.startDate || preferences.endDate);
   const automaticSeason = personalTripBudget(CITY_BENCHMARKS[0], { ...preferences, season: "auto" })?.season;
   const automaticSeasonName = automaticSeason === "low" ? copy("Sakin", "Quiet", "E qetë") : automaticSeason === "high" ? copy("Yoğun", "Busy", "E ngarkuar") : automaticSeason === "normal" ? "Normal" : "";
-  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const dateLabel = (value: string) => formatAppDate(new Date(`${value}T12:00:00Z`), locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const durationSummary = duration ? hasDates
-    ? `${dateFormat.format(new Date(`${preferences.startDate}T12:00:00Z`))} – ${dateFormat.format(new Date(`${preferences.endDate}T12:00:00Z`))}`
+    ? `${dateLabel(preferences.startDate)} – ${dateLabel(preferences.endDate)}`
     : copy(`${duration.days} gün · ${duration.nights} gece`, `${duration.days} days · ${duration.nights} nights`, `${duration.days} ditë · ${duration.nights} net`)
     : copy("Süreyi veya tarihleri tamamla", "Complete duration or dates", "Plotëso kohëzgjatjen ose datat");
   const adultCount = Number(preferences.adults), childCount = Number(preferences.children), roomCount = Number(preferences.rooms);
@@ -206,7 +209,12 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
           <label className="budget-city-search"><Icon name="search" size={20}/><input type="search" role="combobox" autoComplete="off" aria-autocomplete="list" aria-expanded={suggestionsOpen} aria-controls={suggestionsOpen ? "budget-destination-suggestions" : undefined} aria-activedescendant={suggestionsOpen && suggestions[activeSuggestion] ? `budget-destination-${suggestions[activeSuggestion].id}` : undefined} aria-label={copy("50 şehirde ara", "Search 50 cities", "Kërko në 50 qytete")} placeholder={copy("Şehir veya ülke ara", "Search a city or country", "Kërko qytet ose shtet")} value={query} onFocus={() => { setSearchOpen(true); setActiveSuggestion(-1); }} onKeyDown={onSearchKeyDown} onChange={e => { setQuery(e.target.value); setQuickCity(null); setQuickCountry(null); setLimit(8); setSearchOpen(true); setActiveSuggestion(-1); }}/></label>
           {suggestionsOpen && <div className="budget-destination-suggestions"><div ref={suggestionsList} className="budget-suggestion-list" role="listbox" id="budget-destination-suggestions" aria-label={copy("Ülke ve şehir önerileri", "Country and city suggestions", "Sugjerime shtetesh dhe qytetesh")}>{suggestions.map((suggestion, index) => <button type="button" role="option" id={`budget-destination-${suggestion.id}`} key={suggestion.id} tabIndex={-1} aria-label={`${suggestion.label} · ${suggestion.detail}`} aria-selected={activeSuggestion === index} onMouseDown={event => event.preventDefault()} onClick={() => chooseDestination(suggestion)}><span className="budget-suggestion-flag" aria-hidden="true"><CountryFlag code={suggestion.countryCode} label=""/></span><span className="budget-suggestion-copy"><strong>{suggestion.label}</strong><small>{suggestion.detail}</small></span><Icon name="chevron" size={16}/></button>)}</div>{!suggestions.length && <p role="status">{copy("Bu ülke veya şehir için henüz fiyat verimiz yok.", "We do not have price data for this country or city yet.", "Nuk kemi ende të dhëna çmimesh për këtë shtet apo qytet.")}</p>}</div>}
         </div>
-        {!query && <div className="budget-city-ideas" aria-label={copy("Bir şehirle başla", "Start with a city", "Fillo me një qytet")}>{[["Paris", "FR", "FR-paris"], [copy("Roma", "Rome", "Roma"), "IT", "IT-rome"], [copy("Tiran", "Tirana", "Tirana"), "AL", "AL-tirana"]].map(([name, code, cityId]) => <button type="button" key={code} onClick={() => { setQuery(name); setQuickCity(cityId); setQuickCountry(null); setSearchOpen(false); setActiveSuggestion(-1); setLimit(8); }}><span aria-hidden="true"><CountryFlag code={code} label=""/></span>{name}<Icon name="chevron" size={12}/></button>)}</div>}
+        {!query && <div className="budget-city-ideas" aria-label={copy("Bir şehirle başla", "Start with a city", "Fillo me një qytet")}>{["FR-paris", "IT-rome", "AL-tirana"].map(cityId => {
+          const city = CITY_BENCHMARKS.find(row => row.id === cityId);
+          if (!city) return null;
+          const name = cityLabel(city);
+          return <button type="button" key={cityId} onClick={() => { setQuery(name); setQuickCity(cityId); setQuickCountry(null); setSearchOpen(false); setActiveSuggestion(-1); setLimit(8); }}><span aria-hidden="true"><CountryFlag code={city.code} label=""/></span>{name}<Icon name="chevron" size={12}/></button>;
+        })}</div>}
         {activeTrip && <div className="budget-active-trip"><span><Icon name="calendar" size={19}/><strong>{activeTrip.title}</strong><small>{copy("Seçili seyahatin", "Your selected trip", "Udhëtimi yt i zgjedhur")}</small></span><button type="button" onClick={() => {
           const next: Partial<PersonalBudgetPreferences> = { startDate: activeTrip.startDate, endDate: activeTrip.endDate };
           if (activeTrip.adults !== undefined) next.adults = String(activeTrip.adults);
@@ -214,7 +222,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
           if (activeTrip.rooms !== undefined) next.rooms = String(activeTrip.rooms);
           if (BUDGET_CURRENCIES.includes(activeTrip.currency as BudgetCurrency)) next.currency = activeTrip.currency as BudgetCurrency;
           update(next, activeTrip.rooms === undefined); setAppliedTripId(activeTrip.tripId);
-          setQuery(activeBenchmark?.city[textLocale] || ""); setQuickCity(null); setQuickCountry(null); setSearchOpen(false); setActiveSuggestion(-1); setLimit(8);
+          setQuery(activeBenchmark ? cityLabel(activeBenchmark) : ""); setQuickCity(null); setQuickCountry(null); setSearchOpen(false); setActiveSuggestion(-1); setLimit(8);
         }}>{copy("Bilgilerimi kullan", "Use trip details", "Përdor të dhënat")}</button></div>}
         {activeTrip && appliedTripId === activeTrip.tripId && <p className="budget-small-note" role="status">{copy("Seyahat bilgileri eklendi; tercihlerini değiştirebilirsin.", "Trip details applied; you can adjust your preferences.", "Të dhënat u shtuan; mund të ndryshosh preferencat.")}{!activeBenchmark && <> {copy("Bu şehir için araştırılmış fiyat yok. Karşılaştırma için başka bir şehir seç.", "No researched prices for this city. Choose another city for comparison.", "Nuk ka çmime të studiuara për këtë qytet. Zgjidh një tjetër për krahasim.")}</>}</p>}
         <div className="budget-config-choices" aria-label={copy("Hesaplamada kullanılacak seyahat bilgileri", "Trip details used in the estimate", "Të dhënat që përdoren në vlerësim")}>
@@ -273,7 +281,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
         {query.trim() && !rows.length && <p className="budget-small-note" role="status">{copy("Bu arama için fiyat verimiz yok. Başka bir şehir veya ülke dene.", "We have no price data for this search. Try another city or country.", "Nuk kemi të dhëna çmimesh për këtë kërkim. Provo një qytet ose shtet tjetër.")}</p>}
       </section>
       <div ref={actionBar} className="budget-action-bar" hidden={!configInView || resultsInView}>
-        <div className="budget-action-summary" aria-live="polite"><small>{errorText ? copy("Bilgileri tamamla", "Complete the details", "Plotëso të dhënat") : rows.length === 1 ? rows[0].row.city[textLocale] : copy(`${rows.length} şehir`, `${rows.length} cities`, `${rows.length} qytete`)}</small><strong>{errorText ? '—' : rows.length === 1 && rows[0].budget ? displayRange(rows[0].budget.totalRange) : duration ? copy(`${duration.days} gün · ${adultCount + childCount} kişi`, `${duration.days} days · ${adultCount + childCount} people`, `${duration.days} ditë · ${adultCount + childCount} persona`) : '—'}</strong></div>
+        <div className="budget-action-summary" aria-live="polite"><small>{errorText ? copy("Bilgileri tamamla", "Complete the details", "Plotëso të dhënat") : rows.length === 1 ? cityLabel(rows[0].row) : copy(`${rows.length} şehir`, `${rows.length} cities`, `${rows.length} qytete`)}</small><strong>{errorText ? '—' : rows.length === 1 && rows[0].budget ? displayRange(rows[0].budget.totalRange) : duration ? copy(`${duration.days} gün · ${adultCount + childCount} kişi`, `${duration.days} days · ${adultCount + childCount} people`, `${duration.days} ditë · ${adultCount + childCount} persona`) : '—'}</strong></div>
         <button type="button" className="budget-calculate" disabled={!!errorText || !rows.length} onClick={() => { resultsHeading.current?.focus({ preventScroll: true }); resultsHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); }}><Icon name="wallet" size={19}/>{rows.length === 1 ? copy("Bütçemi göster", "Show my budget", "Shiko buxhetin") : copy("Bütçeleri göster", "Show budgets", "Shiko buxhetet")}<Icon name="chevron" size={18}/></button>
       </div>
       <div className="budget-results">
@@ -283,8 +291,8 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
         {rateFailed && rate !== null && <p className="budget-small-note" role="status">{copy("Kur güncellenemedi; son kullanılabilir kurla hesaplandı.", "The rate could not be updated; the last usable rate is applied.", "Kursi nuk u përditësua; përdoret kursi i fundit i vlefshëm.")}</p>}
         {rows.length > 1 && <div className="budget-results-sort"><small>{rows.length} {copy("şehir karşılaştırılıyor", "cities to compare", "qytete për krahasim")}</small><select aria-label={copy("Şehir sırası", "City order", "Renditja e qyteteve")} value={sort} onChange={e => setSort(e.target.value)}><option value="price">{copy("Önce ekonomik", "Lowest budget first", "Buxheti më i ulët")}</option><option value="high">{copy("Bütçe: yüksekten", "Highest budget first", "Buxheti më i lartë")}</option><option value="name">{copy("Şehir adı", "City name", "Emri i qytetit")}</option></select></div>}
         <div className="ci-cost-list">{visible.map(({ row, budget }) => <button type="button" className="budget-city-row has-photo" key={row.id} onClick={() => setSelectedId(row.id)}>
-          <span className="budget-city-top"><span className="budget-city-identity"><CountryFlag code={row.code} label=""/><span><strong>{row.city[textLocale]}</strong><small>{appRegionName(row.code, locale)}</small></span></span><span className="budget-estimate-tag">{budget ? missingBudgetText(budget) : copy("Tahmini bütçe", "Estimated budget", "Buxhet i vlerësuar")}</span></span>
-          <span className="budget-city-photo"><DestinationPhoto code={CITY_PHOTOS[row.id]} src={BUDGET_CITY_PHOTOS[row.id]?.src} countryCode={row.code} label={row.city[textLocale]}/></span>
+          <span className="budget-city-top"><span className="budget-city-identity"><CountryFlag code={row.code} label=""/><span><strong>{cityLabel(row)}</strong><small>{appRegionName(row.code, locale)}</small></span></span><span className="budget-estimate-tag">{budget ? missingBudgetText(budget) : copy("Tahmini bütçe", "Estimated budget", "Buxhet i vlerësuar")}</span></span>
+          <span className="budget-city-photo"><DestinationPhoto code={CITY_PHOTOS[row.id]} src={BUDGET_CITY_PHOTOS[row.id]?.src} countryCode={row.code} label={cityLabel(row)}/></span>
           <span className="budget-row-total"><span>{budget ? copy(`${budget.days} gün · ${budget.nights} gece · ${budget.people} kişi`, `${budget.days} days · ${budget.nights} nights · ${budget.people} people`, `${budget.days} ditë · ${budget.nights} net · ${budget.people} persona`) : "—"}</span><strong>{budget ? displayRange(budget.totalRange) : "—"}</strong><small>{budget ? copy(`${budget.people} kişi için toplam · uçuş hariç`, `Total for ${budget.people} people · flights excluded`, `Totali për ${budget.people} persona · pa fluturime`) : copy("Toplam bütçe · uçuş hariç", "Trip total · flights excluded", "Totali · pa fluturime")}</small></span>
           <span className="budget-card-footer"><span>{budget && <>{displayRange(budget.perPersonDayRange)}<small> / {copy("kişi · gün", "person · day", "person · ditë")}</small></>}</span><span>{copy("Detayı gör", "View details", "Shiko hollësitë")}<Icon name="chevron" size={15}/></span></span>
         </button>)}</div>
@@ -302,7 +310,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
         <button type="button" className="budget-editor-done" disabled={editorInvalid} onClick={finishEditor}>{copy("Tamam", "Done", "U krye")}<Icon name="check" size={18}/></button>
       </div>
     </Sheet>
-    <Sheet open={!!selected} title={selected?.city[textLocale] || ""} onClose={() => setSelectedId(null)}>{selected && <div className="ci-content ci-details">
+    <Sheet open={!!selected} title={selected ? cityLabel(selected) : ""} onClose={() => setSelectedId(null)}>{selected && <div className="ci-content ci-details">
       {selectedBudget ? <><section className="budget-detail-total"><span>{copy(`${selectedBudget.days} gün · ${selectedBudget.people} kişi için tahmin`, `Estimate for ${selectedBudget.days} days · ${selectedBudget.people} travellers`, `Vlerësim për ${selectedBudget.days} ditë · ${selectedBudget.people} persona`)}</span><strong>{displayRange(selectedBudget.totalRange)}</strong><span>{selectedBudget.partial ? missingBudgetText(selectedBudget) : copy("Seyahat toplam aralığı", "Trip total range", "Intervali total i udhëtimit")}</span><small>{copy("Kişi başı seyahat", "Trip per person", "Udhëtimi për person")}: {displayRange(selectedBudget.perPersonRange)}<br/>{copy("Kişi başı günlük", "Daily per person", "Ditore për person")}: {displayRange(selectedBudget.perPersonDayRange)}</small></section>
         <div className="budget-breakdown">
           <div><span>{copy("Konaklama", "Accommodation", "Akomodimi")}<small>{copy(`${selectedBudget.nights} gece · ${preferences.accommodation === "hostel" ? `${selectedBudget.people} yatak` : `${selectedBudget.rooms} oda / daire`}`, `${selectedBudget.nights} nights · ${preferences.accommodation === "hostel" ? `${selectedBudget.people} beds` : `${selectedBudget.rooms} rooms / units`}`, `${selectedBudget.nights} net · ${preferences.accommodation === "hostel" ? `${selectedBudget.people} shtretër` : `${selectedBudget.rooms} dhoma / njësi`}`)}</small></span><strong>{displayRange(selectedBudget.ranges.hotel)}</strong></div>
@@ -314,7 +322,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
         {selectedBudget.activities === null && <p className="budget-model-note">{copy("Ücretli etkinlik fiyatları bilinmiyor. Günlük etkinlik payını girerek toplamı tamamla.", "Paid activity prices are unknown. Enter your daily activity allowance to complete the total.", "Çmimet e aktiviteteve me pagesë nuk dihen. Vendos buxhetin ditor për të plotësuar totalin.")}</p>}
         {selected.travel === 0 && preferences.transport === "taxi" && <p className="budget-model-note">{copy("Kaynak ulaşım tutarı 0; taksi fiyatı bu veriden hesaplanamaz. Taksi teklifini ayrıca bütçele.", "The source transit amount is 0; taxis cannot be estimated from it. Budget your taxi quote separately.", "Transporti burimor është 0; taksitë nuk vlerësohen nga ai. Planifiko ofertën e taksisë veçmas.")}</p>}
         {onPrepareCockpitBudget && <button type="button" className="primary-wide" onClick={() => {
-          const intent = createPersonalBudgetCockpitIntent(selected, preferences, preferences.currency, quote, ownerId || null, selected.city[textLocale]);
+          const intent = createPersonalBudgetCockpitIntent(selected, preferences, preferences.currency, quote, ownerId || null, cityLabel(selected));
           if (intent) { setSelectedId(null); onPrepareCockpitBudget(intent); }
         }}><Icon name="wallet" size={18}/>{copy("Bu tahmini seyahatlerime ekle", "Add this estimate to My trips", "Shto këtë vlerësim te Udhëtimet e mia")}</button>}
       </> : <p role="alert">{errorText}</p>}

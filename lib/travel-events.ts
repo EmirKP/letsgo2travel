@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validTimeZone, zonedParts } from "./zoned-time";
+import { uniqueServiceEventOccurrences } from "./event-occurrence";
 
 export type TravelEventStatus = "scheduled" | "postponed" | "cancelled" | "completed";
 export type TravelEventCategory = "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
@@ -513,16 +514,6 @@ function normalizedEventText(value: string) {
     .trim();
 }
 
-function sameEvent(left: TravelEvent, right: TravelEvent) {
-  if (left.id === right.id) return true;
-  if (normalizedEventText(left.title) !== normalizedEventText(right.title)) return false;
-  if (left.startsAt.slice(0, 10) !== right.startsAt.slice(0, 10)) return false;
-  if (left.countryCode && right.countryCode && left.countryCode !== right.countryCode) return false;
-  const leftCity = normalizedEventText(left.city);
-  const rightCity = normalizedEventText(right.city);
-  return !leftCity || !rightCity || leftCity === rightCity;
-}
-
 type EventPageCursor = { v: 1; scope: string; curated: number; automatic: number; provider: 'ticketmaster' | 'predicthq' | 'none'; unavailable?: boolean };
 
 /** Public, stateless offsets only. A cursor never contains event facts or an
@@ -594,11 +585,31 @@ export async function searchTravelEventPage(search: EventSearch, rawCursor?: str
   if (curatedResult.status === 'rejected' && !automatic.length) throw new Error('event_provider_unavailable');
   if (curatedResult.status === 'rejected') { partial = true; curatedPage.hasMore = true; }
   const lists = [curated, automatic], consumed = [0, 0], events: TravelEvent[] = [];
+  const nextSource = (positions: number[]) => {
+    const left = curated[positions[0]], right = automatic[positions[1]];
+    return !right || left && left.startsAt.localeCompare(right.startsAt) <= 0 ? 0 : 1;
+  };
+  // Review this finite co-fetched batch without consuming any cursor offsets.
+  // Distinct same-provider IDs make cross-provider metadata matching ambiguous.
+  const scanned = [0, 0], ordered: TravelEvent[] = [];
+  while (scanned[0] < curated.length || scanned[1] < automatic.length) {
+    const source = nextSource(scanned);
+    ordered.push(lists[source][scanned[source]++]);
+  }
+  const retained = new Set(uniqueServiceEventOccurrences(ordered)), emittedIds = new Set<string>();
   while (events.length < search.limit && (consumed[0] < curated.length || consumed[1] < automatic.length)) {
-    const left = curated[consumed[0]], right = automatic[consumed[1]];
-    const source = !right || left && left.startsAt.localeCompare(right.startsAt) <= 0 ? 0 : 1;
+    const source = nextSource(consumed);
     const event = lists[source][consumed[source]++];
-    if (!events.some(previous => sameEvent(previous, event))) events.push(event);
+    if (retained.has(event) && !emittedIds.has(event.id)) { events.push(event); emittedIds.add(event.id); }
+  }
+  // Already excluded fronts cannot become a phantom occurrence on the next
+  // page. Stop at every genuine retained event; raw source positions stay exact.
+  for (const source of [0, 1]) {
+    while (consumed[source] < lists[source].length) {
+      const front = lists[source][consumed[source]];
+      if (retained.has(front) && !emittedIds.has(front.id)) break;
+      consumed[source]++;
+    }
   }
   const advance = (items: TravelEvent[], state: ProviderPageState, index: number) => {
     if (state.offset === -1) return -1;
@@ -638,8 +649,7 @@ export async function searchTravelEvents(search: EventSearch) {
   ]);
   const curated = curatedResult.status === "fulfilled" ? curatedResult.value : [];
   const automatic = providerResult.status === "fulfilled" ? providerResult.value : emptyAutomatic;
-  const events = [...curated, ...automatic.events]
-    .filter((event, index, all) => all.findIndex((candidate) => sameEvent(candidate, event)) === index)
+  const events = uniqueServiceEventOccurrences([...curated, ...automatic.events])
     .sort((a, b) => search.featured
       ? (b.impactRank || 0) - (a.impactRank || 0)
       : a.startsAt.localeCompare(b.startsAt))
