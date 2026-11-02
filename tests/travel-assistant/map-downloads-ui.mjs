@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import postcss from 'postcss';
 
 const jsx = (type, props, key) => ({ type, props, key });
 const nodes = value => Array.isArray(value) ? value.flatMap(nodes) : !value || typeof value !== 'object' ? [] : [value, ...nodes(value.props?.children)];
@@ -108,4 +109,62 @@ test('Unmounting cancels an in-flight download and late completion cannot open a
   const app = harness(); await app.flush(); app.click('Download this region'); const request = app.state.requests[0];
   app.dispose(); assert.equal(request.input.signal.aborted, true); await Promise.resolve(); await Promise.resolve();
   assert.equal(app.state.opens.length, 0); assert.equal(app.state.packs.length, 0);
+});
+
+test('Offline download surfaces, badges and all action/status text keep readable contrast in both real theme palettes', () => {
+  const css = postcss.parse(readFileSync(new URL('../../mobile/src/components/travel-map-downloads.css', import.meta.url), 'utf8'));
+  const reference = postcss.parse(readFileSync(new URL('../../mobile/src/reference-theme.css', import.meta.url), 'utf8'));
+  const dark = postcss.parse(readFileSync(new URL('../../mobile/src/dark-theme.css', import.meta.url), 'utf8'));
+  const normalize = selector => selector.replace(/\s*>\s*/g, '>').replace(/\s+/g, ' ').trim();
+  const variables = (tree, selector, base = {}) => {
+    const values = { ...base };
+    tree.walkRules(rule => { if (rule.selector !== selector) return; rule.walkDecls(declaration => { if (declaration.prop.startsWith('--')) values[declaration.prop] = declaration.value; }); });
+    return values;
+  };
+  const palette = { light: variables(reference, ':root') };
+  palette.dark = variables(dark, ':root[data-theme="dark"]', palette.light);
+  const resolve = (value, vars) => {
+    for (let count = 0; count < 10 && value.includes('var('); count++) value = value.replace(/var\((--[\w-]+)(?:,\s*([^()]+))?\)/g, (_match, key, fallback) => vars[key] || fallback || '');
+    return value.trim();
+  };
+  const appearance = (selectors, vars) => {
+    const result = {};
+    for (const selector of selectors) css.walkRules(rule => {
+      if (!rule.selector.split(',').some(value => normalize(value) === normalize(selector))) return;
+      rule.walkDecls(declaration => {
+        if (!['color', 'background'].includes(declaration.prop)) return;
+        const value = resolve(declaration.value, vars);
+        if (value && value !== 'inherit' && value !== 'transparent') result[declaration.prop] = value;
+      });
+    });
+    return result;
+  };
+  const luminance = hex => {
+    assert.match(hex, /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i, `A real opaque colour is required: ${hex}`);
+    const rgb = hex.length === 4 ? hex.slice(1).split('').map(value => value + value) : hex.slice(1).match(/../g);
+    const linear = rgb.map(value => { const channel = parseInt(value, 16) / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4; });
+    return linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+  };
+  const ratio = ({ color, background }) => { const values = [luminance(color), luminance(background)].sort((a, b) => b - a); return (values[0] + .05) / (values[1] + .05); };
+  const combinations = [
+    ['.tmd-downloads'], ['.tmd-downloads', '.tmd-heading h3'], ['.tmd-downloads', '.tmd-heading p'],
+    ['.tmd-downloads', '.tmd-heading>strong'], ['.tmd-downloads', '.tmd-region', '.tmd-region span'],
+    ['.tmd-downloads', '.tmd-radius button'], ['.tmd-downloads', '.tmd-radius button', '.tmd-radius button[aria-pressed=true]'],
+    ['.tmd-downloads', '.tmd-contents'], ['.tmd-downloads', '.tmd-limit'], ['.tmd-downloads', '.tmd-download-button'],
+    ['.tmd-downloads', '.tmd-warning'], ['.tmd-downloads', '.tmd-warning', '.tmd-warning button'],
+    ['.tmd-downloads', '.tmd-progress'], ['.tmd-downloads', '.tmd-progress', '.tmd-progress button'],
+    ['.tmd-downloads', '.tmd-status'], ['.tmd-downloads', '.tmd-open-pack small'],
+    ['.tmd-downloads', '.tmd-confirm', '.tmd-confirm p'], ['.tmd-downloads', '.tmd-confirm', '.tmd-confirm button'],
+    ['.tmd-downloads', '.tmd-confirm', '.tmd-confirm button', '.tmd-confirm button:last-child'],
+    ['.tmd-downloads', '.tmd-legacy>button', '.tmd-legacy small'],
+  ];
+  for (const [theme, vars] of Object.entries(palette)) {
+    for (const selectors of combinations) assert.ok(ratio(appearance(selectors, vars)) >= 4.5, `${theme}: ${selectors.at(-1)} requires readable text contrast`);
+    const badge = appearance(['.tmd-downloads', '.tmd-heading>span'], vars);
+    assert.ok(ratio(badge) >= 3, `${theme}: the header icon must contrast with its badge`);
+    if (theme === 'dark') {
+      assert.notEqual(badge.background, '#eef5ff', 'A missing legacy surface variable must not create a pale badge in dark mode');
+      assert.equal(appearance(['.tmd-downloads'], vars).background, vars['--theme-surface']);
+    }
+  }
 });

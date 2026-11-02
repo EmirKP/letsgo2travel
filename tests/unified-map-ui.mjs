@@ -76,6 +76,35 @@ function fixture(initialOwner=null,initialProps={},locale='en',context={}) {
   };app.render();return app;
 }
 
+test('Nearby recommendations render directly once in Explore in all locales without an extra toggle or automatic GPS/search',()=>{
+  const removedLabels=['Yakınımda ne yapabilirim?','What can I do nearby?','Çfarë mund të bëj afër?'];
+  for(const locale of ['tr','en','sq','ro']){
+    const recommendations={type:'section',props:{className:'synthetic-nearby-recommendations',children:'Actual nearby component slot'}};
+    const app=fixture(null,{nearbyIdeas:recommendations},locale);
+    assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1,`${locale}: recommendations are directly available`);
+    assert.equal(nodes(app.tree).filter(node=>node.type==='button'&&(node.props.className==='um-nearby-ideas'||removedLabels.includes(text(node).trim()))).length,0);
+    assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);assert.equal(app.calls.areas.length,0);
+    assert.ok(app.map,'The map stays available alongside the recommendations');
+    for(const section of ['saved','offline']){
+      nodes(app.tree).find(node=>node.type==='button'&&node.key===section).props.onClick();app.render();
+      assert.equal(nodes(app.tree).some(node=>node===recommendations),false,`${section} keeps its dedicated content`);
+      nodes(app.tree).find(node=>node.type==='button'&&node.key==='map').props.onClick();app.render();
+      assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1);
+      assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);
+    }
+    app.dispose();
+  }
+});
+
+test('Existing nearby deep links preserve recommendations, the map and explicit location controls',()=>{
+  const recommendations={type:'section',props:{children:'Nearby recommendation controls'}};
+  const app=fixture(null,{initialSection:'nearby',nearbyIdeas:recommendations});
+  assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1);
+  assert.ok(app.map);assert.equal(app.calls.gps,0);
+  app.click('My location');assert.equal(app.calls.gps,1,'Only the explicit map location action starts GPS');
+  app.dispose();assert.equal(app.calls.clearedWatches.length,1,'Leaving the map still stops the GPS watcher');
+});
+
 test('Map markers and list use the same provider IDs; selecting a POI saves its actual snapshot and day membership',async()=>{
   const app=fixture('account-a');assert.equal(app.calls.gps,0);app.click('Search this area');
   app.calls.find[0].resolve({places:[poi(1),poi(2)],limited:false});await app.flush();

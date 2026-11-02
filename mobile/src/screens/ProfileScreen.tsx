@@ -90,7 +90,6 @@ function ProfileScreenForAccount({ user, ownerId, accessToken, isAdmin, visitedC
   const { copy, countryName, locale } = useI18n();
   const [tick, setTick] = useState(0);
   const identityRef = useRef<HTMLElement>(null);
-  const settingsHeadingRef = useRef<HTMLHeadingElement>(null);
   const [visitedOpen, setVisitedOpen] = useState(false);
   useEffect(() => {
     if (!visitedCountriesRequest) return;
@@ -371,7 +370,6 @@ function ProfileScreenForAccount({ user, ownerId, accessToken, isAdmin, visitedC
   };
 
   return <div className="screen profile-screen reference-profile profile-polished">
-    <div className="profile-top-bar"><strong>{copy("Profil", "Profile", "Profili")}</strong><button type="button" aria-controls="profile-settings-heading" onClick={() => { settingsHeadingRef.current?.focus({ preventScroll: true }); settingsHeadingRef.current?.scrollIntoView({ block: "start", behavior: "instant" }); }}><Icon name="settings" size={18}/>{copy("Ayarlar", "Settings", "Cilësimet")}</button></div>
     <section className="explorer-card">
       <div className="explorer-card-head"><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={48} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
       <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
@@ -424,7 +422,7 @@ function ProfileScreenForAccount({ user, ownerId, accessToken, isAdmin, visitedC
     </section>
 
     <section className="profile-section profile-settings" aria-labelledby="profile-settings-heading">
-      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS", "SIPAS TEJE")}</span><h2 id="profile-settings-heading" tabIndex={-1} ref={settingsHeadingRef}>{copy("Tercihler ve gizlilik", "Preferences & privacy", "Preferencat dhe privatësia")}</h2></div></div>
+      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS", "SIPAS TEJE")}</span><h2 id="profile-settings-heading" tabIndex={-1}>{copy("Tercihler ve gizlilik", "Preferences & privacy", "Preferencat dhe privatësia")}</h2></div></div>
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="alerts" size={56}/></span><span><strong>{copy("Bildirimler", "Notifications")}</strong><small>{copy("Uygulama içi ve telefon bildirimleri", "In-app and phone notifications")}</small></span><Icon name="chevron" size={18}/></summary>
       <h3 className="profile-notification-subheading">{copy("Bu cihaz", "This device", "Kjo pajisje")}</h3>

@@ -1,0 +1,12 @@
+.pull-flight{position:fixed;z-index:34;top:calc(76px + env(safe-area-inset-top));left:50%;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);min-height:52px;padding:7px 16px 7px 8px;border:1px solid var(--theme-border,#dce5ef);border-radius:999px;background:var(--theme-surface,#fff);color:var(--theme-ink,#17304d);box-shadow:0 8px 24px #071b3326;font-size:13px;font-weight:750;pointer-events:none;opacity:0;transform:translate(-50%,-10px);transition:opacity 180ms ease,transform 180ms ease}
+.pull-flight[data-visible]{opacity:1;transform:translate(-50%,calc(var(--pull-progress,0)*18px))}
+.pull-flight-art{position:relative;display:grid;place-items:center;width:40px;height:40px;flex:none;overflow:hidden;border-radius:50%;background:#e9f2ff;color:#0865ef}
+.pull-flight-plane{z-index:1;width:29px;height:29px;transform:translateY(calc((1 - var(--pull-progress,0))*7px));transition:transform 90ms linear}
+.pull-flight-trails{position:absolute;inset:19px 9px 0;display:flex;justify-content:space-around;align-items:flex-end;opacity:0}
+.pull-flight-trails i{width:2px;height:14px;border-radius:2px;background:#ffdc37}.pull-flight-trails i:nth-child(2){height:20px}
+.pull-flight[data-refreshing] .pull-flight-plane{animation:pull-flight-takeoff 950ms cubic-bezier(.28,.05,.4,1) infinite}
+.pull-flight[data-refreshing] .pull-flight-trails{animation:pull-flight-trail 950ms ease infinite}
+@keyframes pull-flight-takeoff{0%{transform:translateY(19px);opacity:0}18%{opacity:1}78%{opacity:1}100%{transform:translateY(-30px);opacity:0}}
+@keyframes pull-flight-trail{0%,15%,100%{transform:translateY(10px);opacity:0}40%,70%{transform:translateY(-4px);opacity:.9}}
+[data-theme=dark] .pull-flight-art{background:#213451;color:#a0caff}
+@media(prefers-reduced-motion:reduce){.pull-flight,.pull-flight-plane,.pull-flight-trails{animation:none!important;transition:none!important}.pull-flight[data-visible]{transform:translateX(-50%)}.pull-flight-plane{transform:none}.pull-flight-trails{display:none}}

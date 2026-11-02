@@ -8,6 +8,7 @@ import { initializeTheme } from "./lib/theme";
 import { initializeTextSize } from "./lib/textSize";
 import "./text-size.css";
 import "./search-fields.css";
+import "./interaction-motion.css";
 
 const stopTheme = initializeTheme();
 if (import.meta.hot) import.meta.hot.dispose(stopTheme);

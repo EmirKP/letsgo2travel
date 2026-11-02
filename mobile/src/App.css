@@ -574,9 +574,6 @@
 .topbar-brand-group { min-width: 0; display: flex; align-items: center; gap: 2px; }
 .topbar-back { width: 42px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: #fff; }
 .notification-badge { position: absolute; right: 3px; top: 2px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; border: 2px solid var(--navy-950); background: #f05d69; color: #fff; font-size: 8px; font-weight: 900; }
-.pull-indicator { position: fixed; z-index: 34; top: calc(70px + env(safe-area-inset-top)); left: 50%; min-height: 34px; padding: 7px 11px; display: flex; align-items: center; gap: 6px; border-radius: 999px; transform: translateX(-50%); background: var(--navy-900); color: #fff; box-shadow: 0 8px 22px rgba(7,27,51,.22); font-size: 9px; font-weight: 800; pointer-events: none; }
-.pull-indicator svg { color: var(--gold); }
-.pull-indicator.refreshing svg { animation: spin .7s linear infinite; }
 
 .personal-greeting { min-height: 72px; padding: 2px 2px 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .personal-greeting > div { display: grid; gap: 1px; }

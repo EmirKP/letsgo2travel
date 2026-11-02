@@ -501,6 +501,11 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     >{content}</button> : <span className="community-author-self">{content}</span>;
   };
 
+  const postByline = (item: CommunityAnswer | CommunityQuestion, scopeCountry: string) => <div className="community-post-byline cs-post-identity">
+    {authorButton(item)}
+    <p className="community-post-context"><time dateTime={item.createdAt}>{formatQuestionDate(item.createdAt, dateLocale)}</time><span className="community-meta-separator" aria-hidden="true">·</span><span className="community-post-country" aria-label={locale === "ro" ? "Țara subiectului" : copy("Konu ülkesi", "Topic country", "Vendi i temës")}>{questionScopeLabel(scopeCountry, questionCountryLabels, copy("Genel", "General"))}</span></p>
+  </div>;
+
   const contentOptions = (item: CommunityAnswer | CommunityQuestion, targetType: "question" | "answer") => item.authorId !== user?.id && <button type="button" className="community-content-options" aria-haspopup="dialog"
     aria-label={targetType === "answer"
       ? copy(`@${item.username} kullanıcısının bu cevabı için seçenekler`, `Options for this answer by @${item.username}`, `Opsionet për këtë përgjigje nga @${item.username}`)
@@ -741,7 +746,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20}/><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
         {feedLoading && !questions.length ? <div className="skeleton-list community-native-loading" role="status" aria-label={copy("Paylaşımlar yükleniyor", "Loading posts")}><div/><div/><div/></div>
           : filteredQuestions.length ? <div className="cs-posts">{filteredQuestions.map(question => <article key={question.id}>
-            <header><div className="cs-post-identity">{authorButton(question)}<p><span className="cs-post-country">{question.countryCode === "ZZ" ? copy("Gezgin topluluğu", "Traveller community") : questionCountryLabels.get(question.countryCode) || question.countryCode}</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div>
+            <header className="community-meta-header">{postByline(question, question.countryCode)}
               {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`, `Veprimet për përdoruesin @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
             </header>
             {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`, `Fotografi e ndarë nga ${question.username}: ${question.title}`)}/>}
@@ -847,13 +852,13 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
-        <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail)}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div>{contentOptions(detail, "question")}</header>
+        <header className="community-meta-header">{postByline(detail, detail.countryCode)}{contentOptions(detail, "question")}</header>
         {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
         <ForumTranslation text={detail.body} title={detail.title} accessToken={accessToken}>{(display, displayTitle) => <><h3>{displayTitle}</h3><p>{display}</p></>}</ForumTranslation>
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`, `${totalAnswerCount} përgjigje`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`, `${shownAnswerCount} të shfaqura · ${hiddenAnswerCount} të kyçura`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`, `${shownAnswerCount} të shfaqura`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
-            <header>{authorButton(answer)}<div className="community-answer-meta"><small>{formatQuestionDate(answer.createdAt, dateLocale)}</small>{contentOptions(answer, "answer")}</div></header>
+            <header className="community-meta-header">{postByline(answer, detail.countryCode)}{contentOptions(answer, "answer")}</header>
             <ForumTranslation text={answer.body} accessToken={accessToken}>{display => <p>{display}</p>}</ForumTranslation>
             <button type="button" className="community-reply-action" disabled={answerPosting} onClick={() => replyToAnswer(answer)} aria-label={copy(`@${answer.username} kullanıcısına yanıt yaz`, `Reply to @${answer.username}`, `Përgjigju @${answer.username}`)}><Icon name="message" size={15}/>{copy("Yanıt yaz", "Reply", "Përgjigju")}</button>
           </article>)}

@@ -226,3 +226,30 @@
 .cs-search-entry{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;margin:0 0 14px;padding:11px 14px;border:1px solid var(--theme-border,#dce7f4);border-radius:15px;background:var(--theme-soft,#f1f6fc);color:var(--theme-muted,#63718c);text-align:left;font:inherit;font-size:14px}.cs-search-entry svg{color:var(--theme-link,#0066ff)}
 .community-social .community-mode-switch>button{padding-inline:7px;min-height:46px;overflow-wrap:normal}
 .community-social .community-mode-switch>button:focus-visible{outline:2px solid var(--theme-link,#0066ff);outline-offset:2px}
+
+/* One byline for feed posts, question details and replies, including portaled sheets. */
+.community-meta-header,
+.cs-posts article>header.community-meta-header,
+.community-question-detail>header.community-meta-header,
+.community-answer>header.community-meta-header{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:6px 8px;min-width:0;text-align:start}
+.community-meta-header .community-post-byline{display:grid;gap:0;min-width:0;max-width:100%}
+.community-meta-header .community-author-button,
+.community-meta-header .community-author-self{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:9px;width:100%;min-width:0;min-height:44px;max-width:100%;text-align:start}
+.community-meta-header .community-author-button strong,
+.community-meta-header .community-author-self strong{min-width:0;max-width:100%;margin:0;color:var(--theme-ink,#172b45);font-size:14px;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
+.community-meta-header .community-profile-avatar{width:34px;height:34px;min-width:34px}
+.community-meta-header .community-post-context,
+.editorial-app.view-community .community-social .community-meta-header .community-post-context{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:3px 6px;min-width:0;margin:0;padding:0 0 0 43px;color:var(--theme-muted,#63718c);font-size:11px;line-height:1.5;text-align:start}
+.community-meta-header .community-post-context time{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.community-meta-header .community-post-context time::before{content:none;margin:0}
+.community-meta-header .community-meta-separator{flex:none;color:var(--theme-muted,#63718c)}
+.community-meta-header .community-post-country{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;color:inherit}
+.community-meta-header .community-post-country b{min-width:0;color:inherit;font:inherit;overflow-wrap:anywhere}
+.community-meta-header .community-post-country .country-flag,
+.community-meta-header .community-post-country .community-scope-flag,
+.community-meta-header .community-post-country .community-world-flag{flex:none;width:17px;height:13px;font-size:15px}
+.community-meta-header>.community-content-options,
+.community-meta-header>.cs-post-options{grid-column:2;grid-row:1;align-self:start;justify-self:end;width:44px;min-width:44px;min-height:44px;margin:0;padding:0}
+.community-meta-header .community-author-button:focus-visible,
+.community-meta-header>.community-content-options:focus-visible,
+.community-meta-header>.cs-post-options:focus-visible{outline:2px solid var(--theme-link,#0066ff);outline-offset:2px}

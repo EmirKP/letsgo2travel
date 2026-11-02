@@ -83,16 +83,23 @@ test('normal Profile embeds the current community account while retaining travel
  h.h.dispose();
 });
 
-test('Profile has a direct Settings action before the feed and focuses the existing preferences heading',()=>{
+test('Profile opens directly at the explorer card while account and real preferences controls stay available',()=>{
  const h=profileHarness(),actions=[];
  try{
-  const view=h.render(),toolbar=nodes(view).find(node=>node.props?.className==='profile-top-bar');
-  assert.equal([view.props.children].flat(Infinity)[0],toolbar);
+  let view=h.render({onOpenAccount:()=>actions.push('account')});
+  const content=[view.props.children].flat(Infinity).filter(child=>child&&typeof child==='object');
+  assert.equal(content[0].props.className,'explorer-card');
+  assert.equal(nodes(view).some(node=>node.props?.className==='profile-top-bar'),false,'The duplicate Profile/Settings shortcut row is removed');
   const heading=nodes(view).find(node=>node.props?.id==='profile-settings-heading');
-  assert.equal(heading.props.tabIndex,-1);
-  heading.props.ref.current={focus:options=>actions.push(['focus',options]),scrollIntoView:options=>actions.push(['scroll',options])};
-  const settings=nodes(toolbar).find(node=>node.type==='button');assert.equal(text(settings),'Settings');assert.equal(settings.props['aria-controls'],'profile-settings-heading');settings.props.onClick();
-  assert.deepEqual(JSON.parse(JSON.stringify(actions)),[['focus',{preventScroll:true}],['scroll',{block:'start',behavior:'instant'}]]);
+  assert.equal(heading.type,'h2');assert.equal(text(heading),'Preferences & privacy');assert.equal(heading.props.tabIndex,-1,'The retained preferences heading remains programmatically focusable');
+  const account=nodes(view).find(node=>node.props?.className==='profile-account-action');assert.ok(account);account.props.onClick();assert.deepEqual(actions,['account']);
+  assert.ok(nodes(view).some(node=>node.type==='AppearancePicker'));
+  assert.ok(nodes(view).some(node=>node.type==='TextSizePicker'));
+  assert.ok(nodes(view).some(node=>node.type==='NotificationPreferences'));
+  const preference=nodes(view).find(node=>node.type==='input'&&node.props.type==='checkbox');assert.equal(preference.props.checked,true);
+  preference.props.onChange({target:{checked:false}});view=h.render();
+  assert.equal(nodes(view).find(node=>node.type==='input'&&node.props.type==='checkbox').props.checked,false);
+  assert.equal(h.preferenceWrites.length,1);assert.equal(h.preferenceWrites[0].inAppNotifications,false);
   assert.equal(h.writes.length,0);
  }finally{h.h.dispose();}
 });

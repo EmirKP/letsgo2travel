@@ -23,6 +23,8 @@ import type { MapJourney } from "./lib/mapJourney";
 import { isJourneyGuideUrl, journeyGuideIntentFromUrl, type JourneyGuideIntent, type JourneyGuideRequest } from "./lib/journeyGuideIntent";
 import { AnimatedSplash } from "./components/AnimatedSplash";
 import { Icon, type IconName } from "./components/Icon";
+import { PullRefreshIndicator } from "./components/PullRefreshIndicator";
+import { PULL_REFRESH_THRESHOLD, pullRefreshDistance, pullRefreshFinishDelay } from "./lib/pullRefresh";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { SocialRoutePicker } from "./components/SocialRoutePicker";
 import type { SocialPlace } from "./lib/social";
@@ -268,6 +270,8 @@ export default function App() {
   const [guestSummary, setGuestSummary] = useState(() => getGuestDataSummary());
   const noticeTimer = useRef<number | null>(null);
   const pullStart = useRef<number | null>(null);
+  const pendingPull = useRef<{ token: number; owner: string | null; startedAt: number } | null>(null);
+  const pullFinishTimer = useRef<number | null>(null);
   const edgeSwipeStart = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const activeViewRef = useRef(activeView);
@@ -1247,19 +1251,48 @@ export default function App() {
     setReleaseOpen(false);
   };
 
+  useEffect(() => {
+    pendingPull.current = null;
+    if (pullFinishTimer.current !== null) window.clearTimeout(pullFinishTimer.current);
+    pullFinishTimer.current = null;
+    pullStart.current = null;
+    setPullDistance(0);
+    setRefreshing(false);
+    return () => {
+      pendingPull.current = null;
+      if (pullFinishTimer.current !== null) window.clearTimeout(pullFinishTimer.current);
+    };
+  }, [ownerId, activeView]);
+  const finishPull = useCallback((token: number) => {
+    const request = pendingPull.current;
+    if (!request || token < request.token || request.owner !== profileOwnerRef.current || activeViewRef.current !== 'home') return;
+    if (pullFinishTimer.current !== null) window.clearTimeout(pullFinishTimer.current);
+    pullFinishTimer.current = window.setTimeout(() => {
+      if (pendingPull.current !== request) return;
+      pendingPull.current = null;
+      pullFinishTimer.current = null;
+      setRefreshing(false);
+    }, pullRefreshFinishDelay(request.startedAt, Date.now()));
+  }, []);
   const startPull = (event: React.TouchEvent) => {
     edgeSwipeStart.current = null;
     pullStart.current = null;
+    setPullDistance(0);
     const touch = event.touches[0];
     if (!touch || onboardingOpen || releaseOpen || notificationsOpen || accountOpen || hasOpenSheet()) return;
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest("input, textarea, select, button, a, [role='dialog'], [data-no-gesture], .chip-scroll")) return;
     if (touch.clientX <= 24) edgeSwipeStart.current = { x: touch.clientX, y: touch.clientY };
-    if (activeView === "home" && window.scrollY <= 0) pullStart.current = touch.clientY;
+    if (activeView === "home" && !pendingPull.current && window.scrollY <= 0) pullStart.current = touch.clientY;
   };
   const movePull = (event: React.TouchEvent) => {
-    if (pullStart.current === null || window.scrollY > 0) return;
-    const distance = Math.max(0, Math.min(96, ((event.touches[0]?.clientY || 0) - pullStart.current) * .55));
+    if (window.scrollY > 0) {
+      pullStart.current = null;
+      setPullDistance(0);
+      return;
+    }
+    if (pullStart.current === null) return;
+    const distance = pullRefreshDistance(pullStart.current, event.touches[0]?.clientY ?? pullStart.current);
     setPullDistance(distance);
   };
   const endPull = (event: React.TouchEvent) => {
@@ -1274,13 +1307,11 @@ export default function App() {
       return;
     }
     pullStart.current = null;
-    if (pullDistance >= 62) {
+    if (pullDistance >= PULL_REFRESH_THRESHOLD && !pendingPull.current && activeView === 'home') {
+      const token = refreshTick + 1;
+      pendingPull.current = { token, owner: ownerId, startedAt: Date.now() };
       setRefreshing(true);
-      setRefreshTick((value) => value + 1);
-      window.setTimeout(() => {
-        setRefreshing(false);
-        showNotice(online ? copy("Yenileme istendi.", "Refresh requested.") : copy("Cihazdaki kayıtlar yeniden açılıyor.", "Reloading saved items on this device."));
-      }, 550);
+      setRefreshTick(token);
     }
     setPullDistance(0);
   };
@@ -1312,7 +1343,7 @@ export default function App() {
           startDate: localIsoDate(0), endDate: localIsoDate(7) })} onBack={goBack}
         onOpenReadyRoute={() => { if (destination.route) openSeededRoute(destination.route, "explore"); }}/>
     }
-    if (view === "home") return <HomeScreen onOpenCity={openCity} onOpenAllCities={() => { setCityDiscoveryQuery(""); setCityDiscoverySavedOnly(false); setScrollPositions(previous => ({ ...previous, cities: 0 })); navigate("cities"); }} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "home") return <HomeScreen onOpenCity={openCity} onOpenAllCities={() => { setCityDiscoveryQuery(""); setCityDiscoverySavedOnly(false); setScrollPositions(previous => ({ ...previous, cities: 0 })); navigate("cities"); }} onToggleCitySaved={toggleCitySaved} savedCityCodes={savedCities.owner === ownerId ? savedCities.codes : []} onOpenGuide={reopenGuide} onOpenJourneyTool={openJourneyTool} onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate("country-news"); }} onOpenTrip={(id, section) => { setCockpitFocusTripId(id); setTodayTripId(section === "today" ? id : ""); navigate("cockpit"); }} onOpenSaved={section => {setJourneyToolRequest(null); setSavedSectionRequest(value => value + 1); navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onRefreshSettled={finishPull} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")}
       savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onToggleSaved={toggleHomeRoute}
       onOpenSavedRoute={code => { const saved = savedInspirationRoute(code, ownerId); if (!saved) return showNotice(copy('Bu rota artık kayıtlı değil.', 'This route is no longer saved.', 'Ky itinerar nuk është më i ruajtur.')); setSavedRouteId(saved.id); openSavedRoutes(); }}
@@ -1355,7 +1386,7 @@ export default function App() {
     </header>
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> {copy("Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.", "You're offline. Saved plans and offline travel tools remain available.")}</div>}
-    {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? copy("Yenileniyor", "Refreshing") : copy("Yenilemek için bırak", "Release to refresh")}</div>}
+    <PullRefreshIndicator distance={activeView === 'home' ? pullDistance : 0} refreshing={activeView === 'home' && refreshing}/>
     <main ref={mainRef} className="app-content" tabIndex={-1} inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div key={authUiKey}>
         {/* Keep only the two draft-heavy root screens. Provider flight screens

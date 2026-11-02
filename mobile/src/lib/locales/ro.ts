@@ -4506,5 +4506,7 @@ export const RO_MESSAGES: Record<string, string> = {
   "Search chats": "Caută conversații",
   "Search country groups": "Caută grupuri de țară",
   "Event or city…": "Eveniment sau oraș…",
-  "Chats": "Conversații"
+  "Chats": "Conversații",
+  "Topic country": "Țara subiectului",
+  "Pull down to refresh": "Trage în jos pentru a actualiza"
 };

@@ -91,8 +91,9 @@ function HeadingArtwork({ kind }: { kind: "city" | "shortcuts" }) {
   </svg>;
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTool, onOpenJourneyTool, onOpenGuide, onOpenGlobalSearch, onOpenCountry, onOpenTrip, onOpenCommunity, onSearchDestination, onOpenCity, onOpenAllCities, savedCityCodes, onToggleCitySaved, initialSearchQuery }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onRefreshSettled, onNavigate, onOpenTool, onOpenJourneyTool, onOpenGuide, onOpenGlobalSearch, onOpenCountry, onOpenTrip, onOpenCommunity, onSearchDestination, onOpenCity, onOpenAllCities, savedCityCodes, onToggleCitySaved, initialSearchQuery }: {
   user: AuthUser | null; ownerId?: string | null; accessToken?: string; refreshToken?: number;
+  onRefreshSettled?: (token: number) => void;
   onNavigate: (view: ViewId) => void; onOpenCommunity: (countryCode?: string) => void;
   onOpenTrip?: (id: string, section?: "today") => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
   onSurprise: (route: RouteSuggestion) => void; onBuildRoute: (route: RouteSuggestion) => void; onNotice: (message: string) => void;
@@ -145,14 +146,16 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
+    const settled = () => { if (active && refreshToken) onRefreshSettled?.(refreshToken); };
     if (ownerId && accessToken) void listCockpitTrips(ownerId, accessToken).then(items => {
       if (!active) return;
       const upcoming = nextHomeJourney(items, localIsoDate(0));
       setTrip(upcoming ? { owner: ownerId, value: upcoming } : null);
       setTripRequest({ owner: ownerId, state: "ready" });
-    }).catch(() => { if (active) setTripRequest({ owner: ownerId, state: "error" }); });
+    }).catch(() => { if (active) setTripRequest({ owner: ownerId, state: "error" }); }).finally(settled);
+    else settled();
     return () => { active = false; };
-  }, [ownerId, accessToken, refreshToken, retry]);
+  }, [ownerId, accessToken, refreshToken, retry, onRefreshSettled]);
   const nextTrip = trip && trip.owner === ownerId && user ? trip.value : null;
   const loading = Boolean(ownerId && accessToken && tripRequest?.owner !== ownerId);
   const failed = Boolean(ownerId && tripRequest?.owner === ownerId && tripRequest.state === "error");

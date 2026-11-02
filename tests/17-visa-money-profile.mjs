@@ -178,9 +178,9 @@ test('Profile begins with one explorer card and one country count while keeping 
   const h=profileHarness({local,remote:{id:'a',username:'user_a',visitedCountries:['TUR','DEU'],wishlistCountries:[],optInLeaderboard:false},verificationRows:[{country_code:'TR',status:'approved',verification_method:'document'},{country_code:'TUR',status:'approved',verification_method:'document'},{country_code:'DE',status:'pending',verification_method:'document'}]});
   try{
     await tick();const view=h.render(),rootChildren=[view.props.children].flat(Infinity).filter(value=>value&&typeof value==='object');
-    assert.equal(rootChildren[0].props.className,'profile-top-bar');
-    assert.ok(nodes(rootChildren[0]).some(node=>node.type==='button'&&text(node)==='Settings'),'Settings has a direct entry before account content');
-    assert.equal(rootChildren[1].props.className,'explorer-card','Explorer card remains the first profile content card');
+    assert.equal(rootChildren[0].props.className,'explorer-card','Explorer card starts the profile without a redundant heading/shortcut row');
+    assert.equal(nodes(view).some(node=>node.props?.className==='profile-top-bar'),false);
+    assert.ok(nodes(view).some(node=>node.props?.id==='profile-settings-heading'&&text(node)==='Preferences & privacy'),'Actual settings remain in the existing preferences section');
     assert.equal(nodes(view).filter(node=>node.props?.className==='explorer-card').length,1);
     const stats=nodes(view).filter(node=>node.props?.className==='explorer-stats');assert.equal(stats.length,1);
     const count=nodes(stats[0]).filter(node=>node.type==='div'&&nodes(node).some(child=>child.type==='span'&&text(child)==='Countries'));
