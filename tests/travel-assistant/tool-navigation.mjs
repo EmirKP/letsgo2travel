@@ -209,7 +209,8 @@ test('Legacy map entry IDs open the correct unified section and account changes 
   const h=harness({initialCountry:'GB'}), ideas={type:'NearbyIdeas',props:{}};
   for(const [tool,section] of [['map','map'],['explore','map'],['needs','needs'],['saved','saved'],['offline','offline'],['nearby','nearby'],['embassies','embassies']]){
     h.render({initialTool:tool,ownerId:'owner-a',nearbyIdeas:ideas});
-    const child=find(h.render(),'TravelMap');assert.ok(child);assert.equal(child.props.initialSection,section);assert.equal(child.key,'owner-a');assert.equal(child.props.ownerId,'owner-a');assert.equal(child.props.destinationCountry,'GB');assert.equal(child.props.nearbyIdeas,ideas);
+    const child=find(h.render(),'TravelMap');assert.ok(child);assert.equal(child.props.initialSection,section);assert.equal(child.key,'owner-a');assert.equal(child.props.ownerId,'owner-a');assert.equal(child.props.destinationCountry,'GB');assert.equal(Object.hasOwn(child.props,'nearbyIdeas'),false,'The removed recommendation panel is not forwarded to the map');
+    assert.equal(find(h.render(),'NearbyIdeas'),undefined);
     assert.equal(find(h.render(),'TravelNearby'),undefined);assert.equal(find(h.render(),'TravelOfflineMap'),undefined);assert.equal(find(h.render(),'TravelSavedPlaces'),undefined);
   }
   assert.equal(find(h.render({ownerId:'owner-b'}),'TravelMap').key,'owner-b');
@@ -365,6 +366,7 @@ test('Tool callbacks retain navigation, phrase context, and guest sign-in behavi
 
 test('Explicit country selections follow the user between phrases, assistant and local tips', () => {
   const selection = load('mobile/src/lib/travelSelection.ts', {});
+  const initialMapSearch={id:37,query:'',center:{latitude:48.86,longitude:2.35},category:'museum',label:'Paris'};
   const slots = []; let cursor = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
@@ -387,7 +389,7 @@ test('Explicit country selections follow the user between phrases, assistant and
     '../lib/eventSearchContext': { nearbyEventContext:()=>{throw Error('Country switching must not start a nearby-event lookup');} },
     '../components/TravelSafety': { EvidenceLine: 'EvidenceLine' },
   });
-  const render = () => { cursor = 0; return api.TravelCompanionScreen({ accessToken: '', onSignIn: () => {}, onNotice: () => {}, onNavigate: () => {} }); };
+  const render = () => { cursor = 0; return api.TravelCompanionScreen({ initialMapSearch, accessToken: '', onSignIn: () => {}, onNotice: () => {}, onNavigate: () => {} }); };
   let view = render();
   button(view, 'Useful phrases').props.onClick(); view = render();
   assert.equal(find(view, 'CountryPicker').props.value, '', 'First entry never silently assigns Kosovo');
@@ -397,9 +399,9 @@ test('Explicit country selections follow the user between phrases, assistant and
   assert.equal(selection.readTravelCountry(), 'GB', 'Phrase selection is available to the assistant');
   button(view, 'Tools').props.onClick(); view = render();
   assert.ok(find(view, 'TravelAssistant'));
-  find(view,'TravelAssistant').props.nearbyIdeas.props.onSearch('',{latitude:48.86,longitude:2.35},'museum');view=render();
   const firstSearch=find(view,'TravelAssistant').props.nearbySearch;
-  assert.equal(firstSearch.category,'museum');
+  assert.equal(firstSearch,initialMapSearch,'Incoming city map intent retains its exact id, query, location, category and label');
+  assert.equal(Object.hasOwn(find(view,'TravelAssistant').props,'nearbyIdeas'),false,'The Companion no longer creates a recommendation panel');
   find(view,'TravelAssistant').props.onNearbySearchHandled(firstSearch.id+1);view=render();
   assert.equal(find(view,'TravelAssistant').props.nearbySearch.id,firstSearch.id,'An unrelated acknowledgment cannot discard a newer intent');
   find(view,'TravelAssistant').props.onNearbySearchHandled(firstSearch.id);view=render();

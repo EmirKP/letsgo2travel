@@ -17,8 +17,6 @@ import "../components/feature-entry-artwork.css";
 
 const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
 
-const MapNearbyIdeas=lazy(()=>import('../components/MapNearbyIdeas').then(m=>({default:m.MapNearbyIdeas})));
-
 type CompanionTab = "assistant" | "now" | "phrases" | "etiquette";
 
 const SPEECH_LANG: Record<string, string> = {
@@ -30,7 +28,7 @@ const SPEECH_LANG: Record<string, string> = {
 const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
 const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
 
-export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', initialMapSearch, onOpenEvents, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
+export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', initialMapSearch, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
   initialTab?: CompanionTab;
   initialTool?: TravelAssistantTool;
   initialCountry?: string;
@@ -49,7 +47,6 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
   const toolRequestId=useRef(0);
   const [activeTool,setActiveTool]=useState<TravelAssistantTool|null>(initialTool||null);
   const [nearbySearch,setNearbySearch]=useState<{id:number;query:string;center:Coordinates;category?:PointCategory;label?:string} | undefined>(initialMapSearch);
-  const nearbySearchId=useRef(initialMapSearch?.id || 0);
   const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
   const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
     const code = alpha2FromAlpha3(country.alpha3);
@@ -136,8 +133,6 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     window.speechSynthesis.speak(utterance);
   };
 
-  const nearbyIdeas=<MapNearbyIdeas countryCode={countryCode} onOpenEvents={onOpenEvents} onNotice={onNotice} onSearch={(query,center,category)=>setNearbySearch({id:++nearbySearchId.current,query,center,category})}/>;
-
   return <div className="screen companion-screen" data-section={tab} tabIndex={-1}>
     {tab !== "assistant" && tab !== "now" && <header className="companion-section-header">
         <button type="button" onClick={() => openSection("assistant")}><Icon name="back" size={18} />{tabLabel("assistant")}</button>
@@ -145,7 +140,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
         <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
       </header>}
 
-    {(tab === "assistant" || tab === "now") && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialCountry={countryCode} initialTool={tab === "now" ? "nearby" : requestedTool ? requestedTool.tool : initialTool} toolRequestId={requestedTool?.id||0} onToolChange={setActiveTool} nearbyIdeas={nearbyIdeas} nearbySearch={nearbySearch} onNearbySearchHandled={id=>setNearbySearch(current=>current?.id===id?undefined:current)} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNavigate={onNavigate} onNotice={onNotice} onPhrases={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("phrases"); focusSection("phrases"); }} onLocalTips={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("etiquette"); focusSection("etiquette"); }} /></Suspense>}
+    {(tab === "assistant" || tab === "now") && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialCountry={countryCode} initialTool={tab === "now" ? "nearby" : requestedTool ? requestedTool.tool : initialTool} toolRequestId={requestedTool?.id||0} onToolChange={setActiveTool} nearbySearch={nearbySearch} onNearbySearchHandled={id=>setNearbySearch(current=>current?.id===id?undefined:current)} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNavigate={onNavigate} onNotice={onNotice} onPhrases={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("phrases"); focusSection("phrases"); }} onLocalTips={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("etiquette"); focusSection("etiquette"); }} /></Suspense>}
 
 
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" aria-label={tabLabel(tab)}>

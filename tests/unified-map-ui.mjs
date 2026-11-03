@@ -76,33 +76,43 @@ function fixture(initialOwner=null,initialProps={},locale='en',context={}) {
   };app.render();return app;
 }
 
-test('Nearby recommendations render directly once in Explore in all locales without an extra toggle or automatic GPS/search',()=>{
-  const removedLabels=['Yakınımda ne yapabilirim?','What can I do nearby?','Çfarë mund të bëj afër?'];
+test('The complete nearby recommendation panel stays absent in all locales while map, saved places and downloads remain accessible',()=>{
+  const removedLabels=['Yakınımda ne yapabilirim?','What can I do nearby?','Çfarë mund të bëj afër?','Şimdi ne yapabilirim?','What can I do now?','Çfarë mund të bëj tani?','My budget','My mood today','Bütçem','Bugünkü modum'];
   for(const locale of ['tr','en','sq','ro']){
-    const recommendations={type:'section',props:{className:'synthetic-nearby-recommendations',children:'Actual nearby component slot'}};
+    // A stale JavaScript caller cannot restore the removed panel through its former slot.
+    const recommendations={type:'section',props:{className:'now-intro',children:'Stale nearby recommendation controls'}};
     const app=fixture(null,{nearbyIdeas:recommendations},locale);
-    assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1,`${locale}: recommendations are directly available`);
-    assert.equal(nodes(app.tree).filter(node=>node.type==='button'&&(node.props.className==='um-nearby-ideas'||removedLabels.includes(text(node).trim()))).length,0);
+    const assertPanelAbsent=()=>{
+      assert.equal(nodes(app.tree).some(node=>node===recommendations),false,`${locale}: the entire obsolete panel is not rendered`);
+      assert.equal(nodes(app.tree).some(node=>/^(?:um-nearby-ideas|now-(?:intro|choices|city-choice|locate-button|results|weather|recommendations))$/.test(node.props?.className||'')),false);
+      assert.equal(nodes(app.tree).some(node=>removedLabels.includes(text(node).trim())),false);
+    };
+    assertPanelAbsent();
     assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);assert.equal(app.calls.areas.length,0);
-    assert.ok(app.map,'The map stays available alongside the recommendations');
+    assert.ok(app.map,'The map stays available without the removed recommendation panel');
     for(const section of ['saved','offline']){
       nodes(app.tree).find(node=>node.type==='button'&&node.key===section).props.onClick();app.render();
-      assert.equal(nodes(app.tree).some(node=>node===recommendations),false,`${section} keeps its dedicated content`);
+      assertPanelAbsent();
+      assert.ok(nodes(app.tree).some(node=>node.type===(section==='saved'?'TravelMapLibrary':'TravelMapDownloads')),`${section} keeps its dedicated content`);
       nodes(app.tree).find(node=>node.type==='button'&&node.key==='map').props.onClick();app.render();
-      assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1);
+      assertPanelAbsent();assert.ok(app.map);
       assert.equal(app.calls.gps,0);assert.equal(app.calls.find.length,0);
     }
     app.dispose();
   }
 });
 
-test('Existing nearby deep links preserve recommendations, the map and explicit location controls',()=>{
-  const recommendations={type:'section',props:{children:'Nearby recommendation controls'}};
-  const app=fixture(null,{initialSection:'nearby',nearbyIdeas:recommendations});
-  assert.equal(nodes(app.tree).filter(node=>node===recommendations).length,1);
-  assert.ok(app.map);assert.equal(app.calls.gps,0);
-  app.click('My location');assert.equal(app.calls.gps,1,'Only the explicit map location action starts GPS');
-  app.dispose();assert.equal(app.calls.clearedWatches.length,1,'Leaving the map still stops the GPS watcher');
+test('Legacy nearby deep links open the real map without restoring recommendations and preserve explicit GPS controls',()=>{
+  for(const locale of ['tr','en','sq','ro']){
+    const recommendations={type:'section',props:{children:'Nearby recommendation controls'}};
+    const app=fixture(null,{initialSection:'nearby',nearbyIdeas:recommendations},locale);
+    assert.equal(nodes(app.tree).some(node=>node===recommendations),false,`${locale}: legacy links cannot restore recommendations`);
+    assert.ok(app.map);assert.equal(app.calls.gps,0);
+    const locate=nodes(app.tree).find(node=>node.type==='button'&&node.props.className==='um-locate');
+    assert.ok(locate,`${locale}: the map retains its own labeled location control`);assert.ok(locate.props['aria-label']);
+    app.click(locate.props['aria-label']);assert.equal(app.calls.gps,1,'Only the explicit map location action starts GPS');
+    app.dispose();assert.equal(app.calls.clearedWatches.length,1,'Leaving the map still stops the GPS watcher');
+  }
 });
 
 test('Map markers and list use the same provider IDs; selecting a POI saves its actual snapshot and day membership',async()=>{

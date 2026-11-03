@@ -15,7 +15,6 @@ import { openExternal } from '../lib/native';
 import './travel-tools-reliability.css';
 import { Icon } from './Icon';
 import { TravelToolArtwork } from './TravelToolArtwork';
-import type { ReactNode } from 'react';
 import type { Coordinates, PointCategory } from '../../../lib/travel-assistant/types';
 import { appTools, travelMapSectionForTool, type TravelAssistantTool } from '../lib/appTools';
 import type { ViewId } from '../types';
@@ -60,7 +59,7 @@ const keywords: Record<Tool,string> = {
   photo:'kamera fotoğraf fotograf camera picture',
   offline:'internetsiz çevrimdışı cevrimdisi indir download offline',
 };
-export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,onToolChange,onPhrases,onLocalTips,onNotice,accessToken,onSignIn,ownerId,onNavigate,nearbyIdeas,nearbySearch,onNearbySearchHandled}:{initialCountry?:string;initialTool?:TravelAssistantTool;toolRequestId?:number;onToolChange?:(tool:TravelAssistantTool|null)=>void;onPhrases:(country:string)=>void;onLocalTips?:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null;onNavigate?:(view:ViewId)=>void;nearbyIdeas?:ReactNode;nearbySearch?:{id:number;query:string;center:Coordinates;category?:PointCategory};onNearbySearchHandled?:(id:number)=>void}) {
+export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,onToolChange,onPhrases,onLocalTips,onNotice,accessToken,onSignIn,ownerId,onNavigate,nearbySearch,onNearbySearchHandled}:{initialCountry?:string;initialTool?:TravelAssistantTool;toolRequestId?:number;onToolChange?:(tool:TravelAssistantTool|null)=>void;onPhrases:(country:string)=>void;onLocalTips?:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null;onNavigate?:(view:ViewId)=>void;nearbySearch?:{id:number;query:string;center:Coordinates;category?:PointCategory};onNearbySearchHandled?:(id:number)=>void}) {
   const { copy,locale,countryName } = useI18n();
   const [country,setCountry] = useState(() => initialCountry || readTravelCountry());
   const [tool,setTool] = useState<Tool|null>(initialTool === 'transit' ? null : initialTool || null);
@@ -168,7 +167,7 @@ export function TravelAssistant({initialCountry='',initialTool,toolRequestId=0,o
     {tool && country && !travelMapSectionForTool(tool) && !['safety','embassies','guide'].includes(tool) && <p className="ta-muted">{copy('Yolculuk ülkesi', 'Travel country', 'Shteti i udhëtimit')}: {destinationLabel}</p>}
     <Suspense fallback={<p role="status">{copy('Araç açılıyor…','Opening tool…')}</p>}>
       {tool==='safety' && country && <TravelSafety country={country} onNotice={onNotice} onOpen={t => t==='phrases' ? onPhrases(country) : chooseTool(t)}/>}
-      {travelMapSectionForTool(tool) && <TravelMap key={ownerId || 'guest'} ownerId={ownerId} destinationCountry={country} initialSection={travelMapSectionForTool(tool)!} nearbyIdeas={nearbyIdeas} nearbySearch={nearbySearch} onNearbySearchHandled={onNearbySearchHandled}/>}
+      {travelMapSectionForTool(tool) && <TravelMap key={ownerId || 'guest'} ownerId={ownerId} destinationCountry={country} initialSection={travelMapSectionForTool(tool)!} nearbySearch={nearbySearch} onNearbySearchHandled={onNearbySearchHandled}/>}
       {tool==='money' && <TravelMoney key={country} initialBaseCurrency={moneyInitialCurrency || destinationCurrency} destinationCountry={country}/>}
       {tool==='translate' && <TravelTranslation onPhrases={()=>onPhrases(country)}/>}
       {tool==='photo' && <TravelPhotoGuide key={ownerId || (accessToken ? 'signed-in' : 'guest')} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn}/>}

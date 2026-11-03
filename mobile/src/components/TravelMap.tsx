@@ -1,5 +1,5 @@
 import { translateTuple } from "../lib/locale";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Coordinates, Place } from '../../../lib/travel-assistant/types';
 import type { OfflineMapPack } from '../../../lib/travel-assistant/offline-map';
 import { CATEGORY_LABELS, distanceKm } from '../../../lib/travel-assistant/places';
@@ -24,7 +24,7 @@ export type TravelMapSection='map'|'saved'|'offline'|'nearby'|'needs'|'embassies
 const categories:Array<[string,string,string,string]>=[['all','Tümü','All','Të gjitha'],['embassy','Konsolosluk','Consulates','Konsullatat'],['museum','Müzeler','Museums','Muzetë'],['restaurant','Restoran','Restaurants','Restorante'],['cafe','Kafe','Cafes','Kafene'],['store','Mağazalar','Shops','Dyqane'],['market','Market','Markets','Tregje'],['pharmacy','Eczane','Pharmacies','Farmaci'],['atm','ATM','ATMs','Bankomate'],['hospital','Hastane','Hospitals','Spitale'],['park','Parklar','Parks','Parqe'],['transit','Ulaşım','Transport','Transport']];
 const pointOf=(p:Coordinates)=>({latitude:p.latitude,longitude:p.longitude});
 const inRegion=(point:Coordinates,bounds:OpenMapPack['bounds'])=>point.latitude>=bounds.south&&point.latitude<=bounds.north&&point.longitude>=bounds.west&&point.longitude<=bounds.east;
-export function TravelMap({ownerId,destinationCountry='',initialSection='map',nearbyIdeas,nearbySearch,onNearbySearchHandled}:{ownerId?:string|null;destinationCountry?:string;initialSection?:TravelMapSection;nearbyIdeas?:ReactNode;nearbySearch?:{id:number;query:string;center:Coordinates;category?:Place['category'];label?:string};onNearbySearchHandled?:(id:number)=>void}){
+export function TravelMap({ownerId,destinationCountry='',initialSection='map',nearbySearch,onNearbySearchHandled}:{ownerId?:string|null;destinationCountry?:string;initialSection?:TravelMapSection;nearbySearch?:{id:number;query:string;center:Coordinates;category?:Place['category'];label?:string};onNearbySearchHandled?:(id:number)=>void}){
   const {copy,locale}=useI18n(),trip=useActiveTripContext(ownerId);
   const [initial]=useState(()=>{
     const tripArea=knownJourneyArea(trip?.city||'');
@@ -156,7 +156,6 @@ export function TravelMap({ownerId,destinationCountry='',initialSection='map',ne
     <div className="um-toolbar"><button type="button" onClick={()=>{setPinMode(v=>!v);setSection('map');setView('map');setNotice('');}} aria-pressed={pinMode}><Icon name="plus" size={17}/>{copy('İşaret ekle','Add pin','Shto shenjë')}</button></div>
     {locationError&&<p className="um-notice" role="status">{locationError}</p>}
     {watching&&<div className="um-location-state"><span className="um-status-dot"/>{copy('Konum haritada izleniyor','Location is shown live','Vendndodhja shfaqet drejtpërdrejt')}<button type="button" onClick={()=>{setWatching(false);setLocationBusy(false);setLocation(null);}}>{copy('Durdur','Stop','Ndalo')}</button></div>}
-    {nearbyIdeas}
       {searchError&&<div className="um-notice" role="alert"><p>{searchError}</p>{lastSearch&&<button type="button" disabled={busy||!online} onClick={()=>void searchArea(lastSearch.center,lastSearch.category,lastSearch.text)}>{copy('Aramayı yeniden dene','Retry search','Provo kërkimin sërish')}</button>}</div>}
       {!pack&&!legacy&&tilePlaces.length>0&&!places.some(p=>distanceKm(mapCenter,p)<=3&&(category==='all'||p.category===category))&&<p className="um-footnote">{copy('Haritada yüklü OpenStreetMap yerleri gösteriliyor. Kaynak güncelleme tarihi ve çalışma saatleri bilinmiyor.','Showing OpenStreetMap places from the loaded map. Source update dates and opening hours are unknown.','Shfaqen vendet OpenStreetMap nga harta e ngarkuar. Data e burimit dhe oraret nuk dihen.')}</p>}
       {!busy&&!searchError&&!areaResults.length&&shown.length===0&&<p className="um-empty">{copy('Yerleri görmek için bu bölgede ara veya bir şehir adı yaz.','Search this area or enter a city to see places.','Kërko në këtë zonë ose shkruaj qytet për të parë vendet.')}</p>}

@@ -364,15 +364,74 @@ test('App city actions retain canonical budget/event context and exact map point
   }
 });
 
-test('Nearby map searches start after the incoming city intent id rather than colliding with it', () => {
-  const source = ast('mobile/src/screens/TravelCompanionScreen.tsx');
-  const initial = variable(source, 'nearbySearchId').arguments[0];
-  const callback = locate(source, node => ts.isJsxAttribute(node) && node.name.text === 'onSearch' && node.initializer?.getText(source).includes('++nearbySearchId.current')).initializer.expression;
-  for (const incoming of [undefined, { id: 1 }, { id: 18 }]) {
-    const writes = [], globals = { initialMapSearch: incoming, setNearbySearch: next => writes.push(next) };
-    globals.nearbySearchId = { current: evaluate(initial.getText(source), globals) };
-    const onSearch = evaluate(callback.getText(source), globals); onSearch('museum', { latitude: 41.9, longitude: 12.5 }, 'museum'); onSearch('cafe', { latitude: 41.91, longitude: 12.51 }, 'cafe');
-    assert.deepEqual(writes.map(item => item.id), [(incoming?.id || 0) + 1, (incoming?.id || 0) + 2]); assert.equal(writes[1].category, 'cafe');
+test('City map intents pass through App, Companion and Assistant without restoring the removed panel or accepting stale acknowledgments', () => {
+  // Reuse the real component hook hosts without importing/registering their
+  // other suites. Only React plumbing and unrelated child tools are mocked.
+  const fixturePath = 'tests/travel-assistant/tool-navigation.mjs';
+  const fixture = ts.createSourceFile(fixturePath, readFileSync(fixturePath, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const firstTest = fixture.statements.findIndex(node => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(fixture) === 'test');
+  assert.ok(firstTest > 0, 'Existing component fixture declarations are available');
+  const setup = fixture.statements.slice(0, firstTest).filter(node => !ts.isImportDeclaration(node)).map(node => node.getText(fixture)).join('\n');
+  const tools = vm.runInNewContext(`${setup}\n({ harness, companionHarness, nodes, find })`, {
+    assert, existsSync, readFileSync, dirname: path.dirname, resolve: path.resolve, vm, ts,
+  });
+  const companionElement = locate(app, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText(app) === 'TravelCompanionScreen');
+  const remountKey = companionElement.attributes.properties.find(node => ts.isJsxAttribute(node) && node.name.text === 'key').initializer.expression;
+  const pipe = (props, incoming = props.initialMapSearch) => {
+    const companion = tools.companionHarness({ ...props, initialMapSearch: incoming });
+    const assistant = tools.harness();
+    const map = () => {
+      assert.equal(tools.nodes(companion.render()).some(node => node.type === 'MapNearbyIdeas'), false);
+      const child = companion.assistant();
+      assert.ok(child, 'The real Companion exposes its Assistant');
+      assert.equal(Object.hasOwn(child.props, 'nearbyIdeas'), false);
+      assistant.render(child.props);
+      // The shared host runs effects after commit; render their state update.
+      const view = assistant.render(child.props);
+      assert.equal(tools.nodes(view).some(node => node.type === 'MapNearbyIdeas'), false);
+      const result = tools.find(view, 'TravelMap');
+      assert.ok(result, 'The real Assistant keeps the unified map available');
+      assert.equal(Object.hasOwn(result.props, 'nearbyIdeas'), false);
+      return result;
+    };
+    return { companion, map, render: () => companion.render() };
+  };
+  for (const locale of ['tr', 'en', 'sq', 'ro']) {
+    const h = appHarness({ locale });
+    Object.assign(h.context, { TravelCompanionScreen: 'TravelCompanionScreen', activeTrip: null, auth: { accessToken: '' } });
+    h.context.openCity('OTP');
+    const actions = h.destination().props, city = actions.destination;
+    actions.onSearchPlace('Palatul Parlamentului');
+    const first = h.state.toolRequest.mapSearch, firstKey = evaluate(remountKey.getText(app), h.context);
+    assert.equal(h.state.activeView, 'companion');
+    assert.deepEqual(plain(first), { id: first.id, query: 'Palatul Parlamentului, Bucharest', center: plain(city.center), label: city.name });
+    assert.ok(Number.isInteger(first.id) && first.id > 0);
+    const firstAppChild = h.context.renderView('companion');
+    assert.equal(firstAppChild.props.initialMapSearch, first, 'App forwards its exact incoming city intent');
+    assert.equal(firstAppChild.props.initialCountry, 'RO');
+    const old = pipe(firstAppChild.props);
+    assert.equal(old.map().props.nearbySearch, first);
+    old.map().props.onNearbySearchHandled(first.id + 1); old.render();
+    assert.equal(old.map().props.nearbySearch, first, 'An unrelated acknowledgment cannot discard the current city request');
+
+    actions.onSearchPlace('Romanian Athenaeum');
+    const next = h.state.toolRequest.mapSearch, nextKey = evaluate(remountKey.getText(app), h.context);
+    assert.equal(next.id, first.id + 1, 'New city requests retain the App-owned monotonic id sequence');
+    assert.notEqual(nextKey, firstKey, 'App remounts the Companion for the new request');
+    const nextAppChild = h.context.renderView('companion'), current = pipe(nextAppChild.props);
+    assert.equal(current.map().props.nearbySearch, next);
+    assert.deepEqual(plain(next), { id: next.id, query: 'Romanian Athenaeum, Bucharest', center: plain(city.center), label: city.name });
+    current.map().props.onNearbySearchHandled(first.id); current.render();
+    assert.equal(current.map().props.nearbySearch, next, 'An old completion cannot consume the newer city intent');
+    current.map().props.onNearbySearchHandled(next.id); current.render();
+    assert.equal(current.map().props.nearbySearch, undefined, 'Only the matching completion consumes the current request');
+    current.render(); assert.equal(current.map().props.nearbySearch, undefined, 'A consumed request does not replay');
+
+    const categorized = { ...next, category: 'museum' }, typed = pipe(nextAppChild.props, categorized);
+    assert.equal(typed.map().props.nearbySearch, categorized, 'Optional provider category, query, coordinates, label and id pass through unchanged');
+    assert.equal(typed.map().props.nearbySearch.category, 'museum');
+    typed.map().props.onNearbySearchHandled(categorized.id); typed.render();
+    assert.equal(typed.map().props.nearbySearch, undefined);
   }
 });
 
