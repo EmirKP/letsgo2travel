@@ -1,32 +1,24 @@
-# App Review notları — 1.4.0
+# App Review notları — 1.4.2
 
-Aşağıdaki İngilizce metin App Review Information > Notes alanı için hazırlandı. Kullanıcı adı ve parola bu dosyaya yazılmaz; yalnız App Store Connect'in özel Sign-in Information alanına girilir. İnceleme hesabının canlıda giriş yapabildiği henüz doğrulanmadı. Bu metni konsola aktarmak, inceleme hesabı hazırlığının yerine geçmez.
+Bu metin App Review Information > Notes alanına kaydedildi. İnceleme kullanıcı adı, parola ve iletişim bilgileri yalnız App Store Connect'in özel alanlarında tutulur. Bu belge mevcut inceleme hesabının canlı girişini veya fiziksel iPhone testini doğrulamaz.
 
 ## Notes
 
-LetsGo2Travel is a travel planning app with a bundled native mobile client. The interface supports Turkish and English; some official notices and community posts remain in their original language.
+LetsGo2Travel 1.4.2 provides destination discovery, trip planning and a traveller community. The interface supports English, Turkish, Albanian and Romanian.
 
-Explore, passport information and route planning can be opened without an account. Sign in with the review account supplied in the Sign-in Information fields to access account synchronisation, Travel Cockpit, shared trips and community interactions. The account panel supports email/password sign-in. Sign in with Apple is also available in the iOS app.
+Guest access: Select English during the welcome flow and choose “Explore as a guest”. If a sign-in sheet is open, choose “Continue as a guest”. Destinations and ready-made routes can be explored without an account.
 
-Navigation in the Turkish interface:
+Account features: Open Profile > Sign in. Use the separate App Review Sign-in Information fields for account access. Creating an AI itinerary, account synchronisation and community interactions require sign-in. To try planning, open a city from Explore, choose “Create a route”, and complete the preference steps. The app displays the daily AI allowance.
 
-- Planla (Plan): choose travel preferences and generate a route.
-- Kaydedilenler (Saved): open saved routes, countries and events. Choose Seyahatlerim (My Trips) for trips and shared plans. The travel tools here include Seyahat Kokpiti (Travel Cockpit).
-- Topluluk (Community): open a discussion and tap another author's name to show the report and block actions. Profil > Ayarlar > Engellenen kullanıcılar (Profile > Settings > Blocked users) contains an Unblock button for each blocked account.
-- Hesabım > Hesap silme (My account > Account deletion): request permanent deletion, confirm with SİL in Turkish or DELETE in English, and follow the request status. The screen states the completion period of up to 30 days and email notification of the outcome. Apple-linked accounts can complete an additional Apple authorisation step so their Apple authorisation can be revoked during deletion. Deletion is a real account operation.
-- Profil > Gizlilik ve veri işlemleri (Profile > Privacy & data use): read the privacy policy inside the app.
+Community: Forum, Posts and Chats are separate tabs. The three-dot menu on another author's question/post opens “Report content” and “Block user”. Manage blocked accounts through Profile > Preferences & privacy > Privacy & account > Blocked users. Event chats are opt-in groups for people who choose “I’m going”; saving an event alone does not join its chat.
 
-Photo/camera access is used when the user chooses a profile photo or submits travel evidence. Approximate location is requested for the optional nearby/weather suggestion. Notification permission is used for travel reminders and notifications. These permissions are not needed to browse destinations.
+Account deletion: While signed in, open Profile > Account > Account deletion > Request account deletion. Type DELETE in English (SİL in Turkish), then choose “Submit permanent account deletion request”. Request status is shown in this panel. This is a deletion-request flow, not an instant-deletion claim.
 
-Flight times are scheduled times entered for the journey, rather than a guaranteed live airline feed. Visa appointment monitoring is unavailable while its worker is offline; creating or resuming automatic monitoring is disabled in that state. Country entry information and route planning remain available. The app does not guarantee visas, appointments, prices or travel safety.
+The Privacy Policy is available under Profile > Preferences & privacy > Privacy & account. Loading new information, AI generation, shared features and new map searches/directions require internet access.
 
-There are no in-app purchases or paid digital subscriptions in this version. External travel provider links open the provider's service.
+## Yayın kaydı
 
-Support: hello@letsgo2travel.com.tr
-
-## Gönderimi hazırlayan kişi için
-
-- Notes alanının yanında gerçek inceleme irtibat kişisinin adı, telefonu ve erişilebilir e-postası gerekir. Destek posta kutusu, irtibat kişisinin adı veya telefonu yerine geçmez.
-- İnceleme hesabı standart kullanıcı olmalı; yönetici erişimi ve gerçek müşterilerin kayıtları verilmemeli. Giriş bilgisi yalnız Apple'ın özel alanında tutulmalı.
-- App Store Connect'te seçilen paket, aşağıdaki kayıttaki başarılı derlemeyle eşleştirilmeli. Bu dosya Apple panelindeki paket işleme durumunu doğrulamaz.
-- Uygulama politikası ve metaveri hazır olduğunda [gönderim kaydındaki](APP-STORE-SUBMISSION.md) kalan durumlar tamamlanmalı.
+- App Store için hazırlanan paket: 1.4.2 (100).
+- Paket kaynak commit'i: 2aa7173f6773f544819d46851e0218a0d45a2b19.
+- Bu metin ve metadata düzeltmeleri paket kaynak kodunu değiştirmez.
+- İncelemeye gönderim ve herkese açık yayın, App Store Connect'teki sürüm durumundan ayrıca doğrulanır.
