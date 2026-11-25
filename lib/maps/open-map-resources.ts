@@ -15,14 +15,14 @@ export function allowedOpenMapUrl(value: unknown): string | null {
     if (u.origin !== OPEN_MAP_ORIGIN || u.username || u.password || u.search || u.hash) return null;
     const p = decodeURIComponent(u.pathname);
     if (p.includes('..') || p.includes('\\')) return null;
-    if (/^\/styles\/(positron|liberty|dark)$/.test(p) || p === '/planet') return u.href;
+    if (/^\/styles\/(positron|liberty|dark)$/.test(p) || p === '/planet' || p === '/backup_planet') return u.href;
     if (/^\/sprites\/ofm_[a-z0-9]+\/ofm(?:@2x)?\.(json|png)$/.test(p)) return u.href;
     const font = p.match(/^\/fonts\/([A-Za-z0-9 ,_.-]{1,180})\/(\d+)-(\d+)\.pbf$/);
     if (font && Number(font[2]) % 256 === 0 && Number(font[3]) === Number(font[2]) + 255 && Number(font[3]) <= 65535) return `${OPEN_MAP_ORIGIN}/fonts/${encodeURIComponent(font[1])}/${Number(font[2])}-${Number(font[3])}.pbf`;
-    const tile = p.match(/^\/(planet\/[A-Za-z0-9_-]{1,70}|natural_earth\/ne2sr)\/(\d+)\/(\d+)\/(\d+)\.(pbf|png)$/);
+    const tile = p.match(/^\/((?:planet|backup_planet)\/[A-Za-z0-9_-]{1,70}|natural_earth\/ne2sr)\/(\d+)\/(\d+)\/(\d+)\.(pbf|png)$/);
     if (tile) {
       const z = Number(tile[2]), x = Number(tile[3]), y = Number(tile[4]);
-      if (z <= 16 && x < 2 ** z && y < 2 ** z && (tile[1].startsWith('planet/') ? tile[5] === 'pbf' : tile[5] === 'png')) return u.href;
+      if (z <= 16 && x < 2 ** z && y < 2 ** z && (/^(?:planet|backup_planet)\//.test(tile[1]) ? tile[5] === 'pbf' : tile[5] === 'png')) return u.href;
     }
   } catch { /* Malformed and encoded traversal URLs are rejected. */ }
   return null;
@@ -36,7 +36,7 @@ export function allowedOpenMapTemplate(value: unknown, kind: 'tile' | 'glyph'): 
   if (tokens !== expected) return null;
   const sample = value.replace('{fontstack}', 'Noto Sans Regular').replace('{range}', '0-255').replace('{z}', '10').replace('{x}', '1').replace('{y}', '1');
   const safe = allowedOpenMapUrl(sample);
-  if (!safe || kind === 'tile' && !new URL(safe).pathname.startsWith('/planet/') || kind === 'glyph' && !new URL(safe).pathname.startsWith('/fonts/')) return null;
+  if (!safe || kind === 'tile' && !/^\/(?:planet|backup_planet)\//.test(new URL(safe).pathname) || kind === 'glyph' && !new URL(safe).pathname.startsWith('/fonts/')) return null;
   return value;
 }
 

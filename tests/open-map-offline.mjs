@@ -109,6 +109,98 @@ test('strict resource allowlist permits canonical fonts and legitimate bounded m
   assert.throws(() => policy.regionBounds(41, 29, 50), /invalid_area/);
 });
 
+// The provider's live positron style was verified on 2026-11-26 to reference
+// /backup_planet and /backup_planet/20261122_124456_pt/{z}/{x}/{y}.pbf.
+// Keep this regression deterministic: no live service is contacted by tests.
+const backupMetadata = 'https://tiles.openfreemap.org/backup_planet';
+const backupTemplate = 'https://tiles.openfreemap.org/backup_planet/20261122_124456_pt/{z}/{x}/{y}.pbf';
+const backupStyle = () => {
+  const value = style();
+  value.sources.streets.url = backupMetadata;
+  return value;
+};
+const backupResponse = target => target === backupMetadata
+  ? Response.json({ tiles: [backupTemplate], minzoom: 0, maxzoom: 14 }) : undefined;
+
+test('the verified backup planet metadata and bounded vector tiles retain every existing URL security boundary', () => {
+  assert.equal(policy.allowedOpenMapUrl(backupMetadata), backupMetadata);
+  const tileUrl = 'https://tiles.openfreemap.org/backup_planet/20261122_124456_pt/14/9510/6141.pbf';
+  assert.equal(policy.allowedOpenMapUrl(tileUrl), tileUrl);
+  assert.equal(policy.allowedOpenMapTemplate(backupTemplate, 'tile'), backupTemplate);
+  assert.ok(policy.regionTiles(policy.regionBounds(center.latitude, center.longitude, 1), backupTemplate).every(url => policy.allowedOpenMapUrl(url)));
+  for (const url of [
+    backupMetadata + '/admin', backupMetadata + '?target=https://evil.test', backupMetadata + '#x',
+    backupMetadata.replace('https:', 'http:'), backupMetadata.replace('tiles.openfreemap.org', 'tiles.openfreemap.org.evil.test'),
+    backupMetadata.replace('https://', 'https://user:pass@'), backupMetadata + '/20261122_124456_pt/14/16384/1.pbf',
+    backupMetadata + '/20261122_124456_pt/17/1/1.pbf', tileUrl.replace('.pbf', '.png'),
+    backupMetadata + '/%2e%2e/planet', backupMetadata + '/a%2fb/14/1/1.pbf', backupMetadata + '\n',
+    'https://tiles.openfreemap.org/backup_planet_extra',
+    'https://tiles.openfreemap.org/backup_planet_extra/a/14/1/1.pbf',
+  ]) assert.equal(policy.allowedOpenMapUrl(url), null, url);
+  for (const value of [backupTemplate + '?x=1', backupTemplate.replace('/backup_planet/', '/backup_planet_extra/'), backupTemplate.replace('.pbf', '.png')]) {
+    assert.equal(policy.allowedOpenMapTemplate(value, 'tile'), null, value);
+  }
+});
+
+test('the live-style backup source prepares and resolves JSON metadata plus vector bytes through the actual mobile protocol', async () => {
+  const h = harness({ style: backupStyle(), respond: backupResponse });
+  const controller = new AbortController();
+  const prepared = h.model.preparedMapStyle(await h.model.loadOpenMapStyle(controller.signal));
+  assert.equal(prepared.sources.backdrop, undefined);
+  const metadata = await h.model.resolveMapResource(prepared.sources.streets.url, controller.signal, 'json');
+  assert.deepEqual(JSON.parse(JSON.stringify(metadata.data)), { tiles: [backupTemplate], minzoom: 0, maxzoom: 14 });
+  const tileUrl = metadata.data.tiles[0].replace('{z}', '14').replace('{x}', '9510').replace('{y}', '6141');
+  const data = await h.model.resolveMapResource(h.model.resourceTransform(tileUrl).url, controller.signal, 'arrayBuffer');
+  assert.deepEqual(new Uint8Array(data.data), new Uint8Array(tile));
+  assert.deepEqual(h.calls, [policy.OPEN_MAP_STYLE, backupMetadata, tileUrl]);
+  assert.equal(h.state.commits, 0);
+});
+
+test('backup-provider offline downloads retain complete atomic packs that reopen without a network request', async () => {
+  const h = harness({ style: backupStyle(), respond: backupResponse });
+  const pack = await h.download();
+  assert.equal(h.state.commits, 1);
+  assert.ok(pack.tileCount > 0);
+  const stored = await h.model.readOpenMapPack(pack.id);
+  assert.ok(stored.resources.some(resource => resource.url.startsWith(backupMetadata + '/')));
+  const cold = harness({ records: h.state.records, respond() { throw Error('Offline must not fetch'); } });
+  const reopened = await cold.model.readOpenMapPack(pack.id);
+  assert.equal(reopened.id, pack.id);
+  const tileResource = reopened.resources.find(resource => resource.url.startsWith(backupMetadata + '/'));
+  const resolved = await cold.model.resolveMapResource(cold.model.resourceTransform(tileResource.url, pack.id).url, new AbortController().signal);
+  assert.deepEqual(new Uint8Array(resolved.data), new Uint8Array(tileResource.data));
+  assert.equal(cold.calls.length, 0);
+  assert.equal(cold.state.commits, 0);
+});
+
+test('the actual server resource route forwards only verified backup metadata and tile paths, without relaxing its proxy protections', async () => {
+  const calls = [], exports = {};
+  const route = ts.transpileModule(readFileSync(new URL('../app/api/maps/resource/route.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(route, { exports, require: () => policy, URL, Response, Uint8Array, AbortSignal,
+    fetch: async (url, options) => { calls.push({ url, options }); return url === backupMetadata ? backupResponse(url) : new Response(new Uint8Array([7, 8, 9]), { headers: { 'content-type': 'application/vnd.mapbox-vector-tile' } }); } });
+  const invoke = url => exports.GET(new Request(`https://app.test/api/maps/resource?url=${encodeURIComponent(url)}`));
+  const metadata = await invoke(backupMetadata);
+  assert.equal(metadata.status, 200);
+  assert.deepEqual((await metadata.json()).tiles, [backupTemplate]);
+  const tileUrl = backupTemplate.replace('{z}', '14').replace('{x}', '9510').replace('{y}', '6141');
+  const response = await invoke(tileUrl);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  assert.equal(response.headers.get('content-type'), 'application/vnd.mapbox-vector-tile');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([7, 8, 9]));
+  for (const call of calls) {
+    assert.equal(call.options.redirect, 'error');
+    assert.equal(call.options.cache, 'force-cache');
+    assert.ok(call.options.signal instanceof AbortSignal);
+  }
+  for (const invalid of [backupMetadata + '/admin', tileUrl.replace('.pbf', '.png'), 'https://evil.test/backup_planet', backupMetadata + '?target=evil']) {
+    const blocked = await invoke(invalid);
+    assert.equal(blocked.status, 400);
+    assert.equal(blocked.headers.get('cache-control'), 'no-store');
+  }
+  assert.equal(calls.length, 2);
+});
+
 test('actual download persists a complete atomic pack, reopens cold, resolves encoded glyph stacks offline and never fetches outside it', async () => {
   const h = harness(); let eventCount = 0; h.window.addEventListener('l2t-open-map-packs', () => eventCount++);
   const completed = await h.download({ places: [place(), place({ id: 'apple/2', sourceUrl: 'https://maps.apple.com/place/2' }), place({ id: 'node/3', sourceUrl: 'https://www.openstreetmap.org/node/3', latitude: 50 })] });
